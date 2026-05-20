@@ -442,6 +442,7 @@ export class CommandService {
 				}
 				catch (e: any) {
 					this.deps.messageService.sendSys(ctx.socket, mType.error, `system: ${e.message}`);
+					this.deps.identityService.setLastMessage(ctx.commandUser.guid, Date.now());
 					return false;
 				}
 		};

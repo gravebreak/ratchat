@@ -36,6 +36,7 @@ export class StateService {
 
 	constructor(dependencies: StateServiceDependencies) {
 		this.deps = dependencies;
+		this.socketUsers = new Map;
 	
 		this.loadConfig();
 		this.loadMarkovConfig();

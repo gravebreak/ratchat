@@ -218,11 +218,11 @@
 			animation: status-marquee 8s linear infinite;
 		}
 		.user-status .emote {
-			height: 0.9rem;
-			vertical-align: bottom;
+			height: 0.9125rem;
+			vertical-align: top;
 			margin: -0.1rem;
 		}
-
+		
 		.mod-badge {
 			display: inline-block;
 			line-height: 1;
@@ -550,7 +550,7 @@
 				</div>
 				
 				<div id="user-sidebar" class="hide-scrollbar">
-					<ul id="user-list"></ul>
+					<ul id="user-list"class="hide-scrollbar"></ul>
 					<div id="lurker-status"></div>
 				</div>
 
@@ -807,7 +807,7 @@
 				else{
 					status = `<div class="user-status"><span class="status-scroll">${status}</span></div>`;
 				}
-				const modBadge = user.isMod ? `<span class="mod-badge" title="Mod"><b>&#9929;</b></span>`: '';
+				const modBadge = user.isMod ? `<span class="mod-badge" style="font-size:1rem" title="Mod"><b>&#9929;</b></span>`: '';
 
 				const fontSize = userName.length > 11 ? .8 : 1;
 				const dirty = (`
@@ -913,7 +913,7 @@
 				}
 			}
 
-			//dark mode
+			//Dark mode
 			if (val === '/dark') {
 				if (document.documentElement.hasAttribute('data-theme')) {
 					document.documentElement.removeAttribute('data-theme');

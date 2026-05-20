@@ -256,13 +256,18 @@ app.get('/ratchat', (req, res) => {
 	res.sendFile('www/ratchat.html', { root : __dirname });
 });
 
+//Health check
+app.get('/ratchat/health', (req, res) => {
+    res.status(200).send('ok');
+});
+
 //Server standup
 httpserver.listen(stateService.getConfig().PORT, () => {
 	console.log(`server running at http://localhost:${stateService.getConfig().PORT}`);
 	const now = new Date();
 	console.log ('server startup timestamp: ', now.toLocaleString());
 });
-
+8
 //Fetch emotes on startup
 async function startUp(){
 	try{
@@ -276,9 +281,40 @@ async function startUp(){
 startUp();
 
 process.on('uncaughtException', err => {
-  console.log('Uncaught exception:', err);
+	const now = new Date();
+	console.log(`Uncaught exception timestamp: ${now.toLocaleString()} error:`, err);
 });
 
 process.on('unhandledRejection', err => {
-  console.log('Unhandled rejection:', err);
+	const now = new Date();
+	console.log(`Unhandled rejection timestamp: ${now.toLocaleString()} error:`, err);
+});
+
+process.on('SIGTERM', () => {
+	const now = new Date();
+	console.log(`Received SIGTERM timestamp: ${now.toLocaleString()}`);
+	process.exit(0);
+});
+
+process.on('SIGINT', () => {
+	const now = new Date();
+	console.log(`Received SIGINT timestamp: ${now.toLocaleString()}`);
+	process.exit(0);
+});
+
+process.on('SIGHUP', () => {
+	const now = new Date();
+	console.log(`Received SIGHUP timestamp: ${now.toLocaleString()}`);
+	process.exit(0);
+});
+
+process.on('SIGQUIT', () => {
+	const now = new Date();
+	console.log(`Received SIGQUIT timestamp: ${now.toLocaleString()}`);
+	process.exit(0);
+});
+
+process.on('exit', code => {
+	const now = new Date();
+	console.log(`Process exiting with code ${code} timestamp: ${now.toLocaleString()}`);
 });
