@@ -37,7 +37,7 @@ export class IdentityService {
 		}
 		catch(error: unknown){
 			if(error instanceof Error){
-				console.log('user error load:', error.message);
+				console.error('WARNING: user error load:', error.message);
 			} 
 			else{
 				console.error("Unexpected non-error thrown:", error);

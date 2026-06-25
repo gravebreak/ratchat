@@ -41,7 +41,7 @@ export class ModerationService {
 			}
 			catch(error: unknown){
 				if(error instanceof Error){
-					throw new Error(error.message);
+					throw error;
 				} 
 				else{
 					console.error("Unexpected non-error thrown:", error);
@@ -61,7 +61,7 @@ export class ModerationService {
 			}
 			catch(error: unknown){
 				if(error instanceof Error){
-					throw new Error(error.message);
+					throw error;
 				} 
 				else{
 					console.error("Unexpected non-error thrown:", error);
@@ -84,7 +84,7 @@ export class ModerationService {
 			}
 			catch(error: unknown){
 				if(error instanceof Error){
-					throw new Error(error.message);
+					throw error;
 				} 
 				else{
 					console.error("Unexpected non-error thrown:", error);
@@ -105,7 +105,7 @@ export class ModerationService {
 			}
 			catch(error: unknown){
 				if(error instanceof Error){
-					throw new Error(error.message);
+					throw error;
 				} 
 				else{
 					console.error("Unexpected non-error thrown:", error);
@@ -134,7 +134,7 @@ export class ModerationService {
 			}
 			catch(error: unknown){
 				if(error instanceof Error){
-					throw new Error(error.message);
+					throw error;
 				} 
 				else{
 					console.error("Unexpected non-error thrown:", error);
@@ -229,7 +229,7 @@ export class ModerationService {
 			];
 		} 
 		catch(error: unknown){
-			console.log('nick filter load issue');
+			console.error('WARNING: nick filter load issue:', error);
 			this.nickFilter = [];
 		}
 	};

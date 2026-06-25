@@ -12,6 +12,7 @@ export function textSanitize(str: string): string{
 		return s;
 	}
 	catch(error: unknown){
+		console.warn("text sanitiation failed:", error)
 		return "";
 	}
 }
