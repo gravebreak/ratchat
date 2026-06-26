@@ -69,6 +69,10 @@ export class MessageService{
 		return deleted;
 	}
 
+	public startPruneTimer(msgArrayTimeout: number){
+		this.pruneTimer(msgArrayTimeout);
+	}
+
 	private updateChatHistory(configSize: number){
 		while (this.chatHistory.size > configSize){
 			const oldestMessage = this.chatHistory.keys().next().value;
@@ -91,4 +95,18 @@ export class MessageService{
 		};
 	}
 
+	private pruneTimer(timeout: number){
+		setInterval(() => {
+			const now = Date.now();
+			const pruneTime = (timeout - 60) * 1000;
+
+			for(const [id, msg] of this.chatHistory){
+				if(msg.timestamp + pruneTime < now){
+					this.chatHistory.delete(id);
+				}
+			}
+
+		}, 60000);	
+
+	}
 }

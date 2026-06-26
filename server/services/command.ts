@@ -329,6 +329,7 @@ export class CommandService {
 			const subComm = ctx.args[0];
 			switch (subComm){
 				case 'info':
+					const config = this.deps.stateService.getServerConfig();
 					const infoMsgs = [
 						'---------------------------------------------------------------------------------------------',
 						'We store the following data server side:',
@@ -339,6 +340,7 @@ export class CommandService {
 						'isMod			|	Flag for allowing moderator actions',
 						'lastMessage	|	Timestamp of last message sent for timeout enforcement and nickname cleanup',
 						'isAfk			|	AFK flag for user listing set by /afk command',
+						`chatHistory	|	Up to ${config.msgArrayLen} messages are temporarily cached for session contintunity and automatically expire after ${config.msgArrayTimeout} seconds.`,
 						'---------------------------------------------------------------------------------------------',
 						'We store the following information locally:',
 						'ratGUID		|	a local copy of the GUID for message construction',

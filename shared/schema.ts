@@ -75,6 +75,7 @@ export const ServerConfigSchema = z.object({
 	maxNickLen: z.number(),
 	maxStatusLen: z.number(),
 	msgArrayLen: z.number(),
+	msgArrayTimeout: z.number(),
 	stvurl: z.string().optional(),
 	nickres: z.array(z.string()),
 	PORT: z.number()
@@ -92,6 +93,7 @@ export const defaultServerConfig: ServerConfig = {
 	maxNickLen: 16,
 	maxStatusLen: 32,
 	msgArrayLen: 25,
+	msgArrayTimeout: 86400, 
 	stvurl: undefined,
 	nickres: [],
 	PORT: 3666,

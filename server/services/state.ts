@@ -60,6 +60,7 @@ export class StateService {
 		this.loadMarkovConfig();
 		this.loadMiniConfig();
 		this.afkTimer();
+		this.deps.messageService.startPruneTimer(this.serverConfig.msgArrayTimeout);
 	}
 
 	public getServerConfig(): ServerConfig{

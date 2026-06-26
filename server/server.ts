@@ -22,6 +22,10 @@ if(!process.env.IP_PEPPER){
 	process.exit(1);
 }
 
+if(!process.env.REDIS_URL){
+	console.warn('WARNING: REDIS_URL environmen variable is not set. Restart persistence is not available.')
+}
+
 const app = express();
 const httpserver = createServer(app);
 const io = new Server(httpserver, {path:"/ratchat/socket.io/", connectionStateRecovery:{}});
