@@ -25,8 +25,8 @@ export interface CommandServiceDependencies {
 export class CommandService {
 	private commands: Record<string, (ctx: Command) => boolean | Promise<boolean>> = {};
 	private activeCommands: Map<string, boolean> = new Map();
+	
 	private deps: CommandServiceDependencies;
-
 	constructor(dependencies: CommandServiceDependencies){
 		this.deps = dependencies;
 		this.registerCommands();

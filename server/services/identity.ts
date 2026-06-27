@@ -25,9 +25,8 @@ export class IdentityService {
 	private users: Map<string, Identity> = new Map();
 	private registeredNicks: Map<string, string> = new Map();
 	private userQ = Promise.resolve();
+
 	private deps: IdentityServiceDependencies;
-
-
 	constructor(dependencies: IdentityServiceDependencies){
 		this.deps = dependencies;
 		
@@ -70,7 +69,7 @@ export class IdentityService {
 			const color = getDisplayColor(user.nick);
 			user.nick = color + nick;
 			user.lastChanged = new Date();
-			this.saveQueue();
+			this.saveUserQueue();
 			return user;
 		}
 		//New user flow
@@ -88,7 +87,7 @@ export class IdentityService {
 
 		this.users.set(newGuid, newIdentity);
 		this.registeredNicks.set(nick.toLowerCase(), newGuid);
-		this.saveQueue();
+		this.saveUserQueue();
 		return newIdentity;
 		}
 	}
@@ -97,7 +96,7 @@ export class IdentityService {
 		const user = this.users.get(guid)!;
 		user.nick = color.toUpperCase() + getDisplayNick(user.nick)
 		user.lastChanged = new Date();
-		this.saveQueue();
+		this.saveUserQueue();
 		return user;
 	}
 
@@ -108,11 +107,11 @@ export class IdentityService {
 		}
 		if(user.isAfk){
 			user.isAfk = false;
-			this.saveQueue();
+			this.saveUserQueue();
 		}
 		else{
 			user.isAfk = true;
-			this.saveQueue();
+			this.saveUserQueue();
 		}
 		return user;
 	}
@@ -130,7 +129,7 @@ export class IdentityService {
 
 		user.status = status;
 		user.lastChanged = new Date();
-		this.saveQueue();
+		this.saveUserQueue();
 		return user;
 	}
 
@@ -144,7 +143,7 @@ export class IdentityService {
 		if(clearAfk && user.isAfk){
 			user.isAfk = false;
 		}
-		this.saveQueue();
+		this.saveUserQueue();
 		return user;
 	}
 
@@ -177,7 +176,7 @@ export class IdentityService {
 		const cleanNick = getDisplayNick(user.nick);
 		this.registeredNicks.delete(cleanNick.toLowerCase());
 		this.users.delete(guid);
-		this.saveQueue();
+		this.saveUserQueue();
 	}
 
 	public reloadUsers(): number{
@@ -234,7 +233,7 @@ export class IdentityService {
 				const existingNick = getDisplayNick(identity.nick);
 				this.registeredNicks.set(existingNick.toLowerCase(), guid);
 			}
-			this.saveQueue();
+			this.saveUserQueue();
 			return this.users.size;
 		} 
 		catch(error: unknown){
@@ -249,7 +248,7 @@ export class IdentityService {
 
 	}
 
-	private saveQueue(){
+	private saveUserQueue(){
 		this.userQ = this.userQ.then(() => this.saveUsers());
 	}
 

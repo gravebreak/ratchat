@@ -25,8 +25,8 @@ export interface SecurityServiceDependencies{
 export class SecurityService{
 	private bans: Map<string, Date> = new Map();
 	private banQ = Promise.resolve()
+	
 	private deps: SecurityServiceDependencies;
-
 	constructor(dependencies: SecurityServiceDependencies){
 		this.deps = dependencies;
 		

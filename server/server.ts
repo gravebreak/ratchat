@@ -89,6 +89,41 @@ async function main(){
 		miniConfigPath: miniConfigPath,
 		io: io
 	});
+	
+	//Redis error handler
+	if(redisClient){
+		let reconnectTimer: NodeJS.Timeout | null = null;
+
+		redisClient.on('reconnecting', () => {
+			if(!reconnectTimer){
+				console.warn('Redis connection lost, reconnecting...');
+				reconnectTimer = setTimeout(() => {
+					if(redisClient){ //protection against type errors on .destroy
+						redisClient.removeAllListeners();
+						redisClient.destroy();
+						redisClient = null;
+						messageService.redisFallback();
+						console.error('Redis reconnection timeout exceeded 5s, fell back to stateless');
+					}
+				}, 5000);
+			}
+		});
+
+		redisClient.on('connect', () => {	  
+			if(reconnectTimer){
+				clearTimeout(reconnectTimer);
+				reconnectTimer = null;
+			}
+		});
+
+		redisClient.on('error', (error) => console.warn('Redis client error:', error.message));
+	}
+
+	//Redis history load
+	if(redisClient){
+		await messageService.restoreChatHistory(stateService.getServerConfig().msgArrayLen);
+		await messageService.restoreMessageCounter();
+	}
 
 	const moderationService = new ModerationService({
 		stateService: stateService, 
@@ -148,39 +183,7 @@ async function main(){
 			console.error("Unexpected non-error thrown:", error);
 		}
 	}
-
-	//Redis error handler
-	if(redisClient){
-		let reconnectTimer: NodeJS.Timeout | null = null;
-
-		redisClient.on('reconnecting', () => {
-			if(!reconnectTimer){
-				console.warn('Redis connection lost, reconnecting...');
-				reconnectTimer = setTimeout(() => {
-					if(redisClient){ //protection against type errors on .destroy
-						redisClient.removeAllListeners();
-						redisClient.destroy();
-						redisClient = null;
-						messageService.redisFallback();
-						console.error('Redis reconnection timeout exceeded 5s, fell back to stateless');
-					}
-				}, 5000);
-			}
-		});
-
-		redisClient.on('connect', () => {	  
-			if(reconnectTimer){
-				clearTimeout(reconnectTimer);
-				reconnectTimer = null;
-			}
-		});
-
-		redisClient.on('error', (error) => console.warn('Redis client error:', error.message));
-	}
-
-	//Redis history load
-
-
+	
 	//Socket.IO listener
 	io.on('connection', (socket) => {
 		

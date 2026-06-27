@@ -9,6 +9,7 @@ import { getDisplayNick } from '../utils/format';
 type Target = { emit: Server['emit'] };
 type TextPayload = typeof mType.chat | typeof mType.ann | typeof mType.error | typeof mType.info | typeof mType.welcome | typeof mType.markov;
 type EmotePayload = Record<string, string>;
+type ChatHistory = Map<number, ChatMessage>;
 type MessagePayloadMap = {
 	[T in MessageType]: 
 		T extends typeof mType.identity ? Identity :
@@ -18,15 +19,20 @@ type MessagePayloadMap = {
 		ChatMessage;
 };
 
+const REDIS_HISTORY_KEY = 'ratchat:chatHistory';
+const REDIS_COUNTER_KEY = 'ratchat:messageCounter';
+
 export interface MessageServiceDependencies {
 	redisClient: RedisClientType | null;
 }
 
 export class MessageService{
-	private deps: MessageServiceDependencies;
 	private messageCounter = 0; 
-	private chatHistory = new Map<number, ChatMessage>();
+	private chatHistory : ChatHistory = new Map();
+	private historyQ = Promise.resolve();
+	private counterQ = Promise.resolve();
 
+	private deps: MessageServiceDependencies;
 	constructor(dependencies: MessageServiceDependencies){
 		  this.deps = dependencies;
 	}
@@ -36,7 +42,7 @@ export class MessageService{
 		this.sendPayload(to, mType.chat, msg);
 		if(configSize > 0){
 			this.chatHistory.set(msg.id, msg);
-			this.updateChatHistory(configSize);
+			this.trimChatHistory(configSize);
 		}
 	}
 
@@ -77,22 +83,83 @@ export class MessageService{
 				deleted.push(id);
 			}
 		});
-
+		if(deleted.length > 0){
+			this.saveChatHistoryQueue();
+		}
 		return deleted;
 	}
 
-	public getChatHistory(): Map<number, ChatMessage>{
+	public getChatHistory(): ChatHistory{
 		return this.chatHistory;
 	}
+
+	public async restoreChatHistory(configSize: number){
+		if(!this.deps.redisClient){
+			return;
+		}
+
+		try{
+			const historyLoad = await this.deps.redisClient.get(REDIS_HISTORY_KEY);
+			if(historyLoad){
+				const entries: [number, ChatMessage][] = JSON.parse(historyLoad);
+				const trimmed = entries.slice(-configSize);
+				this.chatHistory = new Map(trimmed);
+				console.log(`Restored ${this.chatHistory.size} messages from Redis`);
+			}
+			else{
+				console.log('Empty Redis chat history load');
+			}
+		}
+		catch(error: unknown){
+			if(error instanceof Error){
+				console.warn('Redis chat history load error:', error.message);
+			}
+			else{
+				console.error('Unexpected non-error thrown:', error);
+			}
+		}
+	}
 	
+	public async restoreMessageCounter(){
+		if(!this.deps.redisClient){
+			return;
+		}
 
-	public startPruneTimer(msgArrayTimeout: number){
-		this.pruneTimer(msgArrayTimeout);
+		try{
+			const counterLoad = await this.deps.redisClient.get(REDIS_COUNTER_KEY);
+			if(counterLoad){
+				const parsedLoad = parseInt(counterLoad, 10);
+				if(!isNaN(parsedLoad) && parsedLoad >= 0 && parsedLoad <= 4294967295){
+					this.messageCounter = parsedLoad;
+					console.log(`Restored message id counter to ${parsedLoad} from Redis`);
+				}
+				else{
+					this.messageCounter = 0;
+					console.warn(`Redis message id counter ${parsedLoad} out of range, starting fresh`);
+				}
+			}
+			else{
+				console.log('Empty Redis message id counter load');
+			}
+		}
+		catch(error: unknown){
+			if(error instanceof Error){
+				console.warn('Redis message id counter load error:', error.message);
+			}
+			else{
+				console.error('Unexpected non-error thrown:', error);
+			}
+		}
 	}
-
+	
 	public redisFallback(){
-		return;
+		this.deps.redisClient = null;
 	}
+
+	public startExpireMessageTimer(msgArrayTimeout: number){
+		this.expireMessageTimer(msgArrayTimeout);
+	}
+
 
 	private sendPayload<T extends MessageType>(to: Target, metype: T, msg: MessagePayloadMap[T]){
 		to.emit(metype, msg);
@@ -102,7 +169,7 @@ export class MessageService{
 	private createMessage(sys: true, author: string, content: string, metype: TextPayload): ChatMessage;
 	private createMessage(sys: boolean = false, author: Identity | string = 'system', content: string, metype: TextPayload): ChatMessage {
 		return {
-			id: sys? -1: this.messageCounter++,
+			id: sys? -1: this.generateMessageId(),
 			author: typeof author === 'string' ? author : author.nick,
 			content: content,
 			timestamp: Date.now(),
@@ -110,27 +177,83 @@ export class MessageService{
 		};
 	}
 
-	private updateChatHistory(configSize: number){
+	private generateMessageId(): number {
+		if(this.messageCounter >= 4294967295){
+			this.messageCounter = 0;
+		}
+		const id = this.messageCounter++;
+		this.saveMessageCounterQueue();
+		return id;
+	}
+
+	private trimChatHistory(configSize: number){
 		while (this.chatHistory.size > configSize){
 			const oldestMessage = this.chatHistory.keys().next().value;
 			if(oldestMessage !== undefined){
 				this.chatHistory.delete(oldestMessage);
 			}
 		}
-
+		this.saveChatHistoryQueue();
 	}
 
-	private pruneTimer(timeout: number){
+	private saveChatHistoryQueue(){
+		this.historyQ = this.historyQ.then(() => this.saveChatHistory());
+	}
+
+	private saveMessageCounterQueue(){
+		this.counterQ = this.counterQ.then(() => this.saveMessageCounter());
+	}
+
+	private async saveChatHistory(){
+		if(!this.deps.redisClient){
+				return;
+		}
+		try {
+			await this.deps.redisClient.set(REDIS_HISTORY_KEY, JSON.stringify([...this.chatHistory.entries()]));
+		} 
+		catch(error: unknown){
+			if(error instanceof Error){
+				console.warn('Redis message history save error:', error.message);
+			} 
+			else{
+				console.error('Unexpected non-error thrown:', error);
+			}
+		}
+	}
+
+	private async saveMessageCounter(){
+		if(!this.deps.redisClient){
+				return;
+		}
+		try {
+			await this.deps.redisClient.set(REDIS_COUNTER_KEY, this.messageCounter.toString());
+		} 
+		catch(error: unknown){
+			if(error instanceof Error){
+				console.warn('Redis message counter save error:', error.message);
+			} 
+			else{
+				console.error('Unexpected non-error thrown:', error);
+			}
+		}
+	}
+
+	private expireMessageTimer(timeout: number){
 		setInterval(() => {
 			const now = Date.now();
-			const pruneTime = (timeout - 60) * 1000;
+			const expireTime = (timeout - 60) * 1000;
+			let changed = false;
 
 			for(const [id, msg] of this.chatHistory){
-				if(msg.timestamp + pruneTime < now){
+				if(msg.timestamp + expireTime < now){
 					this.chatHistory.delete(id);
+					changed = true;
 				}
 			}
 
+			if(changed){
+				this.saveChatHistoryQueue();
+			}
 		}, 60000);	
 
 	}

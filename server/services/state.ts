@@ -51,7 +51,6 @@ export class StateService {
 	private signupPromise: Map<Socket, (value: boolean)=> void> = new Map();
 
 	private deps: StateServiceDependencies;
-
 	constructor(dependencies: StateServiceDependencies){
 		this.deps = dependencies;
 		this.socketUsers = new Map;
@@ -60,7 +59,7 @@ export class StateService {
 		this.loadMarkovConfig();
 		this.loadMiniConfig();
 		this.afkTimer();
-		this.deps.messageService.startPruneTimer(this.serverConfig.msgArrayTimeout);
+		this.deps.messageService.startExpireMessageTimer(this.serverConfig.msgArrayTimeout);
 	}
 
 	public getServerConfig(): ServerConfig{

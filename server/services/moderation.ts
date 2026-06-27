@@ -16,11 +16,10 @@ export interface ModerationServiceDependencies{
 
 
 export class ModerationService {
-	private deps: ModerationServiceDependencies;
 	private profFilter: RegExp[] = [];
 	private nickFilter: RegExp[] = [];
 
-
+	private deps: ModerationServiceDependencies;
 	constructor(dependencies: ModerationServiceDependencies){
 		this.deps = dependencies;
 		this.loadFilters(); 

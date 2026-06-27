@@ -40,7 +40,6 @@ export class MarkovService{
 	private markovQ = Promise.resolve();
 
 	private deps: MarkovServiceDependencies;
-	
 	constructor(dependencies: MarkovServiceDependencies){
 		this.deps = dependencies;
 		try{
@@ -208,7 +207,7 @@ export class MarkovService{
 		if(words.length === 2){
 			const letters = (w0[0] + w1[0]).toUpperCase().replace(/[^A-Z_]/g, "_");
 			entries.push({table: `gram_${letters}`, word1: w0, word2: w1, word3: '<END>'});
-			this.saveQueue(entries);
+			this.saveNeuronQueue(entries);
 			return;
 		}
 
@@ -226,7 +225,7 @@ export class MarkovService{
 		const endLetters = (lastA[0] + lastB[0]).toUpperCase().replace(/[^A-Z_]/g, "_");
 		entries.push({table: `gram_${endLetters}`, word1: lastA, word2: lastB, word3: '<END>'});
 
-		this.saveQueue(entries);
+		this.saveNeuronQueue(entries);
 		return;
 	}
 
@@ -251,7 +250,7 @@ export class MarkovService{
 			}
 		}, this.deps.stateService.getMarkovConfig().timer*1000);
 	}
-	private saveQueue(entries: InsertNeuron[]){
+	private saveNeuronQueue(entries: InsertNeuron[]){
 		this.markovQ = this.markovQ.then(() => this.saveNeuron(entries));
 	}
 
