@@ -45,6 +45,8 @@ async function main(){
 	let redisClient: RedisClientType | null = null;
 	const gracePeriod = 3000;
 	let inGrace = true;
+	const clearInput: boolean = true;
+	const keepInput: boolean = false;
 
 	if(process.env.REDIS_URL){
 		const client : RedisClientType = createClient({url: process.env.REDIS_URL});
@@ -292,38 +294,34 @@ async function main(){
 			// Check if it's a command
 			if(msg.startsWith('/')){
 				try{
-					let clear = await commandService.commandHandler(msg, socket, io, user);
-					if(clear){
-						if(typeof callback === 'function'){
-							callback();
-						}
-					}
+					const result = await commandService.commandHandler(msg, socket, io, user);
+					callback(result);
 					return;
 				}
 				catch(error: unknown){
 					if(error instanceof Error){
 						messageService.sendSystemChat(socket, mType.error, `system: ${error.message}`)
-						return;
 					}
 					else{
 						console.error("Unexpected non-error thrown:", error);
 					}
+					callback(keepInput);
+					return;
 				}
 			}
 
 			//Prevent users from chatting without an identity
 			if(!user){
 				messageService.sendSystemChat(socket, mType.error, "system: please set your nickname with /chrat <nickname> before chatting");
-				if(typeof callback === 'function'){
-					callback();
-				} 
+				callback(clearInput);
 				return;
 			}
 
 			//Sanitize and broadcast
 			try{
 				const safe = moderationService.textCheck(msg, user, 'chat');
-				messageService.sendChat(io, user, safe, stateService.getServerConfig().msgArrayLen);
+				messageService.sendChat(io, user, safe, stateService.getServerConfig().msgArrayLen);			
+				callback(clearInput);
 				
 				if(markovService && stateService.getMarkovConfig().learning){
 					queueMicrotask(() => {
@@ -360,9 +358,8 @@ async function main(){
 
 				}
 
-				if(typeof callback === 'function'){
-					callback();
-				}
+				return;
+
 			}
 			catch(error: unknown){
 				if(error instanceof Error){
@@ -371,6 +368,7 @@ async function main(){
 				else{
 					console.error("Unexpected non-error thrown:", error);
 				}
+				callback(keepInput);
 				return;
 			}
 		});

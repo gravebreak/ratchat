@@ -604,6 +604,17 @@
 
 		let emotes = {};
 
+		//message type to css class
+		const toClass = {
+			'toClientChat': '',
+			'toClientError': 'e-li',
+			'toClientInfo': 'i-li',
+			'toClientWelcome': 'w-li',
+			'toClientAnnouncement': 'a-li',
+			'toClientMarkov': ''
+		};
+
+
 		const savedTheme = localStorage.getItem('ratMode');
 		if(savedTheme === 'dark'){
 			document.documentElement.setAttribute('data-theme', 'dark');
@@ -797,16 +808,6 @@
 			});
 		});
 
-		//message type to css class
-		const toClass = {
-			'toClientChat': '',
-			'toClientError': 'e-li',
-			'toClientInfo': 'i-li',
-			'toClientWelcome': 'w-li',
-			'toClientAnnouncement': 'a-li',
-			'toClientMarkov': ''
-		};
-
 		input.focus();
 
 		//LISTENERS//
@@ -929,8 +930,10 @@
 			}
 
 			//Send message
-			socket.emit('toServerChat', val, () => {
-				input.value = '';
+			socket.emit('toServerChat', val, (clearInput) => {
+				if(clearInput){
+					input.value = '';
+				}
 			});
 		});
 

@@ -13,6 +13,9 @@ import { MarkovService } from './markov';
 import { getDisplayNick, getDisplayColor } from '../utils/format';
 import { isValidGUID } from '../utils/input';
 
+const clearInput: boolean = true;
+const keepInput: boolean = false;
+
 export interface CommandServiceDependencies {
 	messageService: MessageService;
 	stateService: StateService;
@@ -39,7 +42,7 @@ export class CommandService {
 		let user = userOrUndef ?? null;
 
 		if(this.activeCommands.get(socket.id)){
-			return false;
+			return keepInput;
 		}
 
 		this.activeCommands.set(socket.id, true);
@@ -70,7 +73,7 @@ export class CommandService {
 			return await handler(ctx);
 		} else {
 			this.deps.messageService.sendSystemChat(ctx.socket, mType.error, "system: that's not a command lol");
-			return false;
+			return keepInput;
 		}
 	}
 
@@ -138,7 +141,7 @@ export class CommandService {
 
 			const formatTable = helpMessages.join('\n');
 			this.deps.messageService.sendSystemChat(ctx.socket, mType.info, formatTable);
-			return true;
+			return clearInput;
 		}
 
 		this.commands['nick'] = async (ctx) => {
@@ -152,7 +155,7 @@ export class CommandService {
 					this.deps.stateService.updateSocketUser(ctx.io, ctx.socket.id, user);
 					this.deps.messageService.sendIdentity(ctx.socket, user);
 					this.deps.messageService.sendSystemChat(ctx.io, mType.ann, `${oldNick} changed their username to ${getDisplayNick(user.nick)}`);
-					return true;
+					return clearInput;
 				} 
 				catch(error: unknown){
 					if(error instanceof Error){
@@ -162,7 +165,7 @@ export class CommandService {
 						console.error("Unexpected non-error thrown:", error);
 						this.deps.messageService.sendSystemChat(ctx.socket, mType.error, `system: unexpected error`);
 					}
-					return false;
+					return keepInput;
 				}
 			}
 			else{
@@ -176,11 +179,11 @@ export class CommandService {
 						this.deps.messageService.sendIdentity(ctx.socket, user);
 						this.deps.messageService.sendSystemChat(ctx.socket, mType.info, 'system: your new identity has been loaded. consider using /export to save for later use')
 						this.deps.messageService.sendSystemChat(ctx.io, mType.ann, `${getDisplayNick(user.nick)} has joined teh ratchat`);
-						return true;
+						return clearInput;
 					}
 					else{
 						this.deps.messageService.sendSystemChat(ctx.socket, mType.error, "system: username signup error. please try again");
-						return false;
+						return keepInput;
 					}
 				}
 				catch(error: unknown){
@@ -191,7 +194,7 @@ export class CommandService {
 						console.error("Unexpected non-error thrown:", error);
 						this.deps.messageService.sendSystemChat(ctx.socket, mType.error, `system: unexpected error`);
 					}
-					return false;
+					return keepInput;
 				}
 			}
 		}
@@ -199,7 +202,7 @@ export class CommandService {
 		this.commands['color'] = (ctx) => {
 			if(!ctx.commandUser){
 				this.deps.messageService.sendSystemChat(ctx.socket, mType.error, "system: please use /chrat <nickname> before trying to set a color");
-				return true;
+				return clearInput;
 			}
 			try{
 				const safe = this.deps.moderationService.textCheck(ctx.args[0], ctx.commandUser, 'color');
@@ -209,7 +212,7 @@ export class CommandService {
 				this.deps.messageService.sendIdentity(ctx.socket, user);
 				this.deps.messageService.sendSystemChat(ctx.socket, mType.info, `system: your color has been updated to ${getDisplayColor(user.nick)}`);
 
-				return true;
+				return clearInput;
 			}
 			catch(error: unknown){
 				if(error instanceof Error){
@@ -219,14 +222,14 @@ export class CommandService {
 					console.error("Unexpected non-error thrown:", error);
 					this.deps.messageService.sendSystemChat(ctx.socket, mType.error, `system: unexpected error`);
 				}
-				return false;
+				return keepInput;
 			}
 		}
 		
 		//anti-canadian trap
 		this.commands['colour'] = (ctx) => {
 			this.deps.messageService.sendSystemChat(ctx.socket, mType.error, "system: lern to speak american");
-			return false;
+			return keepInput;
 		}
 
 		this.commands['import'] = (ctx) => {
@@ -235,7 +238,7 @@ export class CommandService {
 			
 			if(!isValidGUID(newGUID)){
 				this.deps.messageService.sendSystemChat(ctx.socket, mType.error, "system: not a valid GUID");
-				return false;
+				return keepInput;
 			}
 
 			try{
@@ -252,7 +255,7 @@ export class CommandService {
 
 				this.deps.messageService.sendSystemChat(ctx.io, mType.ann, `${getDisplayNick(updatedUser.nick)} connected`);
 				
-				return true;
+				return clearInput;
 			} 
 			catch(error: unknown){
 					if(error instanceof Error){
@@ -262,14 +265,14 @@ export class CommandService {
 						console.error("Unexpected non-error thrown:", error);
 						this.deps.messageService.sendSystemChat(ctx.socket, mType.error, `system: unexpected error`);
 					}
-				return false;
+				return keepInput;
 			}
 		}
 
 		this.commands['afk'] = (ctx) => {
 			if(!ctx.commandUser){
 				this.deps.messageService.sendSystemChat(ctx.socket, mType.error, "system: please use /chrat <nickname> before trying to go afk lmao");
-				return true;
+				return clearInput;
 			} 
 			
 			try{
@@ -284,7 +287,7 @@ export class CommandService {
 					return this.commands['status'](ctx);
 				}
 			
-				return true;
+				return clearInput;
 			} 
 			catch(error: unknown){
 				if(error instanceof Error){
@@ -294,14 +297,14 @@ export class CommandService {
 					console.error("Unexpected non-error thrown:", error);
 					this.deps.messageService.sendSystemChat(ctx.socket, mType.error, `system: unexpected error`);
 				}
-				return false;
+				return keepInput;
 			}
 		}
 
 		this.commands['status'] = (ctx) => {
 			if(!ctx.commandUser){
 				this.deps.messageService.sendSystemChat(ctx.socket, mType.error, "system: please use /chrat <nickname> before trying to facebook post");
-				return true;
+				return clearInput;
 			}
 			try{
 				const safe = this.deps.moderationService.textCheck(ctx.fullArgs, ctx.commandUser, 'status');
@@ -310,7 +313,7 @@ export class CommandService {
 				this.deps.stateService.updateSocketUser(ctx.io, ctx.socket.id, user);
 				this.deps.messageService.sendSystemChat(ctx.socket, mType.info, `your status is now: ${user.status}`);
 				
-				return true;
+				return clearInput;
 
 			}
 			catch(error: unknown){
@@ -321,7 +324,7 @@ export class CommandService {
 					console.error("Unexpected non-error thrown:", error);
 					this.deps.messageService.sendSystemChat(ctx.socket, mType.error, `system: unexpected error`);
 				}
-				return false;
+				return keepInput;
 			}
 		}
 
@@ -368,7 +371,7 @@ export class CommandService {
 
 					const formatTable = infoMsgs.join('\n');
 					this.deps.messageService.sendSystemChat(ctx.socket, mType.info, formatTable);
-					return true;
+					return clearInput;
 				case 'ip':
 					const ipMsgs = [
 						'---------------------------------------------------------------------------------------------',
@@ -382,21 +385,21 @@ export class CommandService {
 					];
 					const formatIpTable = ipMsgs.join('\n');
 					this.deps.messageService.sendSystemChat(ctx.socket, mType.info, formatIpTable);
-					return true;
+					return clearInput;
 
 				case 'export':
 					if(!ctx.commandUser){
 						this.deps.messageService.sendSystemChat(ctx.socket, mType.error, "system: no server stored data");
-						return true;
+						return clearInput;
 					}
 
 					this.deps.messageService.sendSystemChat(ctx.socket, mType.info, `Server stored info: ${JSON.stringify(ctx.commandUser, null, 4)}`);
-					return true;
+					return clearInput;
 
 				case 'delete':
 					if(!ctx.commandUser){
 						this.deps.messageService.sendSystemChat(ctx.socket, mType.error, "system: no server stored data");
-						return true;
+						return clearInput;
 					}
 
 					try{
@@ -420,7 +423,7 @@ export class CommandService {
 
 						this.deps.identityService.deleteUser(targetGuid);
 						this.deps.messageService.sendSystemChat(ctx.io, mType.ann, `${getDisplayNick(targetNick)} disconnected`);
-						return true;
+						return clearInput;
 
 					} 
 					catch(error: unknown){
@@ -431,23 +434,23 @@ export class CommandService {
 							console.error("Unexpected non-error thrown:", error);
 							this.deps.messageService.sendSystemChat(ctx.socket, mType.error, `system: unexpected error`);
 						}
-						return false;
+						return keepInput;
 					}
 
 				default:
 					this.deps.messageService.sendSystemChat(ctx.socket, mType.error, "system: please use with 'info', 'ip', 'export' or 'delete' after /gdpr");
-					return false;
+					return keepInput;
 			}
 		}
 
 		this.commands['markov'] = async (ctx) => {
 				if(!this.deps.markovService){
 					this.deps.messageService.sendSystemChat(ctx.socket, mType.error, "system: that's not a command lol");
-					return false;
+					return keepInput;
 				}
 				if(!ctx.commandUser){
 					this.deps.messageService.sendSystemChat(ctx.socket, mType.error, "system: please use /chrat <nickname> before trying to generate random text");
-					return true;
+					return clearInput;
 				}
 				try{
 					this.deps.moderationService.timeCheck(ctx.commandUser, tType.chat);
@@ -460,24 +463,24 @@ export class CommandService {
 						console.error("Unexpected non-error thrown:", error);
 						this.deps.messageService.sendSystemChat(ctx.socket, mType.error, `system: unexpected error`);
 					}
-					return false;
+					return keepInput;
 				}
 
 				const markovUser = this.deps.stateService.markovUser;
 				if(!markovUser){
 					this.deps.messageService.sendSystemChat(ctx.socket, mType.error, "system: we couldn't find a markov bot");
-					return true;
+					return clearInput;
 				}
 
 				if(this.deps.stateService.markovSleep){
 					this.deps.messageService.sendSystemChat(ctx.socket, mType.error, `shh, ${getDisplayNick(markovUser.nick)} is sleeping`);
-					return true;
+					return clearInput;
 				}
 
 				if(!ctx.commandUser.isMod){
 					if(markovUser.isAfk){
 						this.deps.messageService.sendSystemChat(ctx.socket, mType.error, `${markovNick} needs a cooldown`)
-						return false;
+						return keepInput;
 					}		
 				}
 
@@ -492,7 +495,7 @@ export class CommandService {
 					if(!ctx.commandUser.isMod){
 						this.deps.stateService.toggleMarkov(ctx.io);
 					}
-					return true;
+					return clearInput;
 
 				}
 				catch(error: unknown){
@@ -504,7 +507,7 @@ export class CommandService {
 						this.deps.messageService.sendSystemChat(ctx.socket, mType.error, `system: unexpected error`);
 					}
 					this.deps.identityService.setLastMessage(ctx.commandUser.guid, Date.now());
-					return false;
+					return keepInput;
 				}
 		}
 
@@ -515,7 +518,7 @@ export class CommandService {
 		this.commands['announce'] = (ctx) => {
 			if(!ctx.commandUser?.isMod){
 				this.deps.messageService.sendSystemChat(ctx.socket, mType.error, "naughty naughty");
-				return true;
+				return clearInput;
 			}
 			try{
 				const safe = this.deps.moderationService.textCheck(ctx.fullArgs, ctx.commandUser, 'chat');
@@ -523,7 +526,7 @@ export class CommandService {
 				if(safe.length === 0){
 					this.deps.messageService.sendSystemChat(ctx.socket, mType.info, 'announcement cleared');
 				}
-				return true;
+				return clearInput;
 			}
 			catch(error: unknown){
 				if(error instanceof Error){
@@ -533,18 +536,18 @@ export class CommandService {
 					console.error("Unexpected non-error thrown:", error);
 					this.deps.messageService.sendSystemChat(ctx.socket, mType.error, `system: unexpected error`);
 				}
-				return false;
+				return keepInput;
 			}
 		}
 
 		this.commands['ban'] = (ctx) => {
 			if(!ctx.commandUser?.isMod){
 				this.deps.messageService.sendSystemChat(ctx.socket, mType.error, "naughty naughty");
-				return true;
+				return clearInput;
 			}
 			if(!ctx.args[0]){
 				this.deps.messageService.sendSystemChat(ctx.socket, mType.error, "missing target");
-				return false;
+				return keepInput;
 			}
 			
 			try{
@@ -572,21 +575,21 @@ export class CommandService {
 					console.error("Unexpected non-error thrown:", error);
 					this.deps.messageService.sendSystemChat(ctx.socket, mType.error, `system: unexpected error`);
 				}
-				return false;
+				return keepInput;
 			}
 
 			this.deps.messageService.sendSystemChat(ctx.io, mType.info, `${ctx.fullArgs} has been banned.`);
-			return true;
+			return clearInput;
 		}
 
 		this.commands['timeout'] = (ctx) => {
 			if(!ctx.commandUser?.isMod){
 				this.deps.messageService.sendSystemChat(ctx.socket, mType.error, "naughty naughty");
-				return true;
+				return clearInput;
 			}
 			if(!ctx.args[0]){
 				this.deps.messageService.sendSystemChat(ctx.socket, mType.error, "missing target");
-				return false;
+				return keepInput;
 			}
 
 			const targetNick = ctx.args[0]
@@ -624,7 +627,7 @@ export class CommandService {
 				}
 
 				this.deps.messageService.sendSystemChat(ctx.io, mType.info, `${targetNick} has been timed out.`);
-				return true;
+				return clearInput;
 			} 
 			catch(error: unknown){
 				if(error instanceof Error){
@@ -634,32 +637,32 @@ export class CommandService {
 					console.error("Unexpected non-error thrown:", error);
 					this.deps.messageService.sendSystemChat(ctx.socket, mType.error, `system: unexpected error`);
 				}
-				return false; 
+				return keepInput; 
 			}
 		}
 
 		this.commands['delete'] = (ctx) => {
 			if(!ctx.commandUser?.isMod){
 				this.deps.messageService.sendSystemChat(ctx.socket, mType.error, "naughty naughty");
-				return true;
+				return clearInput;
 			}
 			
 			const id = Number(ctx.args[0]);
 
 			if(!ctx.args[0] || isNaN(id) || id < 0){
 				this.deps.messageService.sendSystemChat(ctx.socket, mType.error, "please provide a valid message id");
-				return false;
+				return keepInput;
 			}
 
 			this.deps.messageService.deleteMessage(ctx.io, [id]);
 
-			return true;
+			return clearInput;
 		}
 
 		this.commands['emotes'] = async (ctx) => {
 			if(!ctx.commandUser?.isMod){
 				this.deps.messageService.sendSystemChat(ctx.socket, mType.error, "naughty naughty");
-			return true;
+			return clearInput;
 			}
 
 			let targetID = ctx.args[0];
@@ -674,7 +677,7 @@ export class CommandService {
 			try{
 				const size = await this.deps.stateService.updateEmotes(ctx.io, targetID);
 				this.deps.messageService.sendSystemChat(ctx.socket, mType.info, `${size} emotes loaded`);
-				return true;
+				return clearInput;
 			} 
 			catch(error: unknown){
 				if(error instanceof Error){
@@ -684,14 +687,14 @@ export class CommandService {
 					console.error("Unexpected non-error thrown:", error);
 					this.deps.messageService.sendSystemChat(ctx.socket, mType.error, `system: unexpected error`);
 				}
-				return false;
+				return keepInput;
 			}
 		}
 
 		this.commands['unemotes'] = async (ctx) => {
 			if(!ctx.commandUser?.isMod){
 				this.deps.messageService.sendSystemChat(ctx.socket, mType.error, "naughty naughty");
-			return true;
+			return clearInput;
 			}
 
 			let targetID = ctx.args[0];
@@ -700,7 +703,7 @@ export class CommandService {
 			try{
 				const size = await this.deps.stateService.removeEmotes(ctx.io, targetID);
 				this.deps.messageService.sendSystemChat(ctx.socket, mType.info, `${size} emotes removed`);
-				return true;
+				return clearInput;
 			} 
 			catch(error: unknown){
 				if(error instanceof Error){
@@ -710,20 +713,20 @@ export class CommandService {
 					console.error("Unexpected non-error thrown:", error);
 					this.deps.messageService.sendSystemChat(ctx.socket, mType.error, `system: unexpected error`);
 				}
-				return false;
+				return keepInput;
 			}
 		}
 
 		this.commands['loadusers'] = (ctx) => {
 			if(!ctx.commandUser?.isMod){
 				this.deps.messageService.sendSystemChat(ctx.socket, mType.error, "naughty naughty");
-			return true;
+			return clearInput;
 			}
 			
 			try{
 				const size = this.deps.identityService.reloadUsers();
 				this.deps.messageService.sendSystemChat(ctx.socket, mType.info, `${size} users reloaded`);
-				return true;
+				return clearInput;
 			} 
 			catch(error: unknown){
 				if(error instanceof Error){
@@ -733,31 +736,31 @@ export class CommandService {
 					console.error("Unexpected non-error thrown:", error);
 					this.deps.messageService.sendSystemChat(ctx.socket, mType.error, `system: unexpected error`);
 				}
-				return false;
+				return keepInput;
 			}
 		}
 
 		this.commands['botstatus'] = (ctx) => {
 			if(!this.deps.markovService){
 				this.deps.messageService.sendSystemChat(ctx.socket, mType.error, "system: that's not a command lol");
-				return false;
+				return keepInput;
 			}
 			if(!ctx.commandUser?.isMod){
 				this.deps.messageService.sendSystemChat(ctx.socket, mType.error, "naughty naughty");
-				return true;
+				return clearInput;
 			}
 
 			const markovUser = this.deps.stateService.markovUser;
 			if(!markovUser){
 				this.deps.messageService.sendSystemChat(ctx.socket, mType.error, "system: we couldn't find a markov bot");
-				return false;
+				return keepInput;
 			}
 			try{
 				const safe = this.deps.moderationService.textCheck(ctx.fullArgs, ctx.commandUser, 'status');
 				markovUser.status = safe;
 				this.deps.stateService.broadcastUsers(ctx.io);
 				this.deps.messageService.sendSystemChat(ctx.socket, mType.info, `${markovNick} status is now: ${markovUser.status}`);
-				return true;
+				return clearInput;
 			} 
 			catch(error: unknown){					
 				if(error instanceof Error){
@@ -767,18 +770,18 @@ export class CommandService {
 					console.error("Unexpected non-error thrown:", error);
 					this.deps.messageService.sendSystemChat(ctx.socket, mType.error, `system: unexpected error`);
 				}
-				return false;
+				return keepInput;
 			}
 		}
 		
 		this.commands['botsleep'] = (ctx) => {
 			if(!this.deps.markovService){
 				this.deps.messageService.sendSystemChat(ctx.socket, mType.error, "system: that's not a command lol");
-				return false;
+				return keepInput;
 			}
 			if(!ctx.commandUser?.isMod){
 				this.deps.messageService.sendSystemChat(ctx.socket, mType.error, "naughty naughty");
-				return true;
+				return clearInput;
 			}
 
 			const markovUser = this.deps.stateService.markovUser;
@@ -786,16 +789,16 @@ export class CommandService {
 
 			if(!markovUser){
 				this.deps.messageService.sendSystemChat(ctx.socket, mType.error, "system: we couldn't find a markov bot");
-				return false;
+				return keepInput;
 			}
 
 			if(markovSleep){
 				this.deps.messageService.sendSystemChat(ctx.socket, mType.info, `${markovNick} is sleepin now. honk shoo`);
-				return true;
+				return clearInput;
 			}
 			else{
 				this.deps.messageService.sendSystemChat(ctx.socket, mType.info, `${markovNick} is awake now. rise and grind`);
-				return true;
+				return clearInput;
 			}
 		}
 		
