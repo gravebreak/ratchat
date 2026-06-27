@@ -1,5 +1,6 @@
 import { readFileSync, writeFileSync, existsSync } from "fs";
 import { EventEmitter } from "events";
+import type { RedisClientType } from "redis";
 
 import type { Socket, Server } from "socket.io";
 
@@ -23,12 +24,16 @@ interface EmoteEntry {
   };
 }
 
+const REDIS_ANNOUNCEMENT_KEY = 'ratchat:announcement';
+
 export interface StateServiceDependencies{
 	messageService: MessageService;
 	
 	serverConfigPath: string;
 	markovConfigPath: string;
 	miniConfigPath: string;
+	redisClient: RedisClientType | null;
+	redisTTL: number;
 	io: Server;
 }
 
@@ -49,6 +54,8 @@ export class StateService {
 	private signupBuffer: Map<string, {socket: Socket; nick: SafeString}> = new Map();
 	private signupTimer: NodeJS.Timeout | null = null;
 	private signupPromise: Map<Socket, (value: boolean)=> void> = new Map();
+
+	private announcementQ = Promise.resolve();
 
 	private deps: StateServiceDependencies;
 	constructor(dependencies: StateServiceDependencies){
@@ -88,6 +95,8 @@ export class StateService {
 		if(str){
 		  	this.deps.messageService.sendSystemChat(io, mType.ann,`announcement: ${str}`);
 		}
+
+		this.saveAnnouncementQueue();
 	}
 
 	public getEmotes(): Map<string, string>{
@@ -274,27 +283,62 @@ export class StateService {
 		return this.markovSleep;
 	}
 
-	public signupQueue(socket: Socket, nick: SafeString): Promise<boolean> {
-	return new Promise<boolean>((resolve, reject) => {
-		try {
-			const hashed = hashIP(socket.handshake.address);
-			this.signupBuffer.set(hashed, { socket, nick });
-			this.signupPromise.set(socket, resolve);
-			if(!this.signupTimer){
-				this.signupTimer = setTimeout(() => this.returnQueue(), this.serverConfig.signupTime * 1000);
-			}
+	public async restoreAnnouncement(){
+		if(!this.deps.redisClient){
+			return;
 		}
-		catch(error: unknown) {
-			if(error instanceof Error){
-				reject(error);
+
+		try{
+			const announcementLoad = await this.deps.redisClient.get(REDIS_ANNOUNCEMENT_KEY);
+			if(announcementLoad){
+				if(announcementLoad.length <= this.serverConfig.maxMsgLen){
+					this.announcement = announcementLoad;
+					console.log(`Restored ${this.announcement} from Redis`);
+				}
+				else{
+					this.announcement = '';
+					console.warn('Redis annoucement load too long, starting fresh');
+				}
 			}
 			else{
-				console.error("Unexpected non-error thrown:", error);
-				reject(new Error("Unknown error"));
+				console.log(`Empty Redis announcement load`);
 			}
 		}
-	});
-}
+		catch(error: unknown){
+			if(error instanceof Error){
+				console.warn('Redis announcement load error:', error.message);
+			}
+			else{
+				console.error('Unexpected non-error thrown:', error);
+			}
+		}
+	}
+
+	public stateRedisFallback(){
+		this.deps.redisClient = null;
+	}
+
+	public signupQueue(socket: Socket, nick: SafeString): Promise<boolean> {
+		return new Promise<boolean>((resolve, reject) => {
+			try {
+				const hashed = hashIP(socket.handshake.address);
+				this.signupBuffer.set(hashed, { socket, nick });
+				this.signupPromise.set(socket, resolve);
+				if(!this.signupTimer){
+					this.signupTimer = setTimeout(() => this.returnQueue(), this.serverConfig.signupTime * 1000);
+				}
+			}
+			catch(error: unknown) {
+				if(error instanceof Error){
+					reject(error);
+				}
+				else{
+					console.error("Unexpected non-error thrown:", error);
+					reject(new Error("Unknown error"));
+				}
+			}
+		});
+	}
 
 	private returnQueue(){
 		const queue = Array.from(this.signupBuffer.values());
@@ -307,6 +351,27 @@ export class StateService {
 		this.signupBuffer.clear();
 		this.signupPromise.clear();
 		this.signupTimer = null;
+	}
+
+	private saveAnnouncementQueue(){
+		this.announcementQ= this.announcementQ.then(() => this.saveAnnouncement());
+	}
+
+	private async saveAnnouncement(){
+		if(!this.deps.redisClient){
+				return;
+		}
+		try {
+			await this.deps.redisClient.set(REDIS_ANNOUNCEMENT_KEY, this.announcement, { EX: this.deps.redisTTL});
+		} 
+		catch(error: unknown){
+			if(error instanceof Error){
+				console.warn('Redis announcement save error:', error.message);
+			} 
+			else{
+				console.error('Unexpected non-error thrown:', error);
+			}
+		}
 	}
 
 	private loadServerConfig(){

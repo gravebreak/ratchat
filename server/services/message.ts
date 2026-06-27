@@ -21,10 +21,10 @@ type MessagePayloadMap = {
 
 const REDIS_HISTORY_KEY = 'ratchat:chatHistory';
 const REDIS_COUNTER_KEY = 'ratchat:messageCounter';
-const REDIS_HISTORY_TTL = 604800
 
 export interface MessageServiceDependencies {
 	redisClient: RedisClientType | null;
+	redisTTL: number;
 }
 
 export class MessageService{
@@ -156,7 +156,7 @@ export class MessageService{
 		}
 	}
 	
-	public redisFallback(){
+	public messageRedisFallback(){
 		this.deps.redisClient = null;
 	}
 
@@ -213,7 +213,7 @@ export class MessageService{
 				return;
 		}
 		try {
-			await this.deps.redisClient.set(REDIS_HISTORY_KEY, JSON.stringify([...this.chatHistory.entries()]), { EX: REDIS_HISTORY_TTL });
+			await this.deps.redisClient.set(REDIS_HISTORY_KEY, JSON.stringify([...this.chatHistory.entries()]), { EX: this.deps.redisTTL });
 		} 
 		catch(error: unknown){
 			if(error instanceof Error){
@@ -230,7 +230,7 @@ export class MessageService{
 				return;
 		}
 		try {
-			await this.deps.redisClient.set(REDIS_COUNTER_KEY, this.messageCounter.toString(), { EX: REDIS_HISTORY_TTL });
+			await this.deps.redisClient.set(REDIS_COUNTER_KEY, this.messageCounter.toString(), { EX: this.deps.redisTTL });
 		} 
 		catch(error: unknown){
 			if(error instanceof Error){

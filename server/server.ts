@@ -25,6 +25,7 @@ main().catch(error => {
 });
 
 async function main(){
+
 	if(!process.env.IP_PEPPER){
 		throw new Error('FATAL ERROR: IP_PEPPER environment variable is not set.');
 	}
@@ -39,8 +40,11 @@ async function main(){
 	const nickFilterPath = join(__dirname, 'nickfilter.json');
 	const profFilterPath = join(__dirname, 'profanityfilter.json');
 	const bansPath = join(__dirname, 'data', 'bans.json');
-	const brainPath = join(__dirname, 'data', 'brain.db')
+	const brainPath = join(__dirname, 'data', 'brain.db');
+	const REDIS_TTL = 604800;
 	let redisClient: RedisClientType | null = null;
+	const gracePeriod = 3000;
+	let inGrace = true;
 
 	if(process.env.REDIS_URL){
 		const client : RedisClientType = createClient({url: process.env.REDIS_URL});
@@ -78,7 +82,8 @@ async function main(){
 	}
 
 	const messageService = new MessageService({
-		redisClient: redisClient
+		redisClient: redisClient,
+		redisTTL: REDIS_TTL
 	});
 
 	const stateService = new StateService({
@@ -87,6 +92,8 @@ async function main(){
 		serverConfigPath: serverConfigPath,
 		markovConfigPath: markovConfigPath,
 		miniConfigPath: miniConfigPath,
+		redisClient: redisClient,
+		redisTTL: REDIS_TTL,
 		io: io
 	});
 	
@@ -102,7 +109,8 @@ async function main(){
 						redisClient.removeAllListeners();
 						redisClient.destroy();
 						redisClient = null;
-						messageService.redisFallback();
+						messageService.messageRedisFallback();
+						stateService.stateRedisFallback();
 						console.error('Redis reconnection timeout exceeded 5s, fell back to stateless');
 					}
 				}, 5000);
@@ -123,6 +131,7 @@ async function main(){
 	if(redisClient){
 		await messageService.restoreChatHistory(stateService.getServerConfig().msgArrayLen, stateService.getServerConfig().msgArrayTimeout);
 		await messageService.restoreMessageCounter();
+		await stateService.restoreAnnouncement();
 	}
 
 	const moderationService = new ModerationService({
@@ -213,9 +222,12 @@ async function main(){
 			messageService.sendEmoteList(socket, emotePayload);
 		}
 		messageService.sendChatHistory(socket);
-		messageService.sendSystemChat(socket, mType.welcome, `${welcomeMsg}`)
-		if(announcement){
-			messageService.sendSystemChat(socket, mType.ann, `announcement: ${announcement}`)
+
+		if(!inGrace){
+			messageService.sendSystemChat(socket, mType.welcome, `${welcomeMsg}`)
+			if(announcement){
+				messageService.sendSystemChat(socket, mType.ann, `announcement: ${announcement}`)
+			}
 		}
 
 		//Identity Service
@@ -237,8 +249,9 @@ async function main(){
 		if(returningUser){
 			stateService.updateSocketUser(io, socket.id, returningUser);
 			messageService.sendIdentity(socket, returningUser);
-			messageService.sendSystemChat(socket, mType.info, `welcome back, ${getDisplayNick(returningUser.nick)}`);
-			
+			if(!inGrace){
+				messageService.sendSystemChat(socket, mType.info, `welcome back, ${getDisplayNick(returningUser.nick)}`);
+			}
 			let scount = 0
 			for (const [, u] of stateService.getSocketUsers()){
 				if(u.guid === returningUser.guid) scount++;
@@ -246,7 +259,9 @@ async function main(){
 			if(scount === 1){
 				try{
 					moderationService.timeCheck(returningUser, tType.joinleave);
-					messageService.sendSystemChat(io.except(socket.id), mType.ann,`${getDisplayNick(returningUser.nick)} connected`);
+					if(!inGrace){
+						messageService.sendSystemChat(io.except(socket.id), mType.ann,`${getDisplayNick(returningUser.nick)} connected`);
+					}
 					identityService.setLastMessage(returningUser.guid, Date.now(), false);
 				}
 				catch(error: unknown){
@@ -374,7 +389,9 @@ async function main(){
 				if(scount === 0){
 					try{
 						moderationService.timeCheck(disuser, tType.joinleave);
-						messageService.sendSystemChat(io, mType.ann, `${getDisplayNick(disuser.nick)} disconnected`);
+						if(!inGrace){
+							messageService.sendSystemChat(io, mType.ann, `${getDisplayNick(disuser.nick)} disconnected`);
+						}
 						identityService.setLastMessage(disuser.guid, Date.now());
 					}
 					catch(error: unknown){
@@ -411,6 +428,12 @@ async function main(){
 		const now = new Date();
 		console.log ('server startup timestamp: ', now.toLocaleString());
 	});
+
+	//Grace timer
+	setTimeout(() => {
+		inGrace = false;
+		console.log('startup grace ended', new Date().toLocaleString());
+	}, gracePeriod);
 }
 
 process.on('uncaughtException', err => {
