@@ -643,16 +643,15 @@ export class CommandService {
 				this.deps.messageService.sendSystemChat(ctx.socket, mType.error, "naughty naughty");
 				return true;
 			}
+			
+			const id = Number(ctx.args[0]);
 
-			if(!ctx.args[0] || isNaN(Number(ctx.args[0]))){
-				this.deps.messageService.sendSystemChat(ctx.socket, mType.error, "please provide message id");
+			if(!ctx.args[0] || isNaN(id) || id < 0){
+				this.deps.messageService.sendSystemChat(ctx.socket, mType.error, "please provide a valid message id");
 				return false;
-			} 
+			}
 
-			const delArray : number[] = [];
-			delArray.push(Number(ctx.args[0]));
-
-			this.deps.messageService.deleteMessage(ctx.io,delArray);
+			this.deps.messageService.deleteMessage(ctx.io, [id]);
 
 			return true;
 		}

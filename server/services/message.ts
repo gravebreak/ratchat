@@ -182,7 +182,7 @@ export class MessageService{
 	}
 
 	private generateMessageId(): number {
-		if(this.messageCounter >= 4294967295){
+		if(this.messageCounter >= 4294967295 || this.messageCounter < 0){
 			this.messageCounter = 0;
 		}
 		const id = this.messageCounter++;

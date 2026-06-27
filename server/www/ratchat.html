@@ -1,7 +1,6 @@
 <!DOCTYPE html>
 <html>
 	<head>
-		<meta name="viewport" content="width=device-width,initial-scale=1.0">
 		<meta name="robots" content="noindex, nofollow">
 		<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, interactive-widget=resizes-content">
 		
@@ -30,7 +29,7 @@
 			overflow: hidden;
 		}
 
-		.window{
+		.window {
 			display: flex;
 			flex-direction: column;
 			margin: 0;
@@ -130,7 +129,7 @@
 			background: #c0c0c0;
 			border: none;
 		}
-		#form button[type="submit"]{
+		#form button[type="submit"] {
 			max-width: 7.5475rem !important;
 			min-width: 7.5475rem !important;
 			font-size: 1rem !important;
@@ -176,7 +175,7 @@
 		}
 		#user-sidebar.collapsed + .fake-scrollbar, 
 		#user-sidebar.collapsed ~ .fake-scrollbar,
-		#messages-container ~ .fake-scrollbar:has(+ #user-sidebar.collapsed){
+		#messages-container ~ .fake-scrollbar:has(+ #user-sidebar.collapsed) {
 			margin-right: 0;
 		}
 		#user-list {
@@ -195,12 +194,12 @@
 			width: 100%;
 			overflow: hidden;
 		}
-		.user-list-span span:nth-child(3){
+		.user-list-span span:nth-child(3) {
 			flex-shrink: 1;
 			flex-grow: 1;
 			min-width: 0;
 		}
-		.user-count{
+		.user-count {
 			color: #575963;
 			text-align: right;
 		}
@@ -268,7 +267,7 @@
 			background: radial-gradient(circle at 0.1875rem 0.1875rem, #ffb84d, #ff8c00);
 			box-shadow: 0.0625rem 0.0625rem 0.0625rem rgba(0,0,0,0.3);
 		}
-		#lurker-status{
+		#lurker-status {
 			color:#575963;
 			font-size: small;
 			min-height: 1rem;
@@ -609,107 +608,12 @@
 		if(savedTheme === 'dark'){
 			document.documentElement.setAttribute('data-theme', 'dark');
 		}
-
-		//emotify function
-		const emotify = (text) =>{
-			return text.split(' ').map(word => {
-				if(emotes[word]){
-					return `<img src="${emotes[word]}" title="${word}" alt="${word}" class="emote" crossorigin="anonymous">`;
-				}
-			return word;
-			}).join(' ');
-		};
-
-		//Background loader
-		document.getElementById('bg-upload').addEventListener('change', function(e){
-			const file = e.target.files[0];
-			if(file){
-				const reader = new FileReader();
-				
-				reader.onload = function(event){
-					const imageData = event.target.result;
-					document.getElementById('messages-container').style.backgroundImage = `url('${imageData}')`;
-					document.getElementById('messages-container').classList.add('has-bg');
-					
-					//local storage
-					try{
-						localStorage.setItem('ratBG', imageData);
-					} 
-					catch(e){
-						systemMessage("oh fuk it's too big", 'e-li')
-						console.warn("image too large for localStorage");
-					}
-				}
-
-				reader.readAsDataURL(file);
-			}
-		});
-
-		//Fake scrollbar
-		function initFakeScrollbar(config){
-			const container = document.getElementById(config.containerId);
-			const thumb = document.getElementById(config.thumbId);
-			const track = document.getElementById(config.trackId);
-			const content = document.getElementById(config.contentId);
-
-			//sync thumb position to scroll
-			container.onscroll = function (){
-				const scrollPos = container.scrollTop;
-				const maxScroll = container.scrollHeight - container.clientHeight;
-				
-				const clampedScroll = Math.max(0, Math.min(scrollPos, maxScroll));
-
-				const trackSpace = track.clientHeight - thumb.clientHeight;
-				thumb.style.top = (clampedScroll / (maxScroll || 1)) * trackSpace + 'px';
-			};
-
-			if(config.btnUpId){
-				document.getElementById(config.btnUpId).onclick = () =>
-					container.scrollBy(0, -50);
-			}
-
-			if(config.btnDownId){
-				document.getElementById(config.btnDownId).onclick = () =>
-					container.scrollBy(0, 50);
-			}
-
-			//dynamic thumb resizing using a self-executing function for the MutationObserver
-			new MutationObserver(() => {
-				thumb.style.height =
-					Math.max(
-						(container.clientHeight / container.scrollHeight) * track.clientHeight,
-						20
-					) + 'px';
-			}).observe(content, { childList: true, subtree: true });
-
-			//sync resize event
-			window.addEventListener('resize', () => {
-				thumb.style.height =
-					Math.max(
-						(container.clientHeight / container.scrollHeight) * track.clientHeight,
-						20
-					) + 'px';
-			});
-
-			//click and drag thumb
-			thumb.addEventListener('mousedown', (e) => {
-				document.onmousemove = (event) => {
-					container.scrollTop =
-						((event.pageY - e.pageY) *
-							(container.scrollHeight / track.clientHeight)) +
-						container.scrollTop;
-					e = event;
-				};
-
-				document.onmouseup = () => {
-					document.onmousemove = null;
-					document.onmouseup = null;
-				};
-
-				e.preventDefault();
-			});
+		if(savedBG){
+			document.getElementById('messages-container').style.backgroundImage = `url('${savedBG}')`;
+			document.getElementById('messages-container').classList.add('has-bg');
 		}
 
+		//Main window
 		initFakeScrollbar({
 			containerId: 'messages-wrapper',
 			trackId: 'track',
@@ -718,6 +622,7 @@
 			btnUpId: 'btn-up',
 			btnDownId: 'btn-down'
 		});
+		//emote popup
 		initFakeScrollbar({
 			containerId: 'emotes-grid-wrapper',
 			trackId: 'emotes-track',
@@ -727,9 +632,13 @@
 			btnDownId: 'emotes-btn-down'
 		});
 
-		//////////////
-		////EVENTS////
-		//////////////
+		//Message events
+		socket.on('toClientChat', renderMessage);
+		socket.on('toClientError', renderMessage);
+		socket.on('toClientInfo', renderMessage);
+		socket.on('toClientWelcome', renderMessage);
+		socket.on('toClientAnnouncement', renderMessage);
+		socket.on('toClientMarkov', renderMessage);
 
 		//Identity events
 		socket.on('identity', (identity) => {
@@ -875,19 +784,82 @@
 				return;
 			}
 			msgArray.forEach(id => {
-				const target = document.querySelector(`li[data-id="${id}"]`)
-				if(target){
+				if(id < 0){
+					return
+				}
+				document.querySelectorAll(`li[data-id="${id}"]`).forEach(target => {
 					target.replaceChildren('[message deleted]');
 					target.className = 'i-li';
 					target.removeAttribute('title');
-				}
+				});
 			});
 		});
 
-		/////////////////////
-		//CLIENT SUBMISSION//
-		/////////////////////
+		//message type to css class
+		const toClass = {
+			'toClientChat': '',
+			'toClientError': 'e-li',
+			'toClientInfo': 'i-li',
+			'toClientWelcome': 'w-li',
+			'toClientAnnouncement': 'a-li',
+			'toClientMarkov': ''
+		};
 
+		input.focus();
+
+		//LISTENERS//
+
+		//best effort disconnect notification
+		window.addEventListener('beforeunload', () => {
+			socket.disconnect();
+		});
+
+		document.getElementById('btn-users').addEventListener('click', () => {
+			document.getElementById('user-sidebar').classList.toggle('collapsed');
+			window.dispatchEvent(new Event('resize'));
+		});
+
+		document.getElementById('btn-emotes').addEventListener('click', () => {
+			const popup = document.getElementById('emotes-popup');
+			popup.classList.toggle('is-visible');
+			if(popup.classList.contains('is-visible')){
+				const search = document.getElementById('search');
+				search.value = '';
+				filterEmotesGrid('');
+				search.focus();
+			}
+		});
+
+		document.getElementById('search').addEventListener('input', (e) => {
+			filterEmotesGrid(e.target.value);
+		});
+
+		//Background loader
+		document.getElementById('bg-upload').addEventListener('change', function(e){
+			const file = e.target.files[0];
+			if(file){
+				const reader = new FileReader();
+				
+				reader.onload = function(event){
+					const imageData = event.target.result;
+					document.getElementById('messages-container').style.backgroundImage = `url('${imageData}')`;
+					document.getElementById('messages-container').classList.add('has-bg');
+					
+					//local storage
+					try{
+						localStorage.setItem('ratBG', imageData);
+					} 
+					catch(e){
+						systemMessage("oh fuk it's too big", 'e-li')
+						console.warn("image too large for localStorage");
+					}
+				}
+
+				reader.readAsDataURL(file);
+			}
+		});
+
+		//Client submission
 		form.addEventListener('submit', (e) => {
 			e.preventDefault();
 			
@@ -960,50 +932,30 @@
 			});
 		});
 
-		/////////////////////
-		//MESSAGE RENDERING//
-		/////////////////////
+		//FUNCTIONS//
 
-		//Helper function for non user messages
-		const systemMessage = (msg, className) => {
-			const item = document.createElement('li');
-			const msgContainer = document.getElementById('messages-wrapper');
-			item.classList.add(className);
-			item.textContent = msg;
-			const isAtBottom = msgContainer.scrollHeight - msgContainer.clientHeight <= msgContainer.scrollTop + 20;
-			messages.appendChild(item);
-			if(isAtBottom){
-				msgContainer.scrollTop = msgContainer.scrollHeight;
+		function renderMessage(msg){
+			if (msg.id !== -1 && document.querySelector(`li[data-id="${msg.id}"]`)){
+				return;
 			}
-		};
-
-		//message type to css class
-		const toClass = {
-			'toClientChat': '',
-			'toClientError': 'e-li',
-			'toClientInfo': 'i-li',
-			'toClientWelcome': 'w-li',
-			'toClientAnnouncement': 'a-li',
-			'toClientMarkov': ''
-		};
-
-		const renderMessage =(msg) =>{
 			
 			const item = document.createElement('li');
 			const msgContainer = document.getElementById('messages-wrapper');
 
 			//message type classification
 			const className = toClass[msg.type];
-			if(className) item.classList.add(className);
+			if(className){
+				item.classList.add(className);
+			}
 
 			//Date constructor
 			if(msg.id !== -1){
-			const date = new Date(msg.timestamp);
-			const dateStr = date.toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'});
-			const timeSpan = document.createElement('span');
-				timeSpan.textContent = dateStr;
-				timeSpan.style = "color:grey; font-size:small; margin-right:0.5rem"
-			item.appendChild(timeSpan);
+				const date = new Date(msg.timestamp);
+				const dateStr = date.toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'});
+				const timeSpan = document.createElement('span');
+					timeSpan.textContent = dateStr;
+					timeSpan.style = "color:grey; font-size:small; margin-right:0.5rem"
+				item.appendChild(timeSpan);
 			}
 
 			//Nickname constructor and styling
@@ -1060,46 +1012,39 @@
 			//finalize
 			const isAtBottom = msgContainer.scrollHeight - msgContainer.clientHeight <= msgContainer.scrollTop + 20;
 			messages.appendChild(item);
+			if(messages.children.length > 255){
+				messages.firstChild.remove();
+			}
 			if(isAtBottom){
 				msgContainer.scrollTop = msgContainer.scrollHeight;
 			}
-		};
+		}
 
-		/////////////
-		//LISTENERS//
-		/////////////
-
-		//message listeners
-		socket.on('toClientChat', renderMessage);
-		socket.on('toClientError', renderMessage);
-		socket.on('toClientInfo', renderMessage);
-		socket.on('toClientWelcome', renderMessage);
-		socket.on('toClientAnnouncement', renderMessage);
-		socket.on('toClientMarkov', renderMessage);
-
-		//button listeners
-
-		document.getElementById('btn-users').addEventListener('click', () => {
-			document.getElementById('user-sidebar').classList.toggle('collapsed');
-			window.dispatchEvent(new Event('resize'));
-		});
-
-		document.getElementById('btn-emotes').addEventListener('click', () => {
-			const popup = document.getElementById('emotes-popup');
-			popup.classList.toggle('is-visible');
-			if(popup.classList.contains('is-visible')){
-				const search = document.getElementById('search');
-				search.value = '';
-				filterEmotesGrid('');
-				search.focus();
+		//Helper function for non user messages
+		function systemMessage(msg, className){
+			const item = document.createElement('li');
+			const msgContainer = document.getElementById('messages-wrapper');
+			item.classList.add(className);
+			item.textContent = msg;
+			const isAtBottom = msgContainer.scrollHeight - msgContainer.clientHeight <= msgContainer.scrollTop + 20;
+			messages.appendChild(item);
+			if(messages.children.length > 255){
+				messages.firstChild.remove();
 			}
-		});
+			if(isAtBottom){
+				msgContainer.scrollTop = msgContainer.scrollHeight;
+			}
+		}
 
-		document.getElementById('search').addEventListener('input', (e) => {
-			filterEmotesGrid(e.target.value);
-		});
+		function emotify(text){
+			return text.split(' ').map(word => {
+				if(emotes[word]){
+					return `<img src="${emotes[word]}" title="${word}" alt="${word}" class="emote" crossorigin="anonymous">`;
+				}
+				return word;
+			}).join(' ');
+		}
 
-		//emote search
 		function filterEmotesGrid(filter){
 			const lowerFilter = (filter || '').trim().toLowerCase();
 			document.querySelectorAll('#emotes-grid-wrapper .emote-selectable').forEach(img => {
@@ -1108,18 +1053,70 @@
 			document.getElementById('emotes-grid-wrapper').scrollTop = 0;
 		}
 
-		//background load from storage
-		if(savedBG){
-			document.getElementById('messages-container').style.backgroundImage = `url('${savedBG}')`;
-			document.getElementById('messages-container').classList.add('has-bg');
-		}
-		
-		input.focus();
+		//Fake scrollbar
+		function initFakeScrollbar(config){
+			const container = document.getElementById(config.containerId);
+			const thumb = document.getElementById(config.thumbId);
+			const track = document.getElementById(config.trackId);
+			const content = document.getElementById(config.contentId);
 
-		//best effort disconnect notification
-		window.addEventListener('beforeunload', () => {
-			socket.disconnect();
-		});
+			//sync thumb position to scroll
+			container.onscroll = function (){
+				const scrollPos = container.scrollTop;
+				const maxScroll = container.scrollHeight - container.clientHeight;
+				
+				const clampedScroll = Math.max(0, Math.min(scrollPos, maxScroll));
+
+				const trackSpace = track.clientHeight - thumb.clientHeight;
+				thumb.style.top = (clampedScroll / (maxScroll || 1)) * trackSpace + 'px';
+			};
+
+			if(config.btnUpId){
+				document.getElementById(config.btnUpId).onclick = () =>
+					container.scrollBy(0, -50);
+			}
+
+			if(config.btnDownId){
+				document.getElementById(config.btnDownId).onclick = () =>
+					container.scrollBy(0, 50);
+			}
+
+			//dynamic thumb resizing using a self-executing function for the MutationObserver
+			new MutationObserver(() => {
+				thumb.style.height =
+					Math.max(
+						(container.clientHeight / container.scrollHeight) * track.clientHeight,
+						20
+					) + 'px';
+			}).observe(content, { childList: true, subtree: true });
+
+			//sync resize event
+			window.addEventListener('resize', () => {
+				thumb.style.height =
+					Math.max(
+						(container.clientHeight / container.scrollHeight) * track.clientHeight,
+						20
+					) + 'px';
+			});
+
+			//click and drag thumb
+			thumb.addEventListener('mousedown', (e) => {
+				document.onmousemove = (event) => {
+					container.scrollTop =
+						((event.pageY - e.pageY) *
+							(container.scrollHeight / track.clientHeight)) +
+						container.scrollTop;
+					e = event;
+				};
+
+				document.onmouseup = () => {
+					document.onmousemove = null;
+					document.onmouseup = null;
+				};
+
+				e.preventDefault();
+			});
+		}
 
 	</script>
 	</body>
