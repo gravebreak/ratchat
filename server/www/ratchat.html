@@ -335,14 +335,19 @@
 		#messages > .a-li {
 			color: #6eab6e;
 		}
+		#messages > .g-li{
+			color: #d038d8
+		}
 		#messages .user-name {
 			font-weight: bold;
 			color: var(--user-color, black);
 			margin-right: .15rem;
 		}
 		#messages > li:hover {
-			cursor: pointer;
 			background-color: rgba(0, 0, 0, 0.05);
+		}
+		#messages > li.hidden-message:hover {
+			cursor: pointer;
 		}
 
 		.fake-scrollbar {
@@ -462,6 +467,7 @@
 		[data-theme="dark"] #messages > .i-li { color: #d0d0d0; }
 		[data-theme="dark"] #messages > .w-li { color: #8ac7ff; }
 		[data-theme="dark"] #messages > .a-li { color: #9df79d; }
+		[data-theme="dark"] #messages > .g-li { color: #e889ed; }
 		[data-theme="dark"] #messages > li:hover {
 			background-color: rgba(255, 255, 255, 0.08);
 		}
@@ -600,9 +606,16 @@
 		const form = document.getElementById('form');
 		const input = document.getElementById('input');
 		const messages = document.getElementById('messages');
+		let eventList = [];
+
 		const savedBG = localStorage.getItem('ratBG');
+		const savedTheme = localStorage.getItem('ratMode');
+		const savedMutedUsers = localStorage.getItem('ratMutedUsers');
+		const savedMutedEvents = localStorage.getItem('ratMutedEvents');
 
 		let emotes = {};
+		let mutedUsers = [];
+		let mutedEvents = [];
 
 		//message type to css class
 		const toClass = {
@@ -611,17 +624,22 @@
 			'toClientInfo': 'i-li',
 			'toClientWelcome': 'w-li',
 			'toClientAnnouncement': 'a-li',
-			'toClientMarkov': ''
+			'toClientMarkov': '',
+			'toClientGame': 'g-li'
 		};
 
-
-		const savedTheme = localStorage.getItem('ratMode');
 		if(savedTheme === 'dark'){
 			document.documentElement.setAttribute('data-theme', 'dark');
 		}
 		if(savedBG){
 			document.getElementById('messages-container').style.backgroundImage = `url('${savedBG}')`;
 			document.getElementById('messages-container').classList.add('has-bg');
+		}
+		if(savedMutedUsers){
+			mutedUsers = JSON.parse(savedMutedUsers);
+		}
+		if(savedMutedEvents){
+			mutedEvents = JSON.parse(savedMutedEvents);
 		}
 
 		//Main window
@@ -643,15 +661,14 @@
 			btnDownId: 'emotes-btn-down'
 		});
 
-		//Message events
-		socket.on('toClientChat', renderMessage);
-		socket.on('toClientError', renderMessage);
-		socket.on('toClientInfo', renderMessage);
-		socket.on('toClientWelcome', renderMessage);
-		socket.on('toClientAnnouncement', renderMessage);
-		socket.on('toClientMarkov', renderMessage);
+		socket.on('toClientChat', handleMessage);
+		socket.on('toClientInfo', handleMessage);
+		socket.on('toClientError', handleMessage);
+		socket.on('toClientAnnouncement', handleMessage);
+		socket.on('toClientWelcome', handleMessage);
+		socket.on('toClientMarkov', handleMessage);
+		socket.on('toClientGame', handleMessage);
 
-		//Identity events
 		socket.on('identity', (identity) => {
 			if(identity && identity.guid === 'RESET_IDENTITY'){
 				console.log('cleared from local storage');
@@ -665,46 +682,7 @@
 				console.log('identity load error')
 			}
 		});
-
-		//Emote events
-		socket.on('emote', (payload) =>{
-			emotes = payload;
-			const container = document.getElementById('emotes-grid-wrapper');
-			
-			container.replaceChildren();
-
-			const grid = document.createElement('div');
-			grid.style.display = 'grid';
-			grid.style.gridTemplateColumns = 'repeat(auto-fill, minmax(1.5rem, 1fr))';
-			grid.style.gap = '0.5rem';
-
-			Object.keys(emotes).forEach(name => {
-				const img = document.createElement('img');
-				img.src = emotes[name];
-				img.crossOrigin = "anonymous";
-				img.title = name;
-				img.alt = name;
-				img.dataset.name = name.toLowerCase();
-				img.style.width = '1.5rem';
-				img.style.height = '1.5rem';
-				img.style.cursor = 'pointer';
-				img.style.objectFit = 'contain';
-				img.className = 'emote-selectable';
-
-				img.onclick = () => {
-					const input = document.getElementById('input');
-					const space = input.value.length > 0 && !input.value.endsWith(' ') ? ' ' : '';
-					input.value += space + name + ' ';
-					input.focus();
-					document.getElementById('emotes-popup').classList.remove('is-visible');
-				};
-
-				grid.appendChild(img);
-			});
-			container.appendChild(grid);
-		});
-
-		//User list events
+		
 		socket.on('userlist', (uList) => {
 			const userListElement = document.getElementById('user-list');
 			const lurkerElement = document.getElementById('lurker-status');
@@ -789,21 +767,67 @@
 			lurkerElement.textContent = `lurkers: ${lurkerData.status}`;
 		});
 
-		//Delete message events
+		socket.on('eventlist', (payload) =>{
+			eventList = payload;
+		});
+
+		socket.on('emotelist', (payload) =>{
+			emotes = payload;
+			const container = document.getElementById('emotes-grid-wrapper');
+			
+			container.replaceChildren();
+
+			const grid = document.createElement('div');
+			grid.style.display = 'grid';
+			grid.style.gridTemplateColumns = 'repeat(auto-fill, minmax(1.5rem, 1fr))';
+			grid.style.gap = '0.5rem';
+
+			Object.keys(emotes).forEach(name => {
+				const img = document.createElement('img');
+				img.src = emotes[name];
+				img.crossOrigin = "anonymous";
+				img.title = name;
+				img.alt = name;
+				img.dataset.name = name.toLowerCase();
+				img.style.width = '1.5rem';
+				img.style.height = '1.5rem';
+				img.style.cursor = 'pointer';
+				img.style.objectFit = 'contain';
+				img.className = 'emote-selectable';
+
+				img.onclick = () => {
+					const input = document.getElementById('input');
+					const space = input.value.length > 0 && !input.value.endsWith(' ') ? ' ' : '';
+					input.value += space + name + ' ';
+					input.focus();
+					document.getElementById('emotes-popup').classList.remove('is-visible');
+				};
+
+				grid.appendChild(img);
+			});
+			container.appendChild(grid);
+		});
+
 		socket.on('deleteMsg', (msgArray) => {
 			if(!Array.isArray(msgArray)){
 				return;
 			}
 			msgArray.forEach(id => {
 				if(id < 0){
-					return
+					return;
 				}
 				const targets = document.querySelectorAll(`li[data-id="${id}"]`);
-				const target = targets[targets.length - 1];
+				let target = targets[targets.length - 1];
 				if(target){
-					target.replaceChildren('[message deleted]');
-					target.className = 'i-li';
-					target.removeAttribute('title');
+					if(target.parentElement?.dataset.id === String(id)){
+						target = target.parentElement;
+					}
+					const fresh = target.cloneNode(false);
+					fresh.className = 'i-li';
+					fresh.textContent = '[message deleted]';
+					fresh.title = `Msg ID: ${msg.id}`;
+					fresh.setAttribute('data-id', id);
+					target.replaceWith(fresh);
 				}
 			});
 		});
@@ -853,7 +877,7 @@
 						localStorage.setItem('ratBG', imageData);
 					} 
 					catch(e){
-						systemMessage("oh fuk it's too big", 'e-li')
+						systemMessage("system: oh fuk it's too big", 'e-li')
 						console.warn("image too large for localStorage");
 					}
 				}
@@ -863,167 +887,336 @@
 		});
 
 		//Client submission
-		form.addEventListener('submit', (e) => {
-			e.preventDefault();
-			
-			//null after trim return
+		form.addEventListener('submit', async (submitEvent) => {
+			submitEvent.preventDefault();
+
 			const val = input.value.trim()
-			if(!val) return;
-
-			//Export command
-			if(val === '/export'){
-				const GUID = localStorage.getItem('ratGUID');
-				if(!GUID){
-					systemMessage("couldn't find local ID.", 'e-li');
-					input.value = '';
-					return;
-				}
-				systemMessage(`Your GUID is: ${GUID}`, 'i-li')
-				systemMessage(`don't share it, save it! you can use this with /import to reload your identity if necessary.`, 'i-li')
-				input.value = '';
+			if(!val){
 				return;
 			}
 
-			//Clear command
-			if(val === '/clear' || val === '/clr'){
-				messages.replaceChildren();
-				input.value = '';
-				return;
-			}
+			if(val.startsWith('/')){
+				const args = val.slice(1).trim().split(/ +/);
+				const commandName = args.shift()?.toLowerCase() || '';
+				const fullArgs = args.join(' ');
 
-			//Background command
-			if(val === '/background' || val === '/bg'){
-				document.getElementById('bg-upload').click();
-				systemMessage("pick a file", 'i-li');
-				input.value = '';
-				return;
-			}
+				switch(commandName){
+					case 'export':{
+						const GUID = localStorage.getItem('ratGUID');
+						if(!GUID){
+							systemMessage("system: couldn't find local ID.", 'e-li');
+							input.value = '';
+							return;
+						}
+						systemMessage(`Your GUID is: ${GUID}`, 'i-li')
+						systemMessage(`don't share it, save it! you can use this with /import to reload your identity if necessary.`, 'i-li')
+						input.value = '';
+						return;
+					}
+					case 'clear':
+					case 'clr':{
+						messages.replaceChildren();
+						input.value = '';
+						return;
+					}
+					case 'background':
+					case 'bg':{
+						document.getElementById('bg-upload').click();
+						systemMessage("pick a file", 'i-li');
+						input.value = '';
+						return;
+					}
+					case 'bgreset':{
+						if(localStorage.getItem('ratBG')){
+							localStorage.removeItem('ratBG');
+							document.getElementById('messages-container').style.backgroundImage = '';
+							document.getElementById('messages-container').classList.remove('has-bg');
+							systemMessage("background reset", 'i-li');
+							input.value = '';
+							return;
+						}
+						else{
+							systemMessage('system: no background to reset', 'e-li');
+							return;
+						}
+					}
+					case 'dark':{
+						if(document.documentElement.hasAttribute('data-theme')){
+							document.documentElement.removeAttribute('data-theme');
+							localStorage.setItem('ratMode', 'light');
+							systemMessage("system: think fast chucklenuts", 'i-li');
+						} else {
+							document.documentElement.setAttribute('data-theme', 'dark');
+							localStorage.setItem('ratMode', 'dark');
+							systemMessage("system: bravo 6, going dark", 'i-li');
+						}
+						input.value = '';
+						return;
+					}
+					case 'mute':
+					case 'm':{
+						if (eventList.length === 0) {
+							systemMessage('fetching event list...', 'i-li');
 
-			if(val === '/bgreset'){
-				if(localStorage.getItem('ratBG')){
-					localStorage.removeItem('ratBG');
-					document.getElementById('messages-container').style.backgroundImage = '';
-					document.getElementById('messages-container').classList.remove('has-bg');
-					systemMessage("background reset", 'i-li');
-					input.value = '';
-					return;
+							const received = await Promise.race([
+								new Promise(resolve => socket.emit('requesteventlist', resolve)),
+								new Promise(resolve => setTimeout(resolve, 3000))
+							]);
+
+							if (eventList.length === 0) {
+								systemMessage('system: could not fetch event list, try again later', 'e-li');
+								return;
+							}
+						}
+						if(!fullArgs || fullArgs.trim().length === 0){
+							systemMessage('system: no mute target provided', 'e-li')
+							return;
+						}
+						else if(fullArgs.includes(' ')){
+							systemMessage('system: mute target cannot contain spaces', 'e-li');
+							return;
+						}
+						else if(fullArgs === 'system'){
+							systemMessage("system: nice try, but you can't mute ME!", 'e-li')
+							input.value = '';
+							return;
+						}
+						else if(fullArgs === 'list'){
+							systemMessage(`users muted: ${mutedUsers}`, 'i-li');
+							systemMessage(`events muted: ${mutedEvents}`, 'i-li');
+							input.value = '';
+							return;
+						}
+						else if(eventList.includes(fullArgs)){
+							if(mutedEvents.includes(fullArgs)){
+								systemMessage(`${fullArgs} event is already muted, did you mean to /unmute?`, 'i-li');
+								return;
+							}
+							else{
+								mutedEvents.push(fullArgs);
+								localStorage.setItem('ratMutedEvents', JSON.stringify(mutedEvents));
+								systemMessage(`muted event: ${fullArgs}`, 'i-li');
+								input.value = '';
+								return;
+							}
+						}
+						else{
+							if(mutedUsers.includes(fullArgs)){
+								systemMessage(`${fullArgs} is already muted, did you mean to /unmute?`, 'i-li');
+								return;
+							}
+							else{
+								mutedUsers.push(fullArgs);
+								localStorage.setItem('ratMutedUsers', JSON.stringify(mutedUsers));
+								systemMessage(`muted user: ${fullArgs}`, 'i-li');
+								input.value = '';
+								return;
+							}
+						}
+					}
+					case 'unmute':{
+						if (eventList.length === 0) {
+							systemMessage('fetching event list...', 'i-li');
+
+							const received = await Promise.race([
+								new Promise(resolve => socket.emit('requesteventlist', resolve)),
+								new Promise(resolve => setTimeout(resolve, 3000))
+							]);
+
+							if (eventList.length === 0) {
+								systemMessage('system: could not fetch event list, try again later', 'e-li');
+								return;
+							}
+						}
+						if(!fullArgs || fullArgs.trim().length === 0){
+							systemMessage('system: no unmute target provided', 'e-li')
+							return;
+						}
+						else if(fullArgs.includes(' ')){
+							systemMessage('system: unmute target cannot contain spaces', 'e-li');
+							return;
+						}
+						else if(fullArgs === 'system'){
+							systemMessage("system: wow, thanks. it was getting really stuffy in that data center.", 'i-li')
+							input.value = '';
+							return;
+						}
+						else if(fullArgs === 'list'){
+							systemMessage(`users muted: ${mutedUsers}`, 'i-li');
+							systemMessage(`events muted: ${mutedEvents}`, 'i-li');
+							return;
+						}
+						else if(eventList.includes(fullArgs)){
+							if(!mutedEvents.includes(fullArgs)){
+								systemMessage(`${fullArgs} event is not muted`, 'i-li');
+								return;
+							}
+							else{
+								mutedEvents.splice(mutedEvents.indexOf(fullArgs), 1);
+								localStorage.setItem('ratMutedEvents', JSON.stringify(mutedEvents));
+								systemMessage(`unmuted event: ${fullArgs}`, 'i-li');
+								input.value = '';
+								return;
+							}
+						}
+						else{
+							if(!mutedUsers.includes(fullArgs)){
+								systemMessage(`${fullArgs} is not muted`, 'i-li');
+								return;
+							}
+							else{
+								mutedUsers.splice(mutedUsers.indexOf(fullArgs), 1);
+								localStorage.setItem('ratMutedUsers', JSON.stringify(mutedUsers));
+								systemMessage(`unmuted user: ${fullArgs}`, 'i-li');
+								input.value = '';
+								return;
+							}
+						}
+					}
+					default:{
+						socket.emit('toServerChat', val, (clearInput) => {
+							if(clearInput){
+								input.value = '';
+							}
+						});
+						return;
+					}
 				}
-				else{
-					systemMessage('no background to reset', 'e-li');
-					return;
-				}
 			}
-
-			//dark mode
-			if(val === '/dark'){
-				if(document.documentElement.hasAttribute('data-theme')){
-					document.documentElement.removeAttribute('data-theme');
-					localStorage.setItem('ratMode', 'light');
-					systemMessage("think fast chucklenuts", 'i-li');
-				} else {
-					document.documentElement.setAttribute('data-theme', 'dark');
-					localStorage.setItem('ratMode', 'dark');
-					systemMessage("bravo 6, going dark", 'i-li');
-				}
-				input.value = '';
-				return;
-			}
-
 			//Send message
 			socket.emit('toServerChat', val, (clearInput) => {
 				if(clearInput){
 					input.value = '';
 				}
 			});
+
+			return;
 		});
 
 		//FUNCTIONS//
+		function systemMessage(string, className){
+			const li = document.createElement('li');
+			li.classList.add(className);
+			li.textContent = string;
+			renderMessage(li);
+		}
 
-		function renderMessage(msg){
-			//deduper
+		function handleMessage(msg){
 			if(msg.id >= 0){
 				const dupe = document.querySelector(`li[data-id="${msg.id}"]`);
 				if(dupe && dupe.dataset.timestamp === String(msg.timestamp)){
 					return;
 				}
 			}
-			
-			const item = document.createElement('li');
-			const msgContainer = document.getElementById('messages-wrapper');
 
-			//message type classification
 			const className = toClass[msg.type];
-			if(className){
-				item.classList.add(className);
+			const li = buildMessage(msg, className);
+
+			if(msg.author && mutedUsers.includes(msg.author.substring(7))){
+				renderMessage(hideMessage(li, `[a muted user said something. click to reveal]`, '[MUTED]', msg.id, msg.timestamp));
+				return;
 			}
 
-			//Date constructor
+			renderMessage(li);
+		}
+
+		function buildMessage(msg, className){
+			const li = document.createElement('li');
+			const contentSpan = document.createElement('span');
+			let raw = msg.content;
+
+			if (className) {
+				li.classList.add(className);
+			}
+
 			if(msg.id >=0){
 				const date = new Date(msg.timestamp);
 				const dateStr = date.toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'});
 				const timeSpan = document.createElement('span');
 					timeSpan.textContent = dateStr;
 					timeSpan.style = "color:grey; font-size:small; margin-right:0.5rem"
-				item.appendChild(timeSpan);
+				li.appendChild(timeSpan);
 			}
 
-			//Nickname constructor and styling
-			if(msg.id >=0 && msg.author){
+			if(msg.id >= 0 && msg.author){
+				const userColor = msg.author.substring(0, 7);
 				const userName = msg.author.substring(7);
-				const userColor = msg.author.substring(0,7);
 				const nameSpan = document.createElement('span');
-				nameSpan.className = "user-name";
-					nameSpan.style.setProperty('--user-color', userColor);
-					nameSpan.textContent = userName + ": ";
-				item.appendChild(nameSpan)
-			
+				nameSpan.className = 'user-name';
+				nameSpan.style.setProperty('--user-color', userColor);
+				nameSpan.textContent = userName + ': ';
+				li.appendChild(nameSpan);
 
-				//set hover msg ID and data ID
 				if(msg.type === 'toClientMarkov'){
 					const parts = msg.content.split('|');
 					const gen = parts[0];
 					const seed = parts[1];
-					if(seed){
-						item.setAttribute('title', `Msg ID: ${msg.id} by: ${gen} with seed: ${seed}`);
-						item.setAttribute('data-id', msg.id);
-						item.setAttribute('data-timestamp', msg.timestamp);
-					}
-					else{
-						item.setAttribute('title', `Msg ID: ${msg.id} by: ${gen}`);
-						item.setAttribute('data-id', msg.id);
-						item.setAttribute('data-timestamp', msg.timestamp);
-					}
-				}
+					li.setAttribute('title', seed ? `Msg ID: ${msg.id} by: ${gen} with seed: ${seed}` : `Msg ID: ${msg.id} by: ${gen}`);
+				} 
 				else{
-					item.setAttribute('title', `Msg ID: ${msg.id}`);
-					item.setAttribute('data-id', msg.id);
-					item.setAttribute('data-timestamp', msg.timestamp);
+					li.setAttribute('title', `Msg ID: ${msg.id}`);
 				}
+
+				li.setAttribute('data-id', msg.id);
+				li.setAttribute('data-timestamp', msg.timestamp);
 			}
-
-			//Message content
-			const contentSpan = document.createElement('span')
-
-			let raw = msg.content;
 
 			if(msg.type === 'toClientMarkov'){
 				const parts = msg.content.split('|');
 				raw = parts.slice(2).join('|');
 			}
 
-			if(window.DOMPurify && msg.id >=0){
+			if(window.DOMPurify && msg.id >= 0){
 				const emoted = emotify(raw);
 				contentSpan.innerHTML = DOMPurify.sanitize(emoted);
 			}
 			else{
 				contentSpan.textContent = raw;
 			}
-			
-			item.appendChild(contentSpan);
 
-			//finalize
+			li.appendChild(contentSpan);
+
+			return li;
+		}
+
+		function hideMessage(li, placeholderText, helperText, id, timestamp){
+			const wrapper = document.createElement('li');
+			let revealed = false;
+			li.title += ' — click to hide';
+
+			const helperSpan = document.createElement('span');
+			helperSpan.textContent = helperText;
+			helperSpan.style.cssText = 'color:grey; font-size:small; margin-right:0.5rem';
+			li.prepend(helperSpan);
+
+			wrapper.classList.add('i-li', 'hidden-message');
+			wrapper.textContent = placeholderText;
+			wrapper.setAttribute('data-id', id);
+			wrapper.setAttribute('data-timestamp', timestamp);
+			wrapper.title = `Msg ID: ${id} — click to reveal`;
+			wrapper.addEventListener('click', () => {
+				if(!revealed){
+					wrapper.classList.remove('i-li');
+					wrapper.classList.add('revealed-message');
+					wrapper.replaceChildren(li);
+					revealed = true;
+				}
+				else{
+					wrapper.classList.add('i-li');
+					wrapper.classList.remove('revealed-message');
+					wrapper.textContent = placeholderText;
+					wrapper.title = `Msg ID: ${id} — click to reveal`;
+					revealed = false;
+				}
+			});
+
+			return wrapper;
+		}
+
+		function renderMessage(li){
+			const msgContainer = document.getElementById('messages-wrapper');
 			const isAtBottom = msgContainer.scrollHeight - msgContainer.clientHeight <= msgContainer.scrollTop + 20;
-			messages.appendChild(item);
+			messages.appendChild(li);
 			if(messages.children.length > 255){
 				messages.firstChild.remove();
 			}
@@ -1033,20 +1226,6 @@
 		}
 
 		//Helper function for non user messages
-		function systemMessage(msg, className){
-			const item = document.createElement('li');
-			const msgContainer = document.getElementById('messages-wrapper');
-			item.classList.add(className);
-			item.textContent = msg;
-			const isAtBottom = msgContainer.scrollHeight - msgContainer.clientHeight <= msgContainer.scrollTop + 20;
-			messages.appendChild(item);
-			if(messages.children.length > 255){
-				messages.firstChild.remove();
-			}
-			if(isAtBottom){
-				msgContainer.scrollTop = msgContainer.scrollHeight;
-			}
-		}
 
 		function emotify(text){
 			return text.split(' ').map(word => {

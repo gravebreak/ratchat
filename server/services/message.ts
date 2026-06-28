@@ -1,21 +1,24 @@
 import { Server } from 'socket.io';
 import type { RedisClientType } from 'redis';
 
-import { mType } from '../../shared/schema';
-import type { MessageType, UserSum, Identity, ChatMessage } from '../../shared/schema';
+import { mType, eType } from '../../shared/schema';
+import type { MessageType, UserSum, Identity, ChatMessage, GameEvent, GameEventType } from '../../shared/schema';
 
 import { getDisplayNick } from '../utils/format';
 
 type Target = { emit: Server['emit'] };
 type TextPayload = typeof mType.chat | typeof mType.ann | typeof mType.error | typeof mType.info | typeof mType.welcome | typeof mType.markov;
 type EmotePayload = Record<string, string>;
+type EventPayload = GameEventType[];
 type ChatHistory = Map<number, ChatMessage>;
 type MessagePayloadMap = {
-	[T in MessageType]: 
+	[T in MessageType]:
+		T extends typeof mType.game ? GameEvent :
 		T extends typeof mType.identity ? Identity :
 		T extends typeof mType.ulist ? UserSum[] :
+		T extends typeof mType.elist ? EventPayload :
+		T extends typeof mType.emotelist ? EmotePayload :
 		T extends typeof mType.delmsg ? number[] :
-		T extends typeof mType.emote ? EmotePayload :
 		ChatMessage;
 };
 
@@ -48,6 +51,12 @@ export class MessageService{
 		}
 	}
 
+	public sendChatHistory(to: Target){
+		for (const [, msg] of this.chatHistory){
+			this.sendPayload(to, mType.chat, msg);
+		}
+	}
+
 	public sendSystemChat(to: Target, type: TextPayload, text: string){
 		this.sendPayload(to, type, this.createMessage(true,'system',text, type));
 	}
@@ -57,10 +66,13 @@ export class MessageService{
 		this.sendPayload(to, mType.markov, this.createMessage(false,markov, payload, mType.markov))
 	}
 
-	public sendChatHistory(to: Target){
-		for (const [, msg] of this.chatHistory){
-			this.sendPayload(to, mType.chat, msg);
-		}
+	public sendGameEvent(to: Target, content: string, event: GameEventType){
+		const payload: GameEvent = {
+			content: content,
+			timestamp: Date.now(),
+			event: event
+		};
+		this.sendPayload(to, mType.game, payload);
 	}
 
 	public sendIdentity(to: Target, identity: Identity){
@@ -68,11 +80,15 @@ export class MessageService{
 	}
 
 	public sendEmoteList(to: Target, emotes: EmotePayload){
-		this.sendPayload(to, mType.emote, emotes);
+		this.sendPayload(to, mType.emotelist, emotes);
 	}
 
 	public sendUserList(to: Target, users: UserSum[]){
 		this.sendPayload(to, mType.ulist, users);
+	}
+
+	public sendEventList(to: Target){
+		this.sendPayload(to, mType.elist, Object.values(eType));
 	}
 	
 	public deleteMessage(io: Server, msgArray: number[]): number[] {
@@ -164,7 +180,6 @@ export class MessageService{
 	public startExpireMessageTimer(msgArrayTimeout: number){
 		this.expireMessageTimer(msgArrayTimeout);
 	}
-
 
 	private sendPayload<T extends MessageType>(to: Target, metype: T, msg: MessagePayloadMap[T]){
 		to.emit(metype, msg);

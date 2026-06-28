@@ -32,11 +32,17 @@ export const mType = {
 	game: "toClientGame",
 	identity: "identity",
 	ulist: "userlist",
-	schat: "toServerChat",
+	elist: "eventlist",
+	emotelist: "emotelist",
 	delmsg: "deleteMsg",
-	emote: "emote",
 } as const;
 export type MessageType = typeof mType[keyof typeof mType];
+
+export const sType = {
+	schat: "toServerChat",
+	elist: "requesteventlist"
+} as const;
+export type ServerRequest = typeof sType[keyof typeof sType];
 
 export const tType = {
 	chat: "chat",
@@ -73,7 +79,6 @@ export interface ChatMessage {
 }
 
 export interface GameEvent{
-	id: string;
 	content: string;
 	timestamp: number;
 	event: GameEventType;

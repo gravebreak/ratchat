@@ -145,7 +145,7 @@ async function main(){
 		nickFilterPath: nickFilterPath,
 		profFilterPath: profFilterPath,
 		clientCommands: ['export', 'clear', 'clr', 'background', 'bg', 'bgreset', 'dark', 'mute'],
-		clientSubCommands: ['info', 'ip', 'list', ...Object.values(eType)]
+		clientSubCommands: ['info', 'ip', 'list', 'all', ...Object.values(eType)]
 	});
 
 	const gameIdentityService = new GameIdentityService({
@@ -238,6 +238,7 @@ async function main(){
 			messageService.sendEmoteList(socket, emotePayload);
 		}
 		messageService.sendChatHistory(socket);
+		messageService.sendEventList(socket);
 
 		if(!inGrace){
 			messageService.sendSystemChat(socket, mType.welcome, `${welcomeMsg}`)
@@ -385,6 +386,11 @@ async function main(){
 				callback(keepInput);
 				return;
 			}
+		});
+
+		socket.on('requesteventlist', (callback) => {
+			messageService.sendEventList(socket);
+			callback();
 		});
 
 		//Disconnect flow
