@@ -9,12 +9,18 @@ export const IdentitySchema = z.object({
 	lastChanged: z.coerce.date(),
 	isMod: z.boolean(),
 	isAfk: z.boolean(),
-	miniMute: z.boolean(),
-	miniPoints: z.number()
 });
 export type Identity = z.infer<typeof IdentitySchema>;
 export type DefaultIdentity = Omit<Identity, "guid" | "nick">
 export type UserSum = Pick<Identity, "nick" | "status" | "isMod" | "isAfk"> 
+
+export const GameIdentitySchema = z.object({
+	guid: z.string(),
+	gamePoints: z.number(),
+	lastGame: z.coerce.date()
+});
+export type GameIdentity = z.infer<typeof GameIdentitySchema>;
+export type DefaultGameIdentity = Omit<GameIdentity, "guid">;
 
 export const mType = {
 	chat: "toClientChat",
@@ -23,6 +29,7 @@ export const mType = {
 	ann: "toClientAnnouncement",
 	welcome: "toClientWelcome",
 	markov: "toClientMarkov",
+	game: "toClientGame",
 	identity: "identity",
 	ulist: "userlist",
 	schat: "toServerChat",
@@ -35,6 +42,7 @@ export const tType = {
 	chat: "chat",
 	nick: "nick",
 	joinleave: "joinleave",
+	game: "game",
 	other:"other"
 } as  const;
 export type TimeType = typeof tType[keyof typeof tType];
@@ -47,12 +55,28 @@ export const xType = {
 } as const;
 export type TextType = typeof xType[keyof typeof xType];
 
+export const eType = {
+	duel: "duel",
+	fishing: "fishing",
+	horse: "horse",
+	blackjack: "blackjack",
+	leaderboard: "leaderboard"
+} as const;
+export type GameEventType = typeof eType[keyof typeof eType];
+
 export interface ChatMessage {
 	id: number;
 	author: Identity['nick'];
 	content: string;
 	timestamp: number;
 	type: MessageType;
+}
+
+export interface GameEvent{
+	id: string;
+	content: string;
+	timestamp: number;
+	event: GameEventType;
 }
 
 export interface Command {
@@ -119,11 +143,11 @@ export const defaultMarkovConfig: MarkovConfig = {
 	timer: 300
 }
 
-export const MiniConfigSchema = z.object({
+export const GameConfigSchema = z.object({
 	enabled: z.boolean(),
-	pointDefault: z.number(),
-	pointMax: z.number(),
+	pointStartAmt: z.number(),
 	pointName: z.string(),
+	gameSlow: z.number(),
 	horseRacing: z.boolean(),
 	raceFrequency: z.number(),
 	dueling: z.boolean(),
@@ -131,12 +155,12 @@ export const MiniConfigSchema = z.object({
 	blackjack: z.boolean(),
 	fishing: z.boolean()
 });
-export type MiniConfig = z.infer<typeof MiniConfigSchema>;
-export const defaultMiniConfig: MiniConfig ={
+export type GameConfig = z.infer<typeof GameConfigSchema>;
+export const defaultGameConfig: GameConfig ={
 	enabled: false,
-	pointDefault: 100,
-	pointMax: 4000000000,
+	pointStartAmt: 100,
 	pointName: 'points',
+	gameSlow: 30,
 	horseRacing: false,
 	raceFrequency: 900,
 	dueling: false,
@@ -145,5 +169,5 @@ export const defaultMiniConfig: MiniConfig ={
 	fishing: false
 }
 
-export type ConfigSchema = typeof ServerConfigSchema | typeof MarkovConfigSchema | typeof MiniConfigSchema;
-export type Config = ServerConfig | MarkovConfig | MiniConfig;
+export type ConfigSchema = typeof ServerConfigSchema | typeof MarkovConfigSchema | typeof GameConfigSchema;
+export type Config = ServerConfig | MarkovConfig | GameConfig;

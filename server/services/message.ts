@@ -21,6 +21,7 @@ type MessagePayloadMap = {
 
 const REDIS_HISTORY_KEY = 'ratchat:chatHistory';
 const REDIS_COUNTER_KEY = 'ratchat:messageCounter';
+const MAX_INT = 4294967295;
 
 export interface MessageServiceDependencies {
 	redisClient: RedisClientType | null;
@@ -133,7 +134,7 @@ export class MessageService{
 			const counterLoad = await this.deps.redisClient.get(REDIS_COUNTER_KEY);
 			if(counterLoad){
 				const parsedLoad = parseInt(counterLoad, 10);
-				if(!isNaN(parsedLoad) && parsedLoad >= 0 && parsedLoad <= 4294967295){
+				if(!isNaN(parsedLoad) && parsedLoad >= 0 && parsedLoad <= MAX_INT){
 					this.messageCounter = parsedLoad;
 					console.log(`Restored message id counter to ${parsedLoad} from Redis`);
 				}
@@ -182,7 +183,7 @@ export class MessageService{
 	}
 
 	private generateMessageId(): number {
-		if(this.messageCounter >= 4294967295 || this.messageCounter < 0){
+		if(this.messageCounter >= MAX_INT || this.messageCounter < 0){
 			this.messageCounter = 0;
 		}
 		const id = this.messageCounter++;

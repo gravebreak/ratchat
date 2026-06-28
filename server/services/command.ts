@@ -9,6 +9,7 @@ import { ModerationService } from './moderation';
 import { IdentityService } from './identity';
 import { SecurityService } from './security';
 import { MarkovService } from './markov';
+import { GameIdentityService } from './games/game-identity';
 
 import { getDisplayNick, getDisplayColor } from '../utils/format';
 import { isValidGUID } from '../utils/input';
@@ -19,6 +20,7 @@ const keepInput: boolean = false;
 export interface CommandServiceDependencies {
 	messageService: MessageService;
 	stateService: StateService;
+	gameIdentityService: GameIdentityService;
 	moderationService: ModerationService;
 	identityService: IdentityService;
 	securityService: SecurityService;
@@ -107,9 +109,16 @@ export class CommandService {
 			];
 
 			if(this.deps.markovService){
-				helpMessages.push(
-					`/markov or /${markovNick} <seed> : generate random markov chain, optionally starting with <seed>.`
-				);
+				if(this.commands[markovNick] === this.commands['markov']){
+					helpMessages.push(
+						`/markov or /${markovNick} <seed> : generate random markov chain, optionally starting with <seed>.`
+					);
+				}
+				else{
+					helpMessages.push(
+						`/markov <seed> : generate random markov chain, optionally starting with <seed>.`
+					);
+				}
 			}
 
 			helpMessages.push(
@@ -344,6 +353,8 @@ export class CommandService {
 						'lastMessage	|	Timestamp of last message sent for timeout enforcement and nickname cleanup',
 						'isAfk			|	AFK flag for user listing set by /afk command',
 						`chatHistory	|	Up to ${config.msgArrayLen} messages are temporarily cached for session contintunity and automatically expire after ${config.msgArrayTimeout} seconds.`,
+						'gamePoints		|	A number representing the minigame points earned',
+						'lastGame		|	Timestamp of when the last time locked minigame was played to prevent spam',
 						'---------------------------------------------------------------------------------------------',
 						'We store the following information locally:',
 						'ratGUID		|	a local copy of the GUID for message construction',
@@ -392,8 +403,11 @@ export class CommandService {
 						this.deps.messageService.sendSystemChat(ctx.socket, mType.error, "system: no server stored data");
 						return clearInput;
 					}
+					const user = this.deps.identityService.getUser(ctx.commandUser.guid);
+					const gameUser = this.deps.gameIdentityService.getGameUser(ctx.commandUser.guid);
 
-					this.deps.messageService.sendSystemChat(ctx.socket, mType.info, `Server stored info: ${JSON.stringify(ctx.commandUser, null, 4)}`);
+					this.deps.messageService.sendSystemChat(ctx.socket, mType.info, `Server stored user info: ${JSON.stringify(user, null, 4)}`);
+					this.deps.messageService.sendSystemChat(ctx.socket, mType.info, `Server stored game info: ${JSON.stringify(gameUser, null, 4)}`);
 					return clearInput;
 
 				case 'delete':
@@ -726,6 +740,8 @@ export class CommandService {
 			try{
 				const size = this.deps.identityService.reloadUsers();
 				this.deps.messageService.sendSystemChat(ctx.socket, mType.info, `${size} users reloaded`);
+				const gameSize = this.deps.gameIdentityService.reloadGameUsers();
+				this.deps.messageService.sendSystemChat(ctx.socket, mType.info, `${gameSize} game users reloaded`)
 				return clearInput;
 			} 
 			catch(error: unknown){

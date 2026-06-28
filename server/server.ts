@@ -12,12 +12,14 @@ import type { Identity } from '../shared/schema';
 import { MessageService } from './services/message';
 import { StateService } from './services/state';
 import { ModerationService } from './services/moderation';
+import { GameIdentityService } from './services/games/game-identity';
 import { IdentityService } from './services/identity';
 import { SecurityService } from './services/security';
 import { CommandService } from './services/command';
 import { MarkovService } from './services/markov';
 
 import { getDisplayNick } from './utils/format';
+
 
 main().catch(error => {
 	console.error('Fatal error:', error);
@@ -36,11 +38,12 @@ async function main(){
 	const usersPath = join(__dirname, 'data', 'users.json');
 	const serverConfigPath = join(__dirname, 'config.json');
 	const markovConfigPath = join(__dirname, 'markov.json');
-	const miniConfigPath = join(__dirname, 'minigames.json');
+	const gameConfigPath = join(__dirname, 'gamegames.json');
 	const nickFilterPath = join(__dirname, 'nickfilter.json');
 	const profFilterPath = join(__dirname, 'profanityfilter.json');
 	const bansPath = join(__dirname, 'data', 'bans.json');
 	const brainPath = join(__dirname, 'data', 'brain.db');
+	const gameUsersPath = join(__dirname, 'data', 'game-users.json');
 	const REDIS_TTL = 604800;
 	let redisClient: RedisClientType | null = null;
 	const gracePeriod = 3000;
@@ -93,7 +96,7 @@ async function main(){
 
 		serverConfigPath: serverConfigPath,
 		markovConfigPath: markovConfigPath,
-		miniConfigPath: miniConfigPath,
+		gameConfigPath: gameConfigPath,
 		redisClient: redisClient,
 		redisTTL: REDIS_TTL,
 		io: io
@@ -143,9 +146,16 @@ async function main(){
 		profFilterPath: profFilterPath
 	});
 
+	const gameIdentityService = new GameIdentityService({
+		stateService: stateService,
+
+		gameUsersPath: gameUsersPath
+	})
+
 	const identityService = new IdentityService({
 		moderationService: moderationService,
 		stateService: stateService,
+		gameIdentityService: gameIdentityService,
 		
 		usersPath: usersPath
 	});
@@ -176,6 +186,7 @@ async function main(){
 		messageService: messageService,
 		stateService: stateService,
 		moderationService: moderationService,
+		gameIdentityService: gameIdentityService,
 		identityService: identityService,
 		securityService: securityService,
 		markovService: markovService,

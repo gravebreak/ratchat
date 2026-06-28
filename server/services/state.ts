@@ -4,8 +4,8 @@ import type { RedisClientType } from "redis";
 
 import type { Socket, Server } from "socket.io";
 
-import { defaultServerConfig, defaultMarkovConfig, mType, defaultMiniConfig, ServerConfigSchema, MarkovConfigSchema, MiniConfigSchema } from '../../shared/schema';
-import type { ServerConfig, Identity, UserSum, MarkovConfig, MiniConfig } from "../../shared/schema";
+import { defaultServerConfig, defaultMarkovConfig, mType, defaultGameConfig, ServerConfigSchema, MarkovConfigSchema, GameConfigSchema } from '../../shared/schema';
+import type { ServerConfig, Identity, UserSum, MarkovConfig, GameConfig } from "../../shared/schema";
 
 import { MessageService } from "./message";
 import type { SafeString } from "./moderation";
@@ -31,7 +31,7 @@ export interface StateServiceDependencies{
 	
 	serverConfigPath: string;
 	markovConfigPath: string;
-	miniConfigPath: string;
+	gameConfigPath: string;
 	redisClient: RedisClientType | null;
 	redisTTL: number;
 	io: Server;
@@ -47,7 +47,7 @@ export class StateService {
 
 	private serverConfig: ServerConfig = {...defaultServerConfig};
 	private markovConfig: MarkovConfig = {...defaultMarkovConfig};
-	private miniConfig: MiniConfig = {...defaultMiniConfig};
+	private gameConfig: GameConfig = {...defaultGameConfig};
 
 	private announcement: string = "";
 
@@ -64,7 +64,7 @@ export class StateService {
 	
 		this.loadServerConfig();
 		this.loadMarkovConfig();
-		this.loadMiniConfig();
+		this.loadGameConfig();
 		this.afkTimer();
 		this.deps.messageService.startExpireMessageTimer(this.serverConfig.msgArrayTimeout);
 	}
@@ -77,8 +77,8 @@ export class StateService {
 		return this.markovConfig;
 	}
 
-	public getMiniConfig(): MiniConfig{
-		return this.miniConfig;
+	public getGameConfig(): GameConfig{
+		return this.gameConfig;
 	}
 
 	public getAnnouncement(): string{
@@ -459,8 +459,6 @@ export class StateService {
 			lastChanged: new Date(0),
 			isMod: false,
 			isAfk: false,
-			miniMute: true,
-			miniPoints: 0
 			}
 		}
 		else{
@@ -468,10 +466,10 @@ export class StateService {
 		}		
 	}
 
-	private loadMiniConfig(){
-		if(!existsSync(this.deps.miniConfigPath)){
-			writeFileSync(this.deps.miniConfigPath, JSON.stringify(defaultMiniConfig, null, 4))
-			Object.assign(this.miniConfig, defaultMiniConfig);
+	private loadGameConfig(){
+		if(!existsSync(this.deps.gameConfigPath)){
+			writeFileSync(this.deps.gameConfigPath, JSON.stringify(defaultGameConfig, null, 4))
+			Object.assign(this.gameConfig, defaultGameConfig);
 			console.log("created default minigames.json file")
 			return;
 		}
@@ -479,11 +477,11 @@ export class StateService {
 		let loadedCfg: unknown = {};
 
 		try{
-			loadedCfg = JSON.parse(readFileSync(this.deps.miniConfigPath, 'utf-8'));
+			loadedCfg = JSON.parse(readFileSync(this.deps.gameConfigPath, 'utf-8'));
 		}
  		catch(error: unknown){
 			if(error instanceof Error){
-				console.error(`mini config load error: ${error.message}`);
+				console.error(`game config load error: ${error.message}`);
 			} 
 			else{
 				console.error("Unexpected non-error thrown:", error);
@@ -491,18 +489,18 @@ export class StateService {
 		}
 
 		try{
-			this.miniConfig = mergeDefaults(loadedCfg, defaultMiniConfig, MiniConfigSchema);
+			this.gameConfig = mergeDefaults(loadedCfg, defaultGameConfig, GameConfigSchema);
 		}
 		catch(error: unknown){
 			if(error instanceof Error){
-				console.error(`mini config merge error: ${error.message}`);
+				console.error(`game config merge error: ${error.message}`);
 			} 
 			else{
 				console.error("Unexpected non-error thrown:", error);
 			}
 		}
-		Object.freeze(this.miniConfig);
-		console.log('LOADED MINI CONFIG: ', this.miniConfig);
+		Object.freeze(this.gameConfig);
+		console.log('LOADED GAME CONFIG: ', this.gameConfig);
 	}
 
 	private afkTimer(){

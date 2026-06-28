@@ -1,11 +1,12 @@
 import type { z } from "zod";
 
-import { IdentitySchema, ServerConfigSchema, MarkovConfigSchema, MiniConfigSchema } from "../../shared/schema";
-import type { Config, ConfigSchema, DefaultIdentity, Identity } from "../../shared/schema";
+import { IdentitySchema, ServerConfigSchema, MarkovConfigSchema, GameConfigSchema } from "../../shared/schema";
+import { Config, ConfigSchema, DefaultGameIdentity, DefaultIdentity, GameIdentity, GameIdentitySchema, Identity } from "../../shared/schema";
 
 export function mergeDefaults<T extends Config>(input: unknown, defaults: T, schema: ConfigSchema): T
 export function mergeDefaults(input: unknown, defaults: DefaultIdentity, schema: typeof IdentitySchema): Identity
-export function mergeDefaults(input: unknown, defaults: Config | DefaultIdentity, schema: ConfigSchema | typeof IdentitySchema): Config | Identity {
+export function mergeDefaults(input: unknown, defaults: DefaultGameIdentity, schema: typeof GameIdentitySchema): GameIdentity
+export function mergeDefaults(input: unknown, defaults: Config | DefaultIdentity | DefaultGameIdentity, schema: ConfigSchema | typeof IdentitySchema | typeof GameIdentitySchema): Config | Identity | GameIdentity {
 	const shape = (schema as z.ZodObject<z.ZodRawShape>).shape;
 	const merged: Record<string, unknown> = {};
 
@@ -32,19 +33,22 @@ export function mergeDefaults(input: unknown, defaults: Config | DefaultIdentity
 	}
 }
 
-function validateMerge(input: Record<string, unknown>, schema: ConfigSchema | typeof IdentitySchema): Config | Identity {
+function validateMerge(input: Record<string, unknown>, schema: ConfigSchema | typeof IdentitySchema | typeof GameIdentitySchema): Config | Identity | GameIdentity{
 	if(schema === IdentitySchema){
 		return IdentitySchema.parse(input);
-	} 
+	}
+	else if(schema === GameIdentitySchema){
+		return GameIdentitySchema.parse(input);
+	}
 	else if(schema === ServerConfigSchema){
 		return ServerConfigSchema.parse(input);
 	} 
 	else if(schema === MarkovConfigSchema){
 		return MarkovConfigSchema.parse(input);
 	} 
-	else if(schema === MiniConfigSchema){
-		return MiniConfigSchema.parse(input);
-	} 
+	else if(schema === GameConfigSchema){
+		return GameConfigSchema.parse(input);
+	}
 	else{
 		throw new Error("unknown merge schema");
 	}

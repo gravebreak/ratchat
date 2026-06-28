@@ -157,12 +157,14 @@ export class ModerationService {
 			throw new Error ('ur in timeout rn');
 		}
 		
-		const config = this.deps.stateService.getServerConfig();
+		const serverConfig = this.deps.stateService.getServerConfig();
+		const gameConfig = this.deps.stateService.getGameConfig();
 		const limits: Record<TimeType, number> = {
-			chat: config.slowMode * 1000,
-			nick: config.nickSlow * 1000,
-			joinleave: config.otherSlow * 1000,
-			other: config.otherSlow * 1000
+			chat: serverConfig.slowMode * 1000,
+			nick: serverConfig.nickSlow * 1000,
+			joinleave: serverConfig.otherSlow * 1000,
+			game: gameConfig.gameSlow * 1000,
+			other: serverConfig.otherSlow * 1000,
 		};
 
 		const last = type === "chat" || type === "joinleave" ? lastMessage : lastChanged;

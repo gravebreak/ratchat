@@ -4,11 +4,12 @@ import { dirname } from 'path';
 
 import { v4 as uuidv4 } from 'uuid';
 
-import { IdentitySchema} from '../../shared/schema'
+import { IdentitySchema } from '../../shared/schema'
 import type { DefaultIdentity, Identity } from '../../shared/schema'
 
 import { ModerationService } from './moderation';
 import { StateService } from './state';
+import { GameIdentityService } from './games/game-identity';
 import type { SafeString } from './moderation';
 
 import { mergeDefaults } from '../utils/defaults';
@@ -17,6 +18,7 @@ import { getDisplayNick, getDisplayColor } from '../utils/format';
 export interface IdentityServiceDependencies{
 	moderationService: ModerationService;
 	stateService: StateService;
+	gameIdentityService: GameIdentityService;
 
 	usersPath: string;
 }
@@ -83,10 +85,11 @@ export class IdentityService {
 			guid: newGuid,
 			nick: ('#000000') + nick,
 			...this.buildDefault()
-		}
+		};
 
 		this.users.set(newGuid, newIdentity);
 		this.registeredNicks.set(nick.toLowerCase(), newGuid);
+		this.deps.gameIdentityService.createGameUser(newGuid);
 		this.saveUserQueue();
 		return newIdentity;
 		}
@@ -175,6 +178,7 @@ export class IdentityService {
 		}
 		const cleanNick = getDisplayNick(user.nick);
 		this.registeredNicks.delete(cleanNick.toLowerCase());
+		this.deps.gameIdentityService.deleteGameUser(guid);
 		this.users.delete(guid);
 		this.saveUserQueue();
 	}
@@ -202,8 +206,6 @@ export class IdentityService {
 			lastChanged: new Date(),
 			isMod: false,
 			isAfk: false,
-			miniMute: false,
-			miniPoints: this.deps.stateService.getMiniConfig().pointDefault
 		}
 	}
 
@@ -232,6 +234,20 @@ export class IdentityService {
 
 				const existingNick = getDisplayNick(identity.nick);
 				this.registeredNicks.set(existingNick.toLowerCase(), guid);
+				try{
+					this.deps.gameIdentityService.getGameUser(guid);
+				}
+				catch(error: unknown){
+					if(error instanceof Error){
+						console.warn(`no game identity found for ${guid}, creating`)
+						this.deps.gameIdentityService.createGameUser(guid);
+						continue;
+					} 
+					else{
+						console.error("Unexpected non-error thrown:", error);
+						throw new Error("Unexpected error");
+					}
+				}
 			}
 			this.saveUserQueue();
 			return this.users.size;
