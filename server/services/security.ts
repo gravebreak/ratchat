@@ -70,13 +70,12 @@ export class SecurityService{
 
 		socketIDs.forEach((sid) => {
 			const socket = this.deps.io.sockets.sockets.get(sid);
-			const sentinelId = { guid: 'RESET_IDENTITY' } as Identity;
 			if(socket){
 				try{
 					const banIP = hashIP(socket?.handshake.address);
 					this.bans.set(banIP, new Date());
 
-					this.deps.dispatchService.sendIdentity(socket, sentinelId);
+					this.deps.dispatchService.sendClearLocalData(socket, banUser.guid);
 					this.deps.dispatchService.sendSystemChat(socket, mType.error, 'You have been banned.');
 					this.deps.stateService.deleteSocketUser(this.deps.io, sid);
 					socket.disconnect(true);
