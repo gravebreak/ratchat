@@ -596,7 +596,7 @@
 	<script src="https://cdn.socket.io/4.8.3/socket.io.min.js" crossorigin="anonymous"></script>
 	<script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.2.3/purify.min.js" crossorigin="anonymous"></script>
 	<script>
-		const localGUID = localStorage.getItem('ratGUID');
+		let localGUID = localStorage.getItem('ratGUID');
 		const socket = io({
 			path: "/ratchat/socket.io/",
 			auth: {
@@ -675,13 +675,9 @@
 		socket.on('toClientGame', handleGameEvent);
 
 		socket.on('identity', (identity) => {
-			if(identity && identity.guid === 'RESET_IDENTITY'){
-				console.log('cleared from local storage');
-				localStorage.clear();
-				setTimeout(() =>{systemMessage('reloading...', 'i-li');}, 200);
-				setTimeout(() =>{window.location.reload();}, 2000);
-			} else if(identity && identity.guid){
+			if(identity && identity.guid){
 				localStorage.setItem('ratGUID', identity.guid);
+				localGUID = identity.guid;
 				console.log('identity loaded')
 			} else{
 				console.log('identity load error')
@@ -835,6 +831,17 @@
 					target.replaceWith(fresh);
 				}
 			});
+		});
+
+		socket.on('clearLocalData', (payload) => {
+			if (!payload || payload !== localGUID){
+				return;
+			}
+			localStorage.clear();
+			console.log('Local storage cleared');
+			systemMessage('Your local data has been cleared.', 'i-li');
+			setTimeout(() => { systemMessage('reloading...', 'i-li'); }, 200);
+			setTimeout(() => { window.location.reload(); }, 2000);
 		});
 
 		input.focus();

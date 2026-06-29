@@ -149,7 +149,7 @@ export class MarkovService{
 			}
 			catch(error: unknown){
 				if(error instanceof Error){
-   					if(error.message === "watch your profamity"){
+					if(error.message === "watch your profamity"){
 						this.deps.dispatchService.sendSystemChat(io, mType.ann, `${getDisplayNick(markovUser.nick)} tried to say something naughty`);
 					}
 					else{

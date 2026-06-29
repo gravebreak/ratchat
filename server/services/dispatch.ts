@@ -19,6 +19,7 @@ type MessagePayloadMap = {
 		T extends typeof mType.elist ? EventPayload :
 		T extends typeof mType.emotelist ? EmotePayload :
 		T extends typeof mType.delmsg ? number[] :
+		T extends typeof mType.clrlocal ? string :
 		ChatMessage;
 };
 
@@ -89,6 +90,10 @@ export class DispatchService{
 
 	public sendEventList(to: Target){
 		this.sendPayload(to, mType.elist, Object.values(eType));
+	}
+
+	public sendClearLocalData(to: Target, guid: string){
+		this.sendPayload(to, mType.clrlocal, guid);
 	}
 	
 	public deleteMessage(io: Server, msgArray: number[]): number[] {

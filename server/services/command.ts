@@ -433,27 +433,40 @@ export class CommandService {
 						this.deps.dispatchService.sendSystemChat(ctx.socket, mType.error, "system: no server stored data");
 						return clearInput;
 					}
+					if(ctx.args[1] !== 'confirm'){
+						this.deps.dispatchService.sendSystemChat(ctx.socket, mType.error, "warning: this will permanently delete your account and all server-side data. type '/gdpr delete confirm' to proceed.");
+						return keepInput;
+					}
 
 					try{
 						const targetGuid = ctx.commandUser.guid;
 						const targetNick = ctx.commandUser.nick;
-				
-						// Local deletion ID
-						const sentinelId = { guid: 'RESET_IDENTITY' } as Identity;
-						
+
+						try{
+							this.deps.identityService.deleteUser(targetGuid);
+							this.deps.dispatchService.sendSystemChat(ctx.socket, mType.info, 'Your server side data has been deleted.');
+						}
+						catch(error: unknown){
+							if(error instanceof Error){
+								this.deps.dispatchService.sendSystemChat(ctx.socket, mType.info, 'No server side data found.');
+							} 
+							else{
+								console.error("Unexpected non-error thrown:", error);
+								this.deps.dispatchService.sendSystemChat(ctx.socket, mType.error, `system: unexpected error`);
+								return keepInput;
+							}
+						}
+
 						//iterate through all sockets to find matches
 						const allSockets = ctx.io.sockets.sockets;
 						allSockets.forEach((socket) => {
 							const mappedUser = this.deps.stateService.getSocketUsers().get(socket.id);
 							if(mappedUser && mappedUser.guid === targetGuid){
-								this.deps.dispatchService.sendIdentity(socket, sentinelId);
-								this.deps.stateService.updateSocketUser(ctx.io, socket.id, ctx.commandUser!);
-								this.deps.dispatchService.sendSystemChat(socket, mType.info, 'goodbye is ur data');
+								this.deps.dispatchService.sendClearLocalData(socket, targetGuid);
+								this.deps.stateService.deleteSocketUser(ctx.io, socket.id);
 							}
-
 						});
 
-						this.deps.identityService.deleteUser(targetGuid);
 						this.deps.dispatchService.sendSystemChat(ctx.io, mType.ann, `${getDisplayNick(targetNick)} disconnected`);
 						return clearInput;
 
@@ -468,7 +481,6 @@ export class CommandService {
 						}
 						return keepInput;
 					}
-
 				default:
 					this.deps.dispatchService.sendSystemChat(ctx.socket, mType.error, "system: please use with 'info', 'ip', 'export' or 'delete' after /gdpr");
 					return keepInput;

@@ -35,6 +35,7 @@ export const mType = {
 	elist: "eventlist",
 	emotelist: "emotelist",
 	delmsg: "deleteMsg",
+	clrlocal: "clearLocalData"
 } as const;
 export type MessageType = typeof mType[keyof typeof mType];
 
