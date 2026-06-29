@@ -109,6 +109,7 @@ export const ServerConfigSchema = z.object({
 	msgArrayTimeout: z.number(),
 	stvurl: z.string().optional(),
 	nickres: z.array(z.string()),
+	gdprcontact: z.string(),
 	PORT: z.number()
 });
 export type ServerConfig = z.infer<typeof ServerConfigSchema>;
@@ -127,6 +128,7 @@ export const defaultServerConfig: ServerConfig = {
 	msgArrayTimeout: 86400, 
 	stvurl: undefined,
 	nickres: [],
+	gdprcontact: 'admin@email.here',
 	PORT: 3666,
 }
 

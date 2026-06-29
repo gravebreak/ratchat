@@ -110,7 +110,7 @@ export class CommandService {
 				'/afk <status> : toggle AFK status in the user listing, and sets status if one is provided.',
 				'/status or /me : set your status in the user listing',
 				'/background or /bg : set your background image. use /bgreset to clear',
-				'/gdpr <flag> : <info> for more information, <export> for a copy of your data, and <delete> to wipe your data.',
+				'/gdpr <flag> : <info> or <ip> for more information, <export> for a copy of your data, and <delete> to wipe your data.',
 				//./mute and /m are handled client side
 				'/mute or /m <event> : suppress minigame announcements from a specific <event>. will not retroactively remove event notfications.',
 				'/mute or /m <user> : hide all messages from a <user>. also hides historical messages you may have recieved.',
@@ -378,24 +378,25 @@ export class CommandService {
 						'ratMode		| 	a local indicator if dark mode is enabled for client appearence',
 						'ratMutedUsers	|	a local list of usernames whose messages are hidden by default in the client',
 						'ratMutedEvents	|	a local list of minigame events whose announcements are ignored',
-						'---------------------------------------------------------------------------------------------',
 					];
 					if(this.deps.stateService.getMarkovConfig().learning){
 						infoMsgs.push(
+							'---------------------------------------------------------------------------------------------',
 							'This server uses an optional Markov chain feature that learns from user chat messages.',
 							'Messages are stripped of usernames and fully deconstructed into anonymous word fragments before being saved.',
 							'No identifiable or reconstructable message information is saved. No authors, no timestamps, no messsage history, etc.',
 							'As such, portions of your messages may be used as Markov chain text in an anonymous capacity consistent with Recital 26 of the GDPR.',
-							'---------------------------------------------------------------------------------------------',
 						);
 					}
 
 					infoMsgs.push(
+					'---------------------------------------------------------------------------------------------',
 					'Use /gdpr info to see this message again',
 					'Use /gdpr ip to see specific information on how and why we use IP addresses',
 					'Use /gdpr export to see a copy of your data stored on the server, if any.',
 					'Use /gdpr delete to permanently remove your data from the server. this will prevent you from utilizing the application.',
 					'---------------------------------------------------------------------------------------------',
+					`If you have questions or concerns, please email ${config.gdprcontact}`
 					);
 
 					const formatTable = infoMsgs.join('\n');

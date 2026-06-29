@@ -399,6 +399,9 @@ export class StateService {
 
 		try{
 			this.serverConfig = mergeDefaults(loadedCfg, defaultServerConfig, ServerConfigSchema);
+			if(this.serverConfig.gdprcontact === 'admin@email.here'){
+				console.warn('No GDPR contact info set. If hosting publicly please set gdprcontact in config.json')
+			}
 		}
 		catch(error: unknown){
 			if(error instanceof Error){
