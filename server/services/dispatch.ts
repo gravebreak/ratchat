@@ -5,6 +5,7 @@ import { mType, eType } from '../../shared/schema';
 import type { MessageType, UserSum, Identity, ChatMessage, GameEvent, GameEventType } from '../../shared/schema';
 
 import { getDisplayNick } from '../utils/format';
+import { handleError } from '../utils/errors';
 
 type Target = { emit: Server['emit'] };
 type TextPayload = typeof mType.chat | typeof mType.ann | typeof mType.error | typeof mType.info | typeof mType.welcome | typeof mType.markov;
@@ -64,7 +65,7 @@ export class DispatchService{
 
 	public sendMarkovChat(to: Target, text: string, markov: Identity, user: Identity, seed?: string){
 		const payload = `${getDisplayNick(user.nick)}|${seed}|${text}`;
-		this.sendPayload(to, mType.markov, this.createMessage(false,markov, payload, mType.markov, false))
+		this.sendPayload(to, mType.markov, this.createMessage(false,markov, payload, mType.markov, false));
 	}
 
 	public sendGameEvent(to: Target, content: string, event: GameEventType){
@@ -137,12 +138,7 @@ export class DispatchService{
 			}
 		}
 		catch(error: unknown){
-			if(error instanceof Error){
-				console.warn('Redis chat history load error:', error.message);
-			}
-			else{
-				console.error('Unexpected non-error thrown:', error);
-			}
+			handleError(error, 'Redis Message History Load');
 		}
 	}
 	
@@ -169,12 +165,7 @@ export class DispatchService{
 			}
 		}
 		catch(error: unknown){
-			if(error instanceof Error){
-				console.warn('Redis message id counter load error:', error.message);
-			}
-			else{
-				console.error('Unexpected non-error thrown:', error);
-			}
+			handleError(error, 'Redis Message ID Counter Load')
 		}
 	}
 	
@@ -238,12 +229,7 @@ export class DispatchService{
 			await this.deps.redisClient.set(REDIS_HISTORY_KEY, JSON.stringify([...this.chatHistory.entries()]), { EX: this.deps.redisTTL });
 		} 
 		catch(error: unknown){
-			if(error instanceof Error){
-				console.warn('Redis message history save error:', error.message);
-			} 
-			else{
-				console.error('Unexpected non-error thrown:', error);
-			}
+			handleError(error, 'Redis Message History Save');
 		}
 	}
 
@@ -255,12 +241,7 @@ export class DispatchService{
 			await this.deps.redisClient.set(REDIS_COUNTER_KEY, this.messageCounter.toString(), { EX: this.deps.redisTTL });
 		} 
 		catch(error: unknown){
-			if(error instanceof Error){
-				console.warn('Redis message counter save error:', error.message);
-			} 
-			else{
-				console.error('Unexpected non-error thrown:', error);
-			}
+			handleError(error, 'Redis Message ID Counter Save');
 		}
 	}
 

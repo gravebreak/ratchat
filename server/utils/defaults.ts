@@ -2,6 +2,7 @@ import type { z } from "zod";
 
 import { IdentitySchema, ServerConfigSchema, MarkovConfigSchema, GameConfigSchema } from "../../shared/schema";
 import { Config, ConfigSchema, DefaultGameIdentity, DefaultIdentity, GameIdentity, GameIdentitySchema, Identity } from "../../shared/schema";
+import { AppError } from "./errors";
 
 export function mergeDefaults<T extends Config>(input: unknown, defaults: T, schema: ConfigSchema): T
 export function mergeDefaults(input: unknown, defaults: DefaultIdentity, schema: typeof IdentitySchema): Identity
@@ -18,19 +19,8 @@ export function mergeDefaults(input: unknown, defaults: Config | DefaultIdentity
 		const parsed = fieldSchema.safeParse(val);
 		merged[key] = parsed.success ? parsed.data : def;
 	}
-
-	try{
-		return validateMerge(merged, schema);
-	} 
-	catch(error: unknown){
-		if(error instanceof Error){
-			throw new Error(`mergeDefaults validation failed: ${error.message}`);
-		} 
-		else{
-			console.error("Unexpected non-error thrown:", error);
-			throw new Error("Unexpected error")
-		}
-	}
+	
+	return validateMerge(merged, schema);
 }
 
 function validateMerge(input: Record<string, unknown>, schema: ConfigSchema | typeof IdentitySchema | typeof GameIdentitySchema): Config | Identity | GameIdentity{
@@ -50,6 +40,6 @@ function validateMerge(input: Record<string, unknown>, schema: ConfigSchema | ty
 		return GameConfigSchema.parse(input);
 	}
 	else{
-		throw new Error("unknown merge schema");
+		throw new AppError("Unknown merge schema", 'bug');
 	}
 }

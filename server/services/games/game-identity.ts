@@ -1,13 +1,14 @@
-import { readFileSync, existsSync } from 'fs';
+import { readFileSync, existsSync, mkdirSync, writeFileSync } from 'fs';
 import { mkdir, writeFile } from "fs/promises";
 import { dirname } from 'path';
 
-import { GameIdentitySchema } from '../../../shared/schema'
-import type { DefaultGameIdentity, GameIdentity } from '../../../shared/schema'
+import { GameIdentitySchema } from '../../../shared/schema';
+import type { DefaultGameIdentity, GameIdentity } from '../../../shared/schema';
 
 import { StateService } from '../state';
 
 import { mergeDefaults } from '../../utils/defaults';
+import { AppError, handleError } from '../../utils/errors';
 
 const MAX_INT = 4294967295;
 
@@ -30,24 +31,19 @@ export class GameIdentityService {
 			console.log(`loaded ${count} game users from disk`);
 		}
 		catch(error: unknown){
-			if(error instanceof Error){
-				console.error('WARNING: game user error load:', error.message);
-			} 
-			else{
-				console.error("Unexpected non-error thrown:", error);
-			}
+			handleError(error, 'Load Game Users (Startup)');
 		}
 	}
 
 	public setLastGame(guid: string, gamedate: number): GameIdentity {
 		if(!this.deps.stateService.getGameConfig().enabled){
-			throw new Error('minigames are not enabled');
+			throw new AppError('setLastGame call wih minigames disabled', 'bug');
 		}
 
 		const user = this.gameUsers.get(guid);
 		const newDate = gamedate;
 		if(!user){
-			throw new Error('set last game: no matching game user found to GUID')
+			throw new AppError('set last game: no matching game user found to GUID', 'internal', 'warn');
 		}
 		user.lastGame = new Date(newDate);
 
@@ -57,21 +53,22 @@ export class GameIdentityService {
 
 	public setGamePoints(guid:string, rawnumber: number): GameIdentity{
 		if(!this.deps.stateService.getGameConfig().enabled){
-			throw new Error('minigames are not enabled');
+			throw new AppError('setGamePoints call wih minigames disabled', 'bug');;
 		}
 		
 		const gameId = this.gameUsers.get(guid);
 		const amount = Math.round(rawnumber);
 		if(!gameId){
-			throw new Error('set game points: no matching game user found to GUID')
+			throw new AppError('set game points: no matching game user found to GUID', 'internal', 'warn');
 		}
 		const newPoints = gameId.gamePoints + amount;
 		if(newPoints >= MAX_INT){
 			gameId.gamePoints = MAX_INT;
-			throw new Error('you broke the game, max points gained.')
+			this.saveGameUserQueue();
+			throw new AppError('you won the game, max points gained. use /broke to start again', 'user');
 		}
 		if(newPoints < 0){
-			throw new Error("can't pay more than you have.")
+			throw new AppError("you can't pay more than you have.", 'user');
 		}
 		gameId.gamePoints = newPoints;
 
@@ -81,24 +78,32 @@ export class GameIdentityService {
 
 	public setGamePointsDefault(guid:string): GameIdentity{
 		if(!this.deps.stateService.getGameConfig().enabled){
-			throw new Error('minigames are not enabled');
+			throw new AppError('setGamePointsDefault call wih minigames disabled', 'bug');;
 		}
 
 		const gameId = this.gameUsers.get(guid);
 		if(!gameId){
-			throw new Error('set game points to default: no matching game user found to GUID')
+			throw new AppError('set game points default: no matching game user found to GUID', 'internal', 'warn');
 		}
 		const newPoints = Math.round(this.deps.stateService.getGameConfig().pointStartAmt);
 		gameId.gamePoints = newPoints;
+		this.saveGameUserQueue();
 		return gameId;
+	}
+
+	public existsGameUser(guid: string): boolean{
+		const user = this.gameUsers.get(guid);
+		if(user){
+			return true;
+		}
+		return false;
 	}
 
 	public getGameUser(guid: string): GameIdentity {
 		const user = this.gameUsers.get(guid);
 		if(!user){
-			throw new Error('get game user: no matching game user found to GUID')
+			throw new AppError('get game user: no matching game user found to GUID', 'internal', 'warn');
 		}
-		this.saveGameUserQueue();
 		return user;
 	}
 
@@ -115,7 +120,7 @@ export class GameIdentityService {
 	public deleteGameUser(guid: string){
 		const user = this.gameUsers.get(guid);
 		if(!user){
-			throw new Error('delete game user: no matching game user found to GUID')
+			throw new AppError('delete game user: no matching game user found to GUID', 'internal', 'error');
 		}
 		this.gameUsers.delete(guid);
 		this.saveGameUserQueue();
@@ -127,13 +132,12 @@ export class GameIdentityService {
 			return reload;
 		}
 		catch(error: unknown){
-			if(error instanceof Error){
-				throw error
-			} 
-			else{
-				console.error("Unexpected non-error thrown:", error);
-				throw new Error("Unexpected error");
+			if(error instanceof AppError){
+				throw error;
 			}
+			handleError(error, 'Reload Game Users');
+			
+			throw new AppError(`failed to reload game users: unknown error`, 'user');
 		}
 	}
 
@@ -147,7 +151,11 @@ export class GameIdentityService {
 	private loadGameUsers(): number {
 		try{
 			if(!existsSync(this.deps.gameUsersPath)){
-				throw new Error('no users.json file to load')
+				this.gameUsers = new Map();
+				const dir = dirname(this.deps.gameUsersPath);
+				mkdirSync(dir, {recursive: true});
+				writeFileSync(this.deps.gameUsersPath, '[]');
+				return 0;
 			}
 
 			const data = readFileSync(this.deps.gameUsersPath, 'utf-8');
@@ -170,15 +178,13 @@ export class GameIdentityService {
 			return this.gameUsers.size;
 		} 
 		catch(error: unknown){
-			if(error instanceof Error){
-				throw error
-			} 
-			else{
-				console.error("Unexpected non-error thrown:", error);
-				throw new Error("Unexpected error");
+			if(error instanceof AppError){
+				throw error;
 			}
+			handleError(error, 'Load Game Users');
+			
+			throw new AppError(`failed to load game users: unknown error`, 'user');
 		}
-
 	}
 
 	private saveGameUserQueue(){
@@ -195,12 +201,7 @@ export class GameIdentityService {
 			await writeFile(this.deps.gameUsersPath, data);
 		} 
 		catch(error: unknown){
-			if(error instanceof Error){			
-				console.error('failed to save game user data', `${error.message}`);
-			} 
-			else{
-				console.error("Unexpected non-error thrown:", error);
-			}
+			handleError(error, 'Save Game Users');
 		}
 	}
 }

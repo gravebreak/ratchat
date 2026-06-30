@@ -14,6 +14,7 @@ import { mergeDefaults } from "../utils/defaults";
 import { hashIP } from "../utils/hash";
 import { getDisplayNick } from "../utils/format";
 import { isValid7TVID } from "../utils/input";
+import { handleError, AppError } from "../utils/errors";
 
 interface EmoteEntry {
 	name: string;
@@ -87,7 +88,7 @@ export class StateService {
 
 	public setAnnouncement(io: Server, str: SafeString){
 		if(this.announcement === str){
-			throw Error("that's already the announcement")
+			throw new AppError("that's already the announcement", 'user');
 		}
 
 		this.announcement = str;
@@ -107,30 +108,30 @@ export class StateService {
 
 		const targetID = setID ?? this.serverConfig.stvurl;
 		if(!targetID){
-			throw new Error('no emote url in config')
+			throw new AppError('no emote url in config, please provide one', 'user');
 		}
 				
 		if(!isValid7TVID(targetID)){
-			throw new Error("doesn't look like a 7tv emote set ID")
+			throw new AppError("doesn't look like a 7tv emote set ID", 'user');
 		}
 		
 		try{
 			const response = await fetch(`https://api.7tv.app/v3/emote-sets/${targetID}`);
 			if(!response.ok){ 
-				throw new Error(`7tv returned HTTP ${response.status}`); 
+				throw new AppError(`7tv returned HTTP ${response.status}, try again`, 'user'); 
 			} 
 
 			const data = await response.json();
 			if(!data.emotes || !Array.isArray(data.emotes)){ 
-				throw new Error("invalid 7tv response structure"); 
+				throw new AppError("invalid 7tv response structure", 'internal', 'warn'); 
 			}
 			
-			let size: number = 0
+			let size: number = 0;
 			data.emotes.forEach((emote: EmoteEntry) => {
 				const name = emote.name;
 				const hostUrl = emote.data.host.url; 
 				this.emotes.set(name, `https:${hostUrl}/1x.webp`);
-				size++
+				size++;
 			});
 
 			const emotePayload = Object.fromEntries(this.emotes);
@@ -138,34 +139,33 @@ export class StateService {
 			return size;
 		} 
 		catch(error: unknown){
-			if(error instanceof Error){
-				throw new Error(`failed to fetch emotes: ${error.message}`);
+			if(error instanceof AppError){
+				throw error;
 			}
-			else{
-				console.error("Unexpected non-error thrown:", error);
-				throw new Error("Unknown error")
-			}
+			handleError(error, 'Update Emotes');
+			
+			throw new AppError(`failed to fetch emotes: unknown error`, 'user');
 		}
 	}
 
 	public async removeEmotes(io: Server, setID: string): Promise<number>{
 		if(setID.length < 1){
-			throw new Error('please provide a target emote setID to remove');
+			throw new AppError('please provide a target emote setID to remove', 'user');
 		}
 
 		if(!isValid7TVID(setID)){
-			throw new Error("doesn't look like a 7tv emote url")
+			throw new AppError("doesn't look like a 7tv emote url", 'user');
 		}
 
 		try{
 			const response = await fetch(`https://api.7tv.app/v3/emote-sets/${setID}`);
 			if(!response.ok){ 
-				throw new Error(`7tv returned HTTP ${response.status}`); 
+				throw new AppError(`7tv returned HTTP ${response.status}, try again`, 'user'); 
 			}
 
 			const data = await response.json();
 			if(!data.emotes || !Array.isArray(data.emotes)){ 
-				throw new Error("invalid 7tv response structure"); 
+				throw new AppError("invalid 7tv response structure", 'internal', 'warn'); 
 			}
 
 			let deleteCount: number = 0;
@@ -182,13 +182,12 @@ export class StateService {
 			return deleteCount;
 		} 
 		catch(error: unknown){
-			if(error instanceof Error){
-				throw new Error(`failed to fetch emotes: ${error.message}`);
-			} 
-			else{
-				console.error("Unexpected non-error thrown:", error);
-				throw new Error("Unknown error")
+			if(error instanceof AppError){
+				throw error;
 			}
+			handleError(error, 'Remove Emotes');
+			
+			throw new AppError(`failed to fetch emotes: unknown error`, 'user');
 		}
 	}
 
@@ -217,13 +216,13 @@ export class StateService {
 		const userList: UserSum[] = Array.from(this.socketUsers.values())
 			.map(({ nick, status, isMod, isAfk }) => ({ nick, status, isMod, isAfk }))
 			.sort((a,b) =>{
-			if(a.isAfk !== b.isAfk){
-				return a.isAfk ? 1 : -1;
-			}
-			if(a.isMod !== b.isMod){
-				return a.isMod ? -1 : 1;
-			}
-				return getDisplayNick(a.nick).localeCompare(getDisplayNick(b.nick), 'en', {sensitivity: 'base'});;
+				if(a.isAfk !== b.isAfk){
+					return a.isAfk ? 1 : -1;
+				}
+				if(a.isMod !== b.isMod){
+					return a.isMod ? -1 : 1;
+				}
+					return getDisplayNick(a.nick).localeCompare(getDisplayNick(b.nick), 'en', {sensitivity: 'base'});;
 			});
 		
 		const lurkers = io.sockets.sockets.size - this.socketUsers.size;
@@ -235,7 +234,7 @@ export class StateService {
 				status: this.markovUser.status,
 				isMod: false,
 				isAfk: true,
-				})
+				});
 			}
 			else{
 			userList.push({
@@ -243,7 +242,7 @@ export class StateService {
 				status: this.markovUser.status,
 				isMod: false,
 				isAfk: this.markovUser.isAfk,
-				})
+				});
 			}
 		}
 
@@ -252,14 +251,14 @@ export class StateService {
 			status: `${lurkers}`,
 			isMod: false,
 			isAfk: true
-		})
+		});
 
 		this.deps.dispatchService.sendUserList(io, userList);
 	}
 
 	public toggleMarkov(io: Server){
 		if(this.markovUser === null){
-			throw new Error('no markov user set up')
+			throw new AppError('toggleMarkov called while markov bot is disabled', 'bug');
 		}
 		this.markovUser.isAfk = true;
 		this.broadcastUsers(io);
@@ -305,12 +304,7 @@ export class StateService {
 			}
 		}
 		catch(error: unknown){
-			if(error instanceof Error){
-				console.warn('Redis announcement load error:', error.message);
-			}
-			else{
-				console.error('Unexpected non-error thrown:', error);
-			}
+			handleError(error, 'Redis Announcment Load');
 		}
 	}
 
@@ -329,13 +323,12 @@ export class StateService {
 				}
 			}
 			catch(error: unknown) {
-				if(error instanceof Error){
+				if(error instanceof AppError){
 					reject(error);
+					return;
 				}
-				else{
-					console.error("Unexpected non-error thrown:", error);
-					reject(new Error("Unknown error"));
-				}
+				handleError(error, 'Signup Queue');
+				reject(new AppError('failed to queue signup: unknown error', 'user'));
 			}
 		});
 	}
@@ -365,20 +358,15 @@ export class StateService {
 			await this.deps.redisClient.set(REDIS_ANNOUNCEMENT_KEY, this.announcement, { EX: this.deps.redisTTL});
 		} 
 		catch(error: unknown){
-			if(error instanceof Error){
-				console.warn('Redis announcement save error:', error.message);
-			} 
-			else{
-				console.error('Unexpected non-error thrown:', error);
-			}
+			handleError(error, 'Redis Announcement Save');
 		}
 	}
 
 	private loadServerConfig(){
 		if(!existsSync(this.deps.serverConfigPath)){
-			writeFileSync(this.deps.serverConfigPath, JSON.stringify(defaultServerConfig, null, 4))
+			writeFileSync(this.deps.serverConfigPath, JSON.stringify(defaultServerConfig, null, 4));
 			Object.assign(this.serverConfig, defaultServerConfig);
-			console.log("created default config.json file")
+			console.log("created default config.json file");
 			return;
 		}
 
@@ -388,39 +376,28 @@ export class StateService {
 			loadedCfg = JSON.parse(readFileSync(this.deps.serverConfigPath, 'utf-8'));
 		}
  		catch(error: unknown){
-			if(error instanceof Error){
-				console.error(`server config load error: ${error.message}`);
-			} 
-			else{
-				console.error("Unexpected non-error thrown:", error);
-			}
-
+			handleError(error, 'Server Config Load');
 		}
 
 		try{
 			this.serverConfig = mergeDefaults(loadedCfg, defaultServerConfig, ServerConfigSchema);
 			if(this.serverConfig.gdprcontact === 'admin@email.here'){
-				console.warn('No GDPR contact info set. If hosting publicly please set gdprcontact in config.json')
+				console.warn('No GDPR contact info set. If hosting publicly please set gdprcontact in config.json');
 			}
 		}
 		catch(error: unknown){
-			if(error instanceof Error){
-				console.error(`server config merge error: ${error.message}`);
-			} 
-			else{
-				console.error("Unexpected non-error thrown:", error);
-			}
+			handleError(error, 'Server Config Merge');
 		}
 
 		Object.freeze(this.serverConfig);
-		console.log('LOADED SERVER CONFIG:', this.serverConfig)
+		console.log('LOADED SERVER CONFIG:', this.serverConfig);
 	}
 
 	private loadMarkovConfig(){
 		if(!existsSync(this.deps.markovConfigPath)){
-			writeFileSync(this.deps.markovConfigPath, JSON.stringify(defaultMarkovConfig, null, 4))
+			writeFileSync(this.deps.markovConfigPath, JSON.stringify(defaultMarkovConfig, null, 4));
 			Object.assign(this.markovConfig, defaultMarkovConfig);
-			console.log("created default markov.json file")
+			console.log("created default markov.json file");
 			return;
 		}
 
@@ -430,28 +407,17 @@ export class StateService {
 			loadedCfg = JSON.parse(readFileSync(this.deps.markovConfigPath, 'utf-8'));
 		}
  		catch(error: unknown){
-			if(error instanceof Error){
-				console.error(`markov config load error: ${error.message}`);
-			} 
-			else{
-				console.error("Unexpected non-error thrown:", error);
-			}
+			handleError(error, 'Markov Config Load');
 		}
-
 		try{
 			this.markovConfig = mergeDefaults(loadedCfg, defaultMarkovConfig, MarkovConfigSchema);
 		}
 		catch(error: unknown){
-			if(error instanceof Error){
-				console.error(`markov config merge error: ${error.message}`);
-			} 
-			else{
-				console.error("Unexpected non-error thrown:", error);
-			}
+			handleError(error, 'Markov Config Merge');
 		}
 
 		Object.freeze(this.markovConfig);
-		console.log('LOADED MARKOV CONFIG:', this.markovConfig)
+		console.log('LOADED MARKOV CONFIG:', this.markovConfig);
 
 		if(this.markovConfig.enabled){
 			this.markovUser = {
@@ -462,7 +428,7 @@ export class StateService {
 			lastChanged: new Date(0),
 			isMod: false,
 			isAfk: false,
-			}
+			};
 		}
 		else{
 			this.markovUser = null;
@@ -471,9 +437,9 @@ export class StateService {
 
 	private loadGameConfig(){
 		if(!existsSync(this.deps.gameConfigPath)){
-			writeFileSync(this.deps.gameConfigPath, JSON.stringify(defaultGameConfig, null, 4))
+			writeFileSync(this.deps.gameConfigPath, JSON.stringify(defaultGameConfig, null, 4));
 			Object.assign(this.gameConfig, defaultGameConfig);
-			console.log("created default minigames.json file")
+			console.log("created default minigames.json file");
 			return;
 		}
 
@@ -483,24 +449,13 @@ export class StateService {
 			loadedCfg = JSON.parse(readFileSync(this.deps.gameConfigPath, 'utf-8'));
 		}
  		catch(error: unknown){
-			if(error instanceof Error){
-				console.error(`game config load error: ${error.message}`);
-			} 
-			else{
-				console.error("Unexpected non-error thrown:", error);
-			}
+			handleError(error, 'Game Config Load');
 		}
-
 		try{
 			this.gameConfig = mergeDefaults(loadedCfg, defaultGameConfig, GameConfigSchema);
 		}
 		catch(error: unknown){
-			if(error instanceof Error){
-				console.error(`game config merge error: ${error.message}`);
-			} 
-			else{
-				console.error("Unexpected non-error thrown:", error);
-			}
+			handleError(error, 'Game Config Merge');
 		}
 		Object.freeze(this.gameConfig);
 		console.log('LOADED GAME CONFIG: ', this.gameConfig);

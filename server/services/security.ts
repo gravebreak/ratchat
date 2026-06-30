@@ -11,7 +11,8 @@ import { StateService } from "./state";
 import { DispatchService } from "./dispatch";
 import { IdentityService } from "./identity";
 
-import { hashIP } from '../utils/hash.js'
+import { hashIP } from '../utils/hash.js';
+import { handleError, AppError } from "../utils/errors";
 
 export interface SecurityServiceDependencies{
 	stateService: StateService;
@@ -24,7 +25,7 @@ export interface SecurityServiceDependencies{
 
 export class SecurityService{
 	private bans: Map<string, Date> = new Map();
-	private banQ = Promise.resolve()
+	private banQ = Promise.resolve();
 	
 	private deps: SecurityServiceDependencies;
 	constructor(dependencies: SecurityServiceDependencies){
@@ -44,28 +45,27 @@ export class SecurityService{
 			}
 		}
 		catch(error: unknown){
-			if(error instanceof Error){
-				throw error
-			} 
-			else{
-				console.error("Unexpected non-error thrown:", error);
-				throw new Error("Unknown error")
+			if(error instanceof AppError){
+				throw error;
 			}
+			handleError(error, 'Check Ban');
+			
+			throw new AppError(`failed to check ban: unknown error`, 'user');
 		}
 	}
 
 	public banUser(banUser: Identity){
 		const socketUsers = this.deps.stateService.getSocketUsers();
-		let socketIDs = [] as string[]
+		let socketIDs = [] as string[];
 
 		socketUsers.forEach((user, id) => {
 			if(user.guid === banUser.guid){
-				socketIDs.push(id)
+				socketIDs.push(id);
 			}
-		})
+		});
 
 		if(socketIDs.length === 0){
-			throw new Error ("couldn't find any connections from that user")
+			throw new AppError ("couldn't find any connections from that user", 'user');
 		}
 
 		socketIDs.forEach((sid) => {
@@ -81,23 +81,14 @@ export class SecurityService{
 					socket.disconnect(true);
 				}
 				catch(error: unknown){
-					if(error instanceof Error){
-						console.error('HASH ERROR:', error.message)
-						throw error;
-					} 
-					else{
-						console.error("Unexpected non-error thrown:", error);
-						throw new Error("Unknown error")
-					}
+					handleError(error, 'Ban Loop');
 				}
 			}
-			else{
-				throw new Error("couldn't get sockets for user");
-			}
+			return;
 		});
 
 		this.deps.identityService.deleteUser(banUser.guid);
-		this.saveQueue();
+		this.saveBanQueue();
 	}
 
 	private loadBans(){
@@ -114,17 +105,11 @@ export class SecurityService{
 			console.log(`loaded ${this.bans.size} bans`);
 		} 
 		catch(error: unknown){
-			if(error instanceof Error){
-				console.error('WARNING: Failed to load ban data: ', `${error.message}`);
-			} 
-			else{
-				console.error("Unexpected non-error thrown:", error);
-			}
-
+			handleError(error, 'Ban Load');
 		}
 	}
 
-	private saveQueue(){
+	private saveBanQueue(){
 		this.banQ = this.banQ.then(() => this.saveBans());
 	}
 
@@ -138,12 +123,7 @@ export class SecurityService{
 			await writeFile(this.deps.bansPath, data);
 		}
 		catch(error: unknown){
-			if(error instanceof Error){
-				console.error("WARNING: failed to save ban user data: ", error.message);
-			} 
-			else{
-				console.error("Unexpected non-error thrown:", error);
-			}
+			handleError(error, 'Ban Save');
 		}
 	}
 }

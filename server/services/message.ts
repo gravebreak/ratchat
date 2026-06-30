@@ -7,6 +7,7 @@ import { StateService } from './state';
 import { ModerationService } from './moderation';
 import { IdentityService } from './identity';
 import { MarkovService } from './markov';
+import { handleError } from '../utils/errors';
 
 const clearInput: boolean = true;
 const keepInput: boolean = false;
@@ -28,21 +29,20 @@ export class MessageService {
 	}
 
 	public handleChat(msg: string, user: Identity, socket: Socket, spoiler: boolean): boolean{
-		let safe = ''
+		let safe = '';
 		try{
 			safe = this.deps.moderationService.textCheck(msg, user, 'chat');
 			this.deps.dispatchService.sendChat(this.deps.io, user, safe, this.deps.stateService.getServerConfig().msgArrayLen, spoiler);			
 		}
 		catch(error: unknown){
-			if(error instanceof Error){
-				this.deps.dispatchService.sendSystemChat(socket, mType.error, `system: ${error.message}`)
-				return keepInput;
+			const response = handleError(error, 'handleChat text check');
+			if(response){
+				this.deps.dispatchService.sendSystemChat(socket, mType.error, `system: ${response}`);
 			} 
 			else{
-				console.error("Unexpected non-error thrown:", error);
-				this.deps.dispatchService.sendSystemChat(socket, mType.error, 'system: unexpected error. try again')
-				return keepInput;
+				this.deps.dispatchService.sendSystemChat(socket, mType.error, `system: unknown error. try again`);
 			}
+			return keepInput;
 		}
 		try{
 			const wasAfk = user.isAfk;
@@ -52,27 +52,17 @@ export class MessageService {
 			}
 		} 
 		catch(error: unknown){
-			if(error instanceof Error){
-				console.warn(error.message);
-			} 
-			else{
-				console.error("Unexpected non-error thrown:", error);
-			}
+			handleError(error, 'handleChat Last Message');
 		}
 		if(this.deps.markovService && this.deps.stateService.getMarkovConfig().learning){
-			queueMicrotask(() => {
+			queueMicrotask(async () => {
 				try{
 					if(safe){
-						this.deps.markovService!.markovLearn(safe)
+						await this.deps.markovService!.markovLearn(safe);
 					}
 				}
 				catch(error: unknown){
-					if(error instanceof Error){
-						console.warn('markov learning error:', error.message);
-					}
-					else{
-						console.error("Unexpected non-error thrown:", error);
-					}
+					handleError(error, 'handleChat Markov Learn');
 				}	
 			});
 		}

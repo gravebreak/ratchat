@@ -1,11 +1,11 @@
-import { readFileSync, existsSync } from 'fs';
+import { readFileSync, existsSync, mkdirSync, writeFileSync } from 'fs';
 import { mkdir, writeFile } from "fs/promises";
 import { dirname } from 'path';
 
 import { v4 as uuidv4 } from 'uuid';
 
-import { IdentitySchema } from '../../shared/schema'
-import type { DefaultIdentity, Identity } from '../../shared/schema'
+import { IdentitySchema } from '../../shared/schema';
+import type { DefaultIdentity, Identity } from '../../shared/schema';
 
 import { ModerationService } from './moderation';
 import { StateService } from './state';
@@ -14,6 +14,7 @@ import type { SafeString } from './moderation';
 
 import { mergeDefaults } from '../utils/defaults';
 import { getDisplayNick, getDisplayColor } from '../utils/format';
+import { handleError, AppError } from '../utils/errors';
 
 export interface IdentityServiceDependencies{
 	moderationService: ModerationService;
@@ -37,17 +38,12 @@ export class IdentityService {
 			console.log(`loaded ${count} users from disk`);
 		}
 		catch(error: unknown){
-			if(error instanceof Error){
-				console.error('WARNING: user error load:', error.message);
-			} 
-			else{
-				console.error("Unexpected non-error thrown:", error);
-			}
+			handleError(error, 'Load Users (Startup)');
 		}
 		
 		this.deps.stateService.events.on("afk-check", guid => {
 			this.toggleAfk(guid); 
-		})
+		});
 	}
 
 	public setNick(guid: string | null, nick: SafeString): Identity{
@@ -57,12 +53,12 @@ export class IdentityService {
 			const oldNick = getDisplayNick(user.nick);
 
 			if(nick === oldNick){
-				throw new Error("that's already your name silly")
+				throw new AppError("that's already your name silly", 'user');
 			}
 
 			//allow capitilzation changes
 			if(nick.toLowerCase() !== oldNick.toLowerCase() && this.registeredNicks.has(nick.toLowerCase())){
-				throw new Error('nickname is already in use');
+				throw new AppError('nickname is already in use', 'user');
 			}
 
 			this.registeredNicks.delete(oldNick.toLowerCase());
@@ -77,7 +73,7 @@ export class IdentityService {
 		//New user flow
 		else{
 			if(this.registeredNicks.has(nick.toLowerCase())){
-				throw new Error('nickname is already in use');
+				throw new AppError('nickname is already in use', 'user');
 		}
 
 		const newGuid = guid || uuidv4();
@@ -96,8 +92,11 @@ export class IdentityService {
 	}
 
 	public setColor(guid: string, color: SafeString): Identity{
-		const user = this.users.get(guid)!;
-		user.nick = color.toUpperCase() + getDisplayNick(user.nick)
+		const user = this.users.get(guid);
+		if(!user){
+			throw new AppError('set color: no matching user found to GUID', 'internal', 'warn');
+		}
+		user.nick = color.toUpperCase() + getDisplayNick(user.nick);
 		user.lastChanged = new Date();
 		this.saveUserQueue();
 		return user;
@@ -106,7 +105,7 @@ export class IdentityService {
 	public toggleAfk(guid: string): Identity {
 		const user = this.users.get(guid);
 		if(!user){
-			throw new Error('afk: no matching user found to GUID')
+			throw new AppError('toggle afk: no matching user found to GUID', 'internal', 'warn');
 		}
 		if(user.isAfk){
 			user.isAfk = false;
@@ -123,11 +122,11 @@ export class IdentityService {
 		const user = this.users.get(guid);
 
 		if(!user){
-			throw new Error('status: no matching user found to GUID');
+			throw new AppError('set status: no matching user found to GUID', 'internal', 'warn');
 		}
 
 		if(user.status === status){
-			throw new Error('already your status big dog');
+			throw new AppError('already your status big dog', 'user');
 		}
 
 		user.status = status;
@@ -140,7 +139,7 @@ export class IdentityService {
 		const user = this.users.get(guid);
 		const newDate = msgdate;
 		if(!user){
-			throw new Error('set last message: no matching user found to GUID')
+			throw new AppError('set last message: no matching user found to GUID', 'internal', 'warn');
 		}
 		user.lastMessage = new Date(newDate);
 		if(clearAfk && user.isAfk){
@@ -150,31 +149,50 @@ export class IdentityService {
 		return user;
 	}
 
+	public existsUser(guid: string): boolean{
+		const user = this.users.get(guid);
+		if(user){
+			return true;
+		}
+		return false;
+	}
+
 	public getUser(guid: string): Identity {
 		const user = this.users.get(guid);
 		if(!user){
-			throw new Error('get user: no matching user found to GUID')
+			throw new AppError('get user: no matching user found to GUID', 'internal', 'warn');
 		}
 		return user;
+	}
+
+	public existsUserByNick(cleanNick: string): boolean{
+		const guid = this.registeredNicks.get(cleanNick.trim().toLowerCase());
+		if(!guid){
+			return false;
+		}
+		const user = this.users.get(guid);
+		if(!user){
+			return false;
+		}
+		return true;
 	}
 
 	public getUserByNick(cleanNick: string): Identity {
 		const guid = this.registeredNicks.get(cleanNick.trim().toLowerCase());
 		if(!guid){
-			throw new Error(`couldn't find user with nickname ${cleanNick}`);
+			throw new AppError(`couldn't find user with nickname ${cleanNick}`, 'user');
 		}
 		const user = this.users.get(guid);
 		if(!user){
-			throw new Error(`couldn't find user with nickname ${cleanNick}`);
+			throw new AppError(`couldn't find user with nickname ${cleanNick}`, 'user');
 		}
 		return user;
-	}
-	
+	}	
 
 	public deleteUser(guid: string){
 		const user = this.users.get(guid);
 		if(!user){
-			throw new Error('delete user: no matching user found to GUID')
+			throw new AppError('delete user: no matching user found to GUID', 'internal', 'error');
 		}
 		const cleanNick = getDisplayNick(user.nick);
 		this.registeredNicks.delete(cleanNick.toLowerCase());
@@ -189,13 +207,12 @@ export class IdentityService {
 			return reload;
 		}
 		catch(error: unknown){
-			if(error instanceof Error){
-				throw error
-			} 
-			else{
-				console.error("Unexpected non-error thrown:", error);
-				throw new Error("Unexpected error");
+			if(error instanceof AppError){
+				throw error;
 			}
+			handleError(error, 'Reload Game Users');
+			
+			throw new AppError(`failed to reload users: unknown error`, 'user');
 		}
 	}
 
@@ -205,14 +222,19 @@ export class IdentityService {
 			lastMessage: new Date(0),
 			lastChanged: new Date(),
 			isMod: false,
-			isAfk: false,
+			isAfk: false
 		}
 	}
 
 	private loadUsers(): number {
 		try{
 			if(!existsSync(this.deps.usersPath)){
-				throw new Error('no users.json file to load')
+				this.users = new Map();
+				this.registeredNicks.clear();
+				const dir = dirname(this.deps.usersPath);
+				mkdirSync(dir, {recursive: true});
+				writeFileSync(this.deps.usersPath, '[]');
+				return 0;
 			}
 
 			const data = readFileSync(this.deps.usersPath, 'utf-8');
@@ -234,34 +256,27 @@ export class IdentityService {
 
 				const existingNick = getDisplayNick(identity.nick);
 				this.registeredNicks.set(existingNick.toLowerCase(), guid);
-				try{
-					this.deps.gameIdentityService.getGameUser(guid);
+				
+				if(!this.deps.gameIdentityService.existsGameUser(guid)){
+					console.warn(`no game identity found for ${guid}, creating`);
+					this.deps.gameIdentityService.createGameUser(guid);
+					continue;
 				}
-				catch(error: unknown){
-					if(error instanceof Error){
-						console.warn(`no game identity found for ${guid}, creating`)
-						this.deps.gameIdentityService.createGameUser(guid);
-						continue;
-					} 
-					else{
-						console.error("Unexpected non-error thrown:", error);
-						throw new Error("Unexpected error");
-					}
-				}
+
+				continue;
 			}
+
 			this.saveUserQueue();
 			return this.users.size;
 		} 
 		catch(error: unknown){
-			if(error instanceof Error){
-				throw error
-			} 
-			else{
-				console.error("Unexpected non-error thrown:", error);
-				throw new Error("Unexpected error");
+			if(error instanceof AppError){
+				throw error;
 			}
+			handleError(error, 'Load Users');
+			
+			throw new AppError(`failed to load users: unknown error`, 'user');
 		}
-
 	}
 
 	private saveUserQueue(){
@@ -278,12 +293,7 @@ export class IdentityService {
 			await writeFile(this.deps.usersPath, data);
 		} 
 		catch(error: unknown){
-			if(error instanceof Error){			
-				console.error('failed to save user data', `${error.message}`);
-			} 
-			else{
-				console.error("Unexpected non-error thrown:", error);
-			}
+			handleError(error, 'Save Users');
 		}
 	}
 }

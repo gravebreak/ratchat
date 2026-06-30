@@ -11,8 +11,8 @@ export const IdentitySchema = z.object({
 	isAfk: z.boolean(),
 });
 export type Identity = z.infer<typeof IdentitySchema>;
-export type DefaultIdentity = Omit<Identity, "guid" | "nick">
-export type UserSum = Pick<Identity, "nick" | "status" | "isMod" | "isAfk"> 
+export type DefaultIdentity = Omit<Identity, "guid" | "nick">;
+export type UserSum = Pick<Identity, "nick" | "status" | "isMod" | "isAfk">;
 
 export const GameIdentitySchema = z.object({
 	guid: z.string(),
@@ -51,7 +51,7 @@ export const tType = {
 	joinleave: "joinleave",
 	game: "game",
 	other:"other"
-} as  const;
+} as const;
 export type TimeType = typeof tType[keyof typeof tType];
 
 export const xType = {
@@ -71,7 +71,7 @@ export const eType = {
 } as const;
 export type GameEventType = typeof eType[keyof typeof eType];
 
-export interface ChatMessage {
+export interface ChatMessage{
 	id: number;
 	author: Identity['nick'];
 	content: string;
@@ -86,7 +86,7 @@ export interface GameEvent{
 	event: GameEventType;
 }
 
-export interface Command {
+export interface Command{
 	socket: Socket;
 	io: Server;
 	args: string[];
@@ -130,7 +130,7 @@ export const defaultServerConfig: ServerConfig = {
 	nickres: [],
 	gdprcontact: 'admin@email.here',
 	PORT: 3666,
-}
+};
 
 export const MarkovConfigSchema = z.object({
 	enabled: z.boolean(),
@@ -150,7 +150,7 @@ export const defaultMarkovConfig: MarkovConfig = {
 	status: 'online',
 	cooldown: 30,
 	timer: 300
-}
+};
 
 export const GameConfigSchema = z.object({
 	enabled: z.boolean(),
@@ -165,7 +165,7 @@ export const GameConfigSchema = z.object({
 	fishing: z.boolean()
 });
 export type GameConfig = z.infer<typeof GameConfigSchema>;
-export const defaultGameConfig: GameConfig ={
+export const defaultGameConfig: GameConfig = {
 	enabled: false,
 	pointStartAmt: 100,
 	pointName: 'points',
@@ -176,7 +176,7 @@ export const defaultGameConfig: GameConfig ={
 	duelingChallenge: false,
 	blackjack: false,
 	fishing: false
-}
+};
 
 export type ConfigSchema = typeof ServerConfigSchema | typeof MarkovConfigSchema | typeof GameConfigSchema;
 export type Config = ServerConfig | MarkovConfig | GameConfig;

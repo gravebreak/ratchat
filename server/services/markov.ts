@@ -12,13 +12,14 @@ import { IdentityService } from './identity';
 
 import { WeightedMap, weightedRandom } from '../utils/random';
 import { getDisplayNick } from '../utils/format';
+import { AppError, handleError } from '../utils/errors';
 
 type Neuron = {
 	table: string;
 	word1: string;
 	word2: string;
 	word3: string;
-	count: number
+	count: number;
 }
 type InsertNeuron = Omit<Neuron, 'count' | 'word3'> & {word3?: string}
 type StartNeuron = Omit<Neuron, 'table' | 'word3'>;
@@ -46,24 +47,19 @@ export class MarkovService{
 			this.loadBrain(this.deps.brainPath);
 		}
 		catch(error: unknown){
-			if(error instanceof Error){
-				console.error('markov load error:', error.message);
-			} 
-			else{
-				console.error("Unexpected non-error thrown:", error);
-			}
+			handleError(error, 'Load Markov Brain (Startup)');
 		}
 		this.markovTimer(this.deps.io);
 	}
 
 	public async markovGen(io: Server, seed?: string): Promise<string> {
 		if(!this.db){
-			throw new Error("brain db not initialized");
+			throw new AppError('brain db not initialized', 'internal', 'warn');
 		}
 
 		const markovUser = this.deps.stateService.markovUser;
 		if(!markovUser){
-			throw new Error("no markov user");
+			throw new AppError('markovGen call with markov disabled', 'bug');
 		}
 
 		for(let attempt = 0; attempt < 5; attempt++){
@@ -73,7 +69,7 @@ export class MarkovService{
 				const seedLow = seed.toLowerCase();
 
 				if(!this.dictionary.has(seedLow)){
-					throw new Error(`${getDisplayNick(markovUser.nick)} don't know nothin about '${seed}'`);
+					throw new AppError(`${getDisplayNick(markovUser.nick)} don't know nothin about '${seed}'`, 'user');
 				}
 
 				let letter = seedLow[0].toUpperCase();
@@ -81,7 +77,7 @@ export class MarkovService{
 				const candidates = await this.loadNeuron(letter, seedLow);
 
 				if(candidates.length === 0){
-					throw new Error(`${getDisplayNick(markovUser.nick)} don't know nothin about '${seed}'`);
+					throw new AppError(`${getDisplayNick(markovUser.nick)} don't know nothin about '${seed}'`, 'user');
 				}
 
 				const weightMap: WeightedMap = new Map(
@@ -96,7 +92,7 @@ export class MarkovService{
 				const candidates = await this.loadNeuron();
 
 				if(candidates.length === 0){
-					throw new Error("no start entries in markov brain");
+					throw new AppError("no start entries in markov brain", 'internal', 'warn');
 				}
 
 				const weightMap: WeightedMap = new Map(
@@ -148,22 +144,23 @@ export class MarkovService{
 				return safe;
 			}
 			catch(error: unknown){
-				if(error instanceof Error){
+				if(error instanceof AppError){
 					if(error.message === "watch your profamity"){
 						this.deps.dispatchService.sendSystemChat(io, mType.ann, `${getDisplayNick(markovUser.nick)} tried to say something naughty`);
+						continue;
 					}
 					else{
+						handleError(error, 'Markov Gen');
 						continue;
 					}
 				}
-				else{
-					console.error("Unexpected non-error thrown:", error);
-					continue;
-				}
+				handleError(error, 'Markov Gen');
+				
+				throw new AppError(`failed to generate markov text: unknown error`, 'user');
 			}
 		}
 
-		throw new Error("no valid text generated after 5 attempts");
+		throw new AppError("no valid text generated after 5 attempts", 'user');
 	}
 
 	public async markovLearn(str: string){
@@ -172,19 +169,12 @@ export class MarkovService{
 		}
 
 		if(!this.db){
-			throw new Error("brain db not initialized");
+			throw new AppError('brain db not initialized', 'internal', 'warn');
 		}
 
 		const words =  str
 			.split(/\s+/)
-			.filter(w => {
-				try{
-					return !this.deps.identityService.getUserByNick(w);
-				}
-				catch(error: unknown){
-					return true;
-				}
-			})
+			.filter(w => !this.deps.identityService.existsUserByNick(w))
 			.map(w => w.trim())
 			.filter(Boolean);
 		
@@ -198,7 +188,7 @@ export class MarkovService{
 		const w1 = words[1];
 
 		const startLetter = (w0[0] || "_").toUpperCase().replace(/[^A-Z_]/g, "_");
-		entries.push({table: `start_${startLetter}`, word1: w0, word2: w1})
+		entries.push({table: `start_${startLetter}`, word1: w0, word2: w1});
 
 		if(!this.dictionary.has(w0.toLowerCase())){
 			this.dictionary.add(w0.toLowerCase());
@@ -241,12 +231,7 @@ export class MarkovService{
 				}
 			}
 			catch(error: unknown){
-				if(error instanceof Error){
-					console.warn('markov timer error:', error.message);
-				}
-				else{
-					console.error("Unexpected non-error thrown:", error);
-				}
+				handleError(error, 'Markov Timer');
 			}
 		}, this.deps.stateService.getMarkovConfig().timer*1000);
 	}
@@ -259,7 +244,7 @@ export class MarkovService{
 			return;
 		}
 
-		this.db.exec("BEGIN")
+		this.db.exec("BEGIN");
 
 		try{
 			for(const n of entries){
@@ -282,13 +267,13 @@ export class MarkovService{
 		}
 		catch(error: unknown){
 			this.db.exec("ROLLBACK");
-			console.error('Markov Neuron save error', error);
+			handleError(error, 'Save Neuron');
 		}
 	}
 
 	private async loadNeuron(letters?: string, prev?: string, curr?: string){
 		if(!this.db){
-			throw new Error("brain db not initialized");
+			throw new AppError('brain db not initialized', 'internal', 'warn');
 		}
 
 		if(!letters){
@@ -349,15 +334,15 @@ export class MarkovService{
 				count: row.count
 			}));
 		}
-		throw new Error ('neuron load failure');
+		throw new AppError ('neuron load failure', 'internal', 'warn');
 	}
 
 	private loadBrain(brainPath: string){
-		const brain = existsSync(brainPath)		
+		const brain = existsSync(brainPath);
 		this.db = new DatabaseSync(brainPath);
 		
 		if(!brain){
-			console.log('building markov brain....')
+			console.log('building markov brain....');
 			const letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ_";
 			const startSchema = `CREATE TABLE IF NOT EXISTS %TABLE% (word1 TEXT, word2 TEXT, count INTEGER, PRIMARY KEY (word1, word2));`;
 			const gramSchema = `CREATE TABLE IF NOT EXISTS %TABLE% (word1 TEXT,	word2 TEXT,	word3 TEXT, count INTEGER, PRIMARY KEY (word1, word2, word3));`;
@@ -405,12 +390,7 @@ export class MarkovService{
 				totalRows += rows.length;
 			} 
 			catch(error: unknown){
-				if(error instanceof Error){
-					console.warn(`Error reading table ${table}:`, error.message);
-				} 
-				else{
-					console.error("Unexpected non-error thrown:", error);
-				}
+				handleError(error, 'Markov Load Brain');
 			}
 		}
 		console.log(`loaded ${totalRows} markov start entries`);

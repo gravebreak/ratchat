@@ -54,7 +54,7 @@ export class GameCommandService {
 		}
 
 		finally{
-			this.activeGameCommands.delete(socket.id)
+			this.activeGameCommands.delete(socket.id);
 		}
 	}
 

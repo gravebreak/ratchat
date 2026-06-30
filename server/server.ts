@@ -20,6 +20,8 @@ import { MessageService } from './services/message';
 import { CommandService } from './services/command';
 
 import { getDisplayNick } from './utils/format';
+import { handleError } from './utils/errors';
+
 import { GameCommandService } from './services/games/game-command';
 
 
@@ -61,7 +63,7 @@ async function main(){
 			client.on('reconnecting', () => {});
 			client.on('connect', () => {
 				if(client.options.socket){
-					const port = 'port' in client.options.socket ? client.options.socket.port : 'unknown'
+					const port = 'port' in client.options.socket ? client.options.socket.port : 'unknown';
 					console.log(`Redis client connected on port: ${port}`);
 				}
 			});
@@ -75,14 +77,8 @@ async function main(){
 		}
 		catch(error: unknown){
 			client.destroy();
-			if(error instanceof Error){
-				console.error('Redis startup connection error:', error.message);
-			} 
-			else{
-				throw new Error(`Unexpected non-error thrown: ${error}`);
-			}
+			handleError(error, 'Redis Startup');
 		}
-
 	}
 	else{
 		console.warn('WARNING: REDIS_URL environment variable is not set. Restart persistence is not available.');
@@ -154,7 +150,7 @@ async function main(){
 		stateService: stateService,
 
 		gameUsersPath: gameUsersPath
-	})
+	});
 
 	const identityService = new IdentityService({
 		moderationService: moderationService,
@@ -171,7 +167,7 @@ async function main(){
 
 		bansPath: bansPath,
 		io: io
-	})
+	});
 
 	let markovService: MarkovService | null = null; 
 	if(stateService.getMarkovConfig().enabled){
@@ -183,7 +179,7 @@ async function main(){
 
 			brainPath: brainPath,
 			io: io
-		})
+		});
 	}
 
 	const messageService = new MessageService({
@@ -218,16 +214,11 @@ async function main(){
 
 	//Emote fetchs
 	try{
-		await stateService.updateEmotes(io)
+		await stateService.updateEmotes(io);
 		console.log('startup emotes loaded');
 	}
 	catch(error: unknown){
-		if(error instanceof Error){
-			console.warn(`startup emotes failed: ${error.message}`);
-		} 
-		else{
-			console.error("Unexpected non-error thrown:", error);
-		}
+		handleError(error, 'Startup Emote Load');
 	}
 	
 	//Socket.IO listener
@@ -237,16 +228,11 @@ async function main(){
 			if(securityService.checkBan(socket.handshake.address)){
 				dispatchService.sendSystemChat(socket, mType.error, 'You are banned.');
 				socket.disconnect(true);
-				console.log('a banned user attempted to join')
+				console.log('a banned user attempted to join');
 			}
 		}
 		catch(error: unknown){
-			if(error instanceof Error){
-				console.error(error.message);
-			} 
-			else{
-				console.error("Unexpected non-error thrown:", error);
-			}
+			handleError(error, 'Main Function Ban Check');
 		}
 
 		//On connection welcome, announcement messages, emote payload, message history
@@ -262,9 +248,9 @@ async function main(){
 		dispatchService.sendEventList(socket);
 
 		if(!inGrace){
-			dispatchService.sendSystemChat(socket, mType.welcome, `${welcomeMsg}`)
+			dispatchService.sendSystemChat(socket, mType.welcome, `${welcomeMsg}`);
 			if(announcement){
-				dispatchService.sendSystemChat(socket, mType.ann, `announcement: ${announcement}`)
+				dispatchService.sendSystemChat(socket, mType.ann, `announcement: ${announcement}`);
 			}
 		}
 
@@ -272,16 +258,8 @@ async function main(){
 		const clientGUID = socket.handshake.auth.token;
 		let returningUser: Identity | null = null;
 		
-		try{
-			returningUser = identityService.getUser(clientGUID)
-		} 
-		catch(error: unknown){
-			if(error instanceof Error){
-				//swallowed, expected new user flow
-			} 
-			else{
-				console.error("Unexpected non-error thrown:", error);
-			}
+		if(identityService.existsUser(clientGUID)){
+			returningUser = identityService.getUser(clientGUID);
 		}
 
 		if(returningUser){
@@ -290,9 +268,11 @@ async function main(){
 			if(!inGrace){
 				dispatchService.sendSystemChat(socket, mType.info, `welcome back, ${getDisplayNick(returningUser.nick)}`);
 			}
-			let scount = 0
+			let scount = 0;
 			for (const [, u] of stateService.getSocketUsers()){
-				if(u.guid === returningUser.guid) scount++;
+				if(u.guid === returningUser.guid){
+					scount++;
+				}
 			}
 			if(scount === 1){
 				try{
@@ -303,12 +283,7 @@ async function main(){
 					identityService.setLastMessage(returningUser.guid, Date.now(), false);
 				}
 				catch(error: unknown){
-					if(error instanceof Error){
-						//swallowing to prevent join/leave spam
-					}
-					else{
-						console.error("Unexpected non-error thrown:", error);
-					}
+					handleError(error, 'Main Function Reconnect');
 				}
 			}
 		} 
@@ -335,11 +310,12 @@ async function main(){
 					return;
 				}
 				catch(error: unknown){
-					if(error instanceof Error){
-						dispatchService.sendSystemChat(socket, mType.error, `system: ${error.message}`)
+					const response = handleError(error, 'Main Function Command Check');
+					if(response){
+						dispatchService.sendSystemChat(socket, mType.error, `system: ${response}`);
 					}
 					else{
-						console.error("Unexpected non-error thrown:", error);
+						dispatchService.sendSystemChat(socket, mType.error, `system: unexpected error`);
 					}
 					callback(keepInput);
 					return;
@@ -372,7 +348,9 @@ async function main(){
 
 				let scount = 0;
 				for (const [, u] of stateService.getSocketUsers()){
-					if(u.guid === disuser.guid) scount++;
+					if(u.guid === disuser.guid){
+						scount++;
+					}
 				}
 				if(scount === 0){
 					try{
@@ -383,12 +361,7 @@ async function main(){
 						identityService.setLastMessage(disuser.guid, Date.now());
 					}
 					catch(error: unknown){
-						if(error instanceof Error){
-							//swallowing to prevent join/leave spam
-						}
-						else{
-							console.error("Unexpected non-error thrown:", error);
-						}
+						handleError(error, 'Main Function Disconnect');
 					}
 				}
 			}

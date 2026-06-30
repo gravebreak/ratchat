@@ -1,3 +1,5 @@
+import { handleError } from "./errors";
+
 export function textSanitize(str: string): string{
 	if(typeof str !== "string"){
 		return "";
@@ -12,7 +14,7 @@ export function textSanitize(str: string): string{
 		return s;
 	}
 	catch(error: unknown){
-		console.warn("text sanitiation failed:", error)
+		handleError(error, 'Text Sanitize');
 		return "";
 	}
 }

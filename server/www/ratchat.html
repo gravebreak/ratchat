@@ -678,9 +678,9 @@
 			if(identity && identity.guid){
 				localStorage.setItem('ratGUID', identity.guid);
 				localGUID = identity.guid;
-				console.log('identity loaded')
+				console.log('identity loaded');
 			} else{
-				console.log('identity load error')
+				console.log('identity load error');
 			}
 		});
 		
@@ -702,7 +702,7 @@
 					consolidate.get(user.nick).count++;
 				}
 				else{
-					consolidate.set(user.nick, {...user, count: 1})
+					consolidate.set(user.nick, {...user, count: 1});
 				}
 			});
 
@@ -714,8 +714,8 @@
 				const userName = user.nick.substring(7);
 
 				const orb = user.isAfk ? 'orb-afk' : 'orb-online';
-				const orbLabel = user.isAfk ? 'AFK' : 'Online'
-				let displayCount = ''
+				const orbLabel = user.isAfk ? 'AFK' : 'Online';
+				let displayCount = '';
 
 				if(user.count >9){
 					//no hiscores
@@ -725,7 +725,7 @@
 					displayCount = `${user.count}`;
 				}
 				
-				let status = emotify(user.status)
+				let status = emotify(user.status);
 				if(!status || user.status === 'online'){
 					status = '';
 				}
@@ -889,7 +889,7 @@
 						localStorage.setItem('ratBG', imageData);
 					} 
 					catch(e){
-						systemMessage("system: oh fuk it's too big", 'e-li')
+						systemMessage("system: oh fuk it's too big", 'e-li');
 						console.warn("image too large for localStorage");
 					}
 				}
@@ -939,7 +939,7 @@
 		form.addEventListener('submit', async (submitEvent) => {
 			submitEvent.preventDefault();
 
-			const val = input.value.trim()
+			const val = input.value.trim();
 			if(!val){
 				return;
 			}
@@ -959,8 +959,8 @@
 							input.value = '';
 							return;
 						}
-						systemMessage(`Your GUID is: ${GUID}`, 'i-li')
-						systemMessage(`don't share it, save it! you can use this with /import to reload your identity if necessary.`, 'i-li')
+						systemMessage(`Your GUID is: ${GUID}`, 'i-li');
+						systemMessage(`don't share it, save it! you can use this with /import to reload your identity if necessary.`, 'i-li');
 						input.value = '';
 						return;
 					}
@@ -1020,7 +1020,7 @@
 							}
 						}
 						if(!fullArgs || fullArgs.trim().length === 0){
-							systemMessage('system: no mute target provided', 'e-li')
+							systemMessage('system: no mute target provided', 'e-li');
 							return;
 						}
 						else if(fullArgs.includes(' ')){
@@ -1028,7 +1028,7 @@
 							return;
 						}
 						else if(fullArgs === 'system'){
-							systemMessage("system: nice try, but you can't mute ME!", 'e-li')
+							systemMessage("system: nice try, but you can't mute ME!", 'e-li');
 							input.value = '';
 							return;
 						}
@@ -1044,7 +1044,7 @@
 							return;
 						}
 						else if(fullArgs === 'all'){
-							systemMessage("system: Hahahahahahahaha How The Fuck Is Cyber Bullying Real Hahahaha Just Walk Away From The Screen Like Close Your Eyes Haha", 'e-li')
+							systemMessage("system: Hahahahahahahaha How The Fuck Is Cyber Bullying Real Hahahaha Just Walk Away From The Screen Like Close Your Eyes Haha", 'e-li');
 							input.value = '';
 							return;
 						}
@@ -1098,7 +1098,7 @@
 							}
 						}
 						if(!fullArgs || fullArgs.trim().length === 0){
-							systemMessage('system: no unmute target provided', 'e-li')
+							systemMessage('system: no unmute target provided', 'e-li');
 							return;
 						}
 						else if(fullArgs.includes(' ')){
@@ -1106,7 +1106,7 @@
 							return;
 						}
 						else if(fullArgs === 'system'){
-							systemMessage("system: wow, thanks. it was getting really stuffy in that data center.", 'i-li')
+							systemMessage("system: wow, thanks. it was getting really stuffy in that data center.", 'i-li');
 							input.value = '';
 							return;
 						}
@@ -1252,7 +1252,7 @@
 				const dateStr = date.toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'});
 				const timeSpan = document.createElement('span');
 					timeSpan.textContent = dateStr;
-					timeSpan.style = "color:grey; font-size:small; margin-right:0.5rem"
+					timeSpan.style = "color:grey; font-size:small; margin-right:0.5rem";
 				li.appendChild(timeSpan);
 			}
 
@@ -1466,7 +1466,7 @@
 		}
 
 		function addMessageHistory(text){
-			sentHistory.unshift(text)
+			sentHistory.unshift(text);
 			if(sentHistory.length > 50){
 				sentHistory.pop();
 			}
