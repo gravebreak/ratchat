@@ -85,7 +85,12 @@ export class IdentityService {
 
 		this.users.set(newGuid, newIdentity);
 		this.registeredNicks.set(nick.toLowerCase(), newGuid);
-		this.deps.gameIdentityService.createGameUser(newGuid);
+		try{
+			this.deps.gameIdentityService.createGameUser(newGuid);
+		}
+		catch(error: unknown){
+			handleError(error, 'New User Game User Create');
+		}
 		this.saveUserQueue();
 		return newIdentity;
 		}

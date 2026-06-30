@@ -108,6 +108,9 @@ export class GameIdentityService {
 	}
 
 	public createGameUser(inputGuid: string): GameIdentity{
+		if(this.gameUsers.has(inputGuid)){
+			throw new AppError('create game user: game user already exists for GUID', 'internal', 'warn');
+		}
 		const newGameIdentity : GameIdentity = {
 			guid: inputGuid,
 			...this.buildGameDefault()
