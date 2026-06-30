@@ -20,6 +20,7 @@ import { MessageService } from './services/message';
 import { CommandService } from './services/command';
 
 import { getDisplayNick } from './utils/format';
+import { GameCommandService } from './services/games/game-command';
 
 
 main().catch(error => {
@@ -39,7 +40,7 @@ async function main(){
 	const usersPath = join(__dirname, 'data', 'users.json');
 	const serverConfigPath = join(__dirname, 'config.json');
 	const markovConfigPath = join(__dirname, 'markov.json');
-	const gameConfigPath = join(__dirname, 'gamegames.json');
+	const gameConfigPath = join(__dirname, 'minigames.json');
 	const nickFilterPath = join(__dirname, 'nickfilter.json');
 	const profFilterPath = join(__dirname, 'profanityfilter.json');
 	const bansPath = join(__dirname, 'data', 'bans.json');
@@ -195,6 +196,13 @@ async function main(){
 		io: io
 	});
 
+	const gameCommandService = new GameCommandService({
+		dispatchService: dispatchService,
+		stateService: stateService,
+		gameIdentityService: gameIdentityService,
+		identityService: identityService
+	});
+
 	const commandService = new CommandService({
 		dispatchService: dispatchService,
 		stateService: stateService,
@@ -203,9 +211,10 @@ async function main(){
 		identityService: identityService,
 		securityService: securityService,
 		markovService: markovService,
-		messageService: messageService
+		messageService: messageService,
+		gameCommandService: gameCommandService,
 	});
-	moderationService.addToNickFilter(commandService.getCommands());
+	moderationService.addToNickFilter([...commandService.getCommands(), ...gameCommandService.getGameCommands()]);
 
 	//Emote fetchs
 	try{

@@ -14,6 +14,7 @@ import { MessageService } from './message'
 
 import { getDisplayNick, getDisplayColor } from '../utils/format';
 import { isValidGUID } from '../utils/input';
+import { GameCommandService } from './games/game-command';
 
 const clearInput: boolean = true;
 const keepInput: boolean = false;
@@ -27,22 +28,43 @@ export interface CommandServiceDependencies {
 	securityService: SecurityService;
 	markovService: MarkovService | null;
 	messageService: MessageService;
+	gameCommandService: GameCommandService;
 }
 
 export class CommandService {
 	private commands: Record<string, (ctx: Command) => boolean | Promise<boolean>> = {};
 	private activeCommands: Map<string, boolean> = new Map();
+	private gameCommandNames: Set<string> = new Set();
 	
 	private deps: CommandServiceDependencies;
 	constructor(dependencies: CommandServiceDependencies){
 		this.deps = dependencies;
 		this.registerCommands();
+
+		for (const name of this.deps.gameCommandService.getGameCommands()) {
+			this.gameCommandNames.add(name);
+		}
 	}
 
 	public async commandHandler(msg: string, socket: Socket, io: Server, userOrUndef?: Identity | undefined): Promise<boolean>{
 		const args = msg.slice(1).trim().split(/ +/);
 		const commandName = args.shift()?.toLowerCase() || '';
-		
+
+		if(this.gameCommandNames.has(commandName)){
+			if(!this.deps.stateService.getGameConfig().enabled){
+				this.deps.dispatchService.sendSystemChat(socket, mType.error, "system: that's not a command lol");
+				return keepInput;
+			}
+
+			if(userOrUndef){
+				return await this.deps.gameCommandService.gameCommandHandler(msg, socket, io, userOrUndef);
+			}
+			else{
+				this.deps.dispatchService.sendSystemChat(socket, mType.error, "system: please use /chrat <nickname> before gaming, gamer");
+				return clearInput;
+			}
+		}
+
 		let user = userOrUndef ?? null;
 
 		if(this.activeCommands.get(socket.id)){
@@ -98,6 +120,21 @@ export class CommandService {
 			const config = this.deps.stateService.getServerConfig();
 			const helpMessages = [
 				'/help, /h, or /commands : View this list.',
+				'/mutehelp : information on how to use the /mute and /unmute features.'
+			]
+			if(ctx.commandUser?.isMod){				
+				helpMessages.push(
+					'/modhelp : see available moderator commands'
+				);
+			}
+
+			if(this.deps.stateService.getGameConfig().enabled){
+				helpMessages.push(
+					'/gamehelp : See all available minigame commands!'
+				);
+			}
+
+			helpMessages.push(
 				'/chrat or /nick <nickname> : Change your nickname to <nickname>.',
 				"/color or /colour <#RRGGBB> : Change your nickname's color to hex #RRGGBB.",
 				//./dark handled client side
@@ -111,18 +148,8 @@ export class CommandService {
 				'/status or /me : set your status in the user listing',
 				'/background or /bg : set your background image. use /bgreset to clear',
 				'/gdpr <flag> : <info> or <ip> for more information, <export> for a copy of your data, and <delete> to wipe your data.',
-				//./mute and /m are handled client side
-				'/mute or /m <event> : suppress minigame announcements from a specific <event>. will not retroactively remove event notfications.',
-				'/mute or /m <user> : hide all messages from a <user>. also hides historical messages you may have recieved.',
-				'/mute list or /m list : displays a list of all muted users and events',
-				'/mute eventlist or /m eventlist : displays a list of events that can be muted',
-				'/mute allevents : mute all events',
-				//./unmute is handled client side
-				'/unmute <user/event> : unmutes a <user> or an <event>. also will unhide hidden messages from <user> that you may have recieved.',
-				'/unmute all : unmutes all muted names and events.',
-				'/unmute allevents : unmutes all events. users remain muted',
 				"/spoiler <text> : wraps your message in a spoiler warning. btw darth vader is luke's dad"
-			];
+			);
 
 			if(this.deps.markovService){
 				if(this.commands[markovNick] === this.commands['markov']){
@@ -143,27 +170,26 @@ export class CommandService {
 				'the button with the silhouettes closes the user status bar. useful on mobile!'
 			);
 
-			if(ctx.commandUser?.isMod){
-				helpMessages.push(
-					'',
-					'--- Moderator Commands ---',
-					'/announce or /announcement <text> : Send an announcement to all users.',
-					'/ban <user> : Permanently IP bans a user with nickname "user" - huge pain to reverse so no jokes',
-					`/timeout or /to <user> <#> : Mutes nickname "user" for # seconds. defaults to ${config.timeoutDef} seconds if blank`,
-					"/delete <msgID (#)> : Delete the most recent message with ID <msgID>. If it's not the most recent, fire it off again.",
-					'/emotes <emotesetID> : adds an emote set from 7tv. leave blank to reload from config',
-					'/unemotes <emotesetID> : remove all emotes whose names match an emote set from 7tv. consider using /emotes after to reload baseline emotes',
-					'/loadusers : reload users from disk. locks server thread while doing it, so only call if you know what you are doing'
-				);
-				if(this.deps.markovService){
-					helpMessages.push(
-						'/botstatus <status> : set the status for the markov bot',
-						'/botsleep : puts the markov bot to sleep, disabling calls, or wakes him up if asleep'
-					)
-				}
-			}
-
-
+			const formatTable = helpMessages.join('\n');
+			this.deps.dispatchService.sendSystemChat(ctx.socket, mType.info, formatTable);
+			return clearInput;
+		}
+		
+		this.commands['mutehelp'] = (ctx) => {
+			const helpMessages = [
+				"/mutehelp : information on how to use the /mute feature. you're looking at it",
+				//./mute and /m are handled client side
+				'/mute or /m <event> : suppress minigame announcements from a specific <event>. will not retroactively remove event notfications.',
+				'/mute or /m <user> : hide all messages from a <user>. also hides historical messages you may have recieved.',
+				'/mute list or /m list : displays a list of all muted users and events',
+				'/mute eventlist or /m eventlist : displays a list of events that can be muted',
+				'/mute allevents : mute all events',
+				//./unmute is handled client side
+				'/unmute <user/event> : unmutes a <user> or an <event>. also will unhide hidden messages from <user> that you may have recieved.',
+				'/unmute all : unmutes all muted names and events.',
+				'/unmute allevents : unmutes all events. users remain muted',
+			]
+			
 			const formatTable = helpMessages.join('\n');
 			this.deps.dispatchService.sendSystemChat(ctx.socket, mType.info, formatTable);
 			return clearInput;
@@ -569,6 +595,36 @@ export class CommandService {
 		// ------------------------------------------------------------------
 		// MODERATOR COMMANDS
 		// ------------------------------------------------------------------
+
+		this.commands['modhelp'] = (ctx) => {
+			if(!ctx.commandUser?.isMod){
+				this.deps.dispatchService.sendSystemChat(ctx.socket, mType.error, "naughty naughty");
+				return clearInput;
+			}
+			const config = this.deps.stateService.getServerConfig();
+			
+			const helpMessages = [
+					'--- Moderator Commands ---',
+					'/modhelp : view mod commands. this list. right here.',
+					'/announce or /announcement <text> : Send an announcement to all users.',
+					'/ban <user> : Permanently IP bans a user with nickname "user" - huge pain to reverse so no jokes',
+					`/timeout or /to <user> <#> : Mutes nickname "user" for # seconds. defaults to ${config.timeoutDef} seconds if blank`,
+					"/delete <msgID (#)> : Delete the most recent message with ID <msgID>. If it's not the most recent, fire it off again.",
+					'/emotes <emotesetID> : adds an emote set from 7tv. leave blank to reload from config',
+					'/unemotes <emotesetID> : remove all emotes whose names match an emote set from 7tv. consider using /emotes after to reload baseline emotes',
+					'/loadusers : reload users from disk. locks server thread while doing it, so only call if you know what you are doing'
+			];
+			if(this.deps.markovService){
+				helpMessages.push(
+					'/botstatus <status> : set the status for the markov bot',
+					'/botsleep : puts the markov bot to sleep, disabling calls, or wakes him up if asleep'
+				)
+			}
+			
+			const formatTable = helpMessages.join('\n');
+			this.deps.dispatchService.sendSystemChat(ctx.socket, mType.info, formatTable);
+			return clearInput;
+		}
 
 		this.commands['announce'] = (ctx) => {
 			if(!ctx.commandUser?.isMod){
