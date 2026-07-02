@@ -154,17 +154,22 @@ export const defaultMarkovConfig: MarkovConfig = {
 	timer: 300
 };
 
-export const GameConfigSchema = z.object({
-	enabled: z.boolean(),
-	pointStartAmt: z.number().int().min(0).max(65536),
-	pointName: z.string().min(1).max(64),
-	gameSlow: z.number().int().min(0).max(86400),
+const GameTypeConfigSchema = {
 	horseRacing: z.boolean(),
-	raceFrequency: z.number().int().min(60).max(86400),
-	dueling: z.boolean(),
 	duelingChallenge: z.boolean(),
+	dueling: z.boolean(),
 	blackjack: z.boolean(),
-	fishing: z.boolean()
+	fishing: z.boolean(),
+} as const;
+export type GameType = keyof typeof GameTypeConfigSchema;
+export const allGames = Object.keys(GameTypeConfigSchema) as GameType[];
+export const GameConfigSchema = z.object({
+  enabled: z.boolean(),
+  pointStartAmt: z.number().int().min(0).max(65536),
+  pointName: z.string().min(1).max(64),
+  gameSlow: z.number().int().min(0).max(86400),
+  raceFrequency: z.number().int().min(60).max(86400),
+  ...GameTypeConfigSchema,
 });
 export type GameConfig = z.infer<typeof GameConfigSchema>;
 export const defaultGameConfig: GameConfig = {
@@ -179,8 +184,6 @@ export const defaultGameConfig: GameConfig = {
 	blackjack: false,
 	fishing: false
 };
-export type GameType = keyof Pick<GameConfig, 'horseRacing' | 'duelingChallenge' | 'dueling' | 'blackjack' | 'fishing'>;
-export const allGames = ['horseRacing', 'duelingChallenge', 'dueling', 'blackjack', 'fishing'] as const satisfies GameType[];
 
 export type ConfigSchema = typeof ServerConfigSchema | typeof MarkovConfigSchema | typeof GameConfigSchema;
 export type Config = ServerConfig | MarkovConfig | GameConfig;
