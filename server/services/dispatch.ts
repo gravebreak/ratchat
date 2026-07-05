@@ -5,7 +5,8 @@ import { mType, eType } from '../../shared/schema';
 import type { MessageType, UserSum, Identity, ChatMessage, GameEvent, GameEventType } from '../../shared/schema';
 
 import { getDisplayNick } from '../utils/format';
-import { AppError, handleError } from '../utils/errors';
+import { createSaveQueue } from '../utils/queue';
+import { handleError } from '../utils/errors';
 
 type Target = { emit: Server['emit'] };
 type TextPayload = typeof mType.chat | typeof mType.ann | typeof mType.error | typeof mType.info | typeof mType.welcome | typeof mType.markov;
@@ -36,8 +37,8 @@ export interface DispatchServiceDependencies {
 export class DispatchService{
 	private messageCounter = 0; 
 	private chatHistory : ChatHistory = new Map();
-	private historyQ = Promise.resolve();
-	private counterQ = Promise.resolve();
+	private historyQueue = createSaveQueue(() => this.saveChatHistory());
+	private counterQueue = createSaveQueue(() => this.saveMessageCounter());
 
 	private deps: DispatchServiceDependencies;
 	constructor(dependencies: DispatchServiceDependencies){
@@ -118,7 +119,7 @@ export class DispatchService{
 			}
 		});
 		if(deleted.length > 0){
-			this.queueSaveChatHistory();
+			this.historyQueue.chain();
 		}
 		return;
 	}
@@ -209,7 +210,7 @@ export class DispatchService{
 			this.messageCounter = 0;
 		}
 		const id = this.messageCounter++;
-		this.queueSaveMessageCounter();
+		this.counterQueue.chain();
 		return id;
 	}
 
@@ -220,15 +221,7 @@ export class DispatchService{
 				this.chatHistory.delete(oldestMessage);
 			}
 		}
-		this.queueSaveChatHistory();
-	}
-
-	private queueSaveChatHistory(){
-		this.historyQ = this.historyQ.then(() => this.saveChatHistory());
-	}
-
-	private queueSaveMessageCounter(){
-		this.counterQ = this.counterQ.then(() => this.saveMessageCounter());
+		this.historyQueue.chain();
 	}
 
 	private async saveChatHistory(){
@@ -269,7 +262,7 @@ export class DispatchService{
 			}
 
 			if(changed){
-				this.queueSaveChatHistory();
+				this.historyQueue.chain();
 			}
 		}, 60000);	
 

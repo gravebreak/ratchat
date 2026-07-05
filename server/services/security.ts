@@ -1,7 +1,3 @@
-import { readFileSync, existsSync } from "fs";
-import { mkdir, writeFile } from "fs/promises";
-import { dirname } from 'path';
-
 import { Server } from "socket.io";
 
 import { mType } from "../../shared/schema";
@@ -13,6 +9,8 @@ import { IdentityService } from "./identity";
 
 import { hashIP } from '../utils/hash.js';
 import { handleError, AppError } from "../utils/errors";
+import { createSaveQueue } from '../utils/queue';
+import { existsFile, createJsonFile, readJsonFile, writeJsonFile } from '../utils/serialize';
 
 export interface SecurityServiceDependencies{
 	stateService: StateService;
@@ -25,13 +23,21 @@ export interface SecurityServiceDependencies{
 
 export class SecurityService{
 	private bans: Map<string, Date> = new Map();
-	private banQ = Promise.resolve();
+	private banQueue = createSaveQueue(() => this.saveBans());
 	
 	private deps: SecurityServiceDependencies;
 	constructor(dependencies: SecurityServiceDependencies){
 		this.deps = dependencies;
-		
-		this.loadBans();
+
+		try{
+			if(!existsFile(this.deps.bansPath)){
+				createJsonFile(this.deps.bansPath, []);
+			}
+			this.loadBans();
+		}
+		catch(error: unknown){
+			handleError(error, 'Load Bans (Startup)');
+		}
 	}
 	
 	public checkBan(unhashed: string): boolean {
@@ -88,20 +94,16 @@ export class SecurityService{
 		});
 
 		this.deps.identityService.deleteUser(target.guid);
-		this.queueSaveBans();
+		this.banQueue.chain();
 	}
 
 	private loadBans(){
 		try{
-			if(!existsSync(this.deps.bansPath)){
-				return;
+			if(!existsFile(this.deps.bansPath)){
+				throw new AppError('loadBans called while file missing', 'bug');
 			}
-
-			const data = readFileSync(this.deps.bansPath, 'utf-8');
-			const parseData: [string, Date][] = JSON.parse(data);
-
+			const parseData = readJsonFile(this.deps.bansPath) as [string, Date][];
 			this.bans = new Map(parseData);
-
 			console.log(`loaded ${this.bans.size} bans`);
 		} 
 		catch(error: unknown){
@@ -109,18 +111,9 @@ export class SecurityService{
 		}
 	}
 
-	private queueSaveBans(){
-		this.banQ = this.banQ.then(() => this.saveBans());
-	}
-
 	private async saveBans(){
 		try{
-			const dir = dirname(this.deps.bansPath);
-			await mkdir(dir, {recursive: true});
-
-			const data = JSON.stringify(Array.from(this.bans.entries()), null, 4);
-
-			await writeFile(this.deps.bansPath, data);
+			await writeJsonFile(this.deps.bansPath, Array.from(this.bans.entries()));
 		}
 		catch(error: unknown){
 			handleError(error, 'Ban Save');

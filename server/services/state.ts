@@ -1,4 +1,3 @@
-import { readFileSync, writeFileSync, existsSync } from "fs";
 import { EventEmitter } from "events";
 import type { RedisClientType } from "redis";
 
@@ -15,6 +14,8 @@ import { hashIP } from "../utils/hash";
 import { getDisplayNick } from "../utils/format";
 import { isValid7TVID } from "../utils/validate";
 import { handleError, AppError } from "../utils/errors";
+import { createSaveQueue } from "../utils/queue";
+import { existsFile, createJsonFile, readJsonFile } from "../utils/serialize";
 
 type EmoteEntry = {
 	name: string;
@@ -56,7 +57,7 @@ export class StateService {
 	private signupTimer: NodeJS.Timeout | null = null;
 	private signupPromise: Map<Socket, (value: boolean)=> void> = new Map();
 
-	private announcementQ = Promise.resolve();
+	private announcementQueue = createSaveQueue(() => this.saveAnnouncement());
 
 	private deps: StateServiceDependencies;
 	constructor(dependencies: StateServiceDependencies){
@@ -103,7 +104,7 @@ export class StateService {
 		  	this.deps.dispatchService.sendSystemChat(io, mType.ann,`announcement: ${str}`);
 		}
 
-		this.queueSaveAnnouncement();
+		this.announcementQueue.chain();
 	}
 
 	public getEmotes(): Map<string, string>{
@@ -356,10 +357,6 @@ export class StateService {
 		this.signupTimer = null;
 	}
 
-	private queueSaveAnnouncement(){
-		this.announcementQ= this.announcementQ.then(() => this.saveAnnouncement());
-	}
-
 	private async saveAnnouncement(){
 		if(!this.deps.redisClient){
 				return;
@@ -430,9 +427,9 @@ export class StateService {
 	}
 
 	private readConfigFile(path: string, defaultConfig: object, label: string): unknown{
-		if(!existsSync(path)){
+		if(!existsFile(path)){
 			try{
-				writeFileSync(path, JSON.stringify(defaultConfig, null, 4));
+				createJsonFile(path, defaultConfig);
 				console.log(`created default ${label} config json file`);
 			}
 			catch(error: unknown){
@@ -442,11 +439,11 @@ export class StateService {
 		}
 
 		try{
-			return JSON.parse(readFileSync(path, 'utf-8'));
+			return readJsonFile(path);
 		}
 		catch(error: unknown){
 			handleError(error, `${label} Config Load`);
-			return {};
+			return defaultConfig;
 		}
 	}
 

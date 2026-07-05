@@ -1,7 +1,3 @@
-import { readFileSync, existsSync, mkdirSync, writeFileSync } from 'fs';
-import { mkdir, writeFile } from "fs/promises";
-import { dirname } from 'path';
-
 import { v4 as uuidv4 } from 'uuid';
 
 import { IdentitySchema } from '../../shared/schema';
@@ -15,6 +11,8 @@ import type { SafeString } from './moderation';
 import { mergeDefaults } from '../utils/parse';
 import { getDisplayNick, getDisplayColor } from '../utils/format';
 import { handleError, AppError } from '../utils/errors';
+import { createSaveQueue } from '../utils/queue';
+import { existsFile, createJsonFile, readJsonFile, writeJsonFile } from '../utils/serialize';
 
 export interface IdentityServiceDependencies{
 	moderationService: ModerationService;
@@ -27,20 +25,23 @@ export interface IdentityServiceDependencies{
 export class IdentityService {
 	private users: Map<string, Identity> = new Map();
 	private registeredNicks: Map<string, string> = new Map();
-	private userQ = Promise.resolve();
+	private userQueue = createSaveQueue(() => this.saveUsers());
 
 	private deps: IdentityServiceDependencies;
 	constructor(dependencies: IdentityServiceDependencies){
 		this.deps = dependencies;
 		
 		try{
-			const count =this.loadUsers();
+			if(!existsFile(this.deps.usersPath)){
+				createJsonFile(this.deps.usersPath, []);
+			}
+			const count = this.loadUsers();
 			console.log(`loaded ${count} users from disk`);
 		}
 		catch(error: unknown){
 			handleError(error, 'Load Users (Startup)');
 		}
-		
+			
 		this.deps.stateService.events.on("afk-check", guid => {
 			this.toggleAfk(guid); 
 		});
@@ -67,7 +68,7 @@ export class IdentityService {
 			const color = getDisplayColor(user.nick);
 			user.nick = color + nick;
 			user.lastChanged = new Date();
-			this.queueSaveUsers();
+			this.userQueue.chain();
 			return user;
 		}
 		//New user flow
@@ -91,7 +92,7 @@ export class IdentityService {
 		catch(error: unknown){
 			handleError(error, 'New User Game User Create');
 		}
-		this.queueSaveUsers();
+		this.userQueue.chain();
 		return newIdentity;
 		}
 	}
@@ -103,7 +104,7 @@ export class IdentityService {
 		}
 		user.nick = color.toUpperCase() + getDisplayNick(user.nick);
 		user.lastChanged = new Date();
-		this.queueSaveUsers();
+		this.userQueue.chain();
 		return user;
 	}
 
@@ -114,11 +115,11 @@ export class IdentityService {
 		}
 		if(user.isAfk){
 			user.isAfk = false;
-			this.queueSaveUsers();
+			this.userQueue.chain();
 		}
 		else{
 			user.isAfk = true;
-			this.queueSaveUsers();
+			this.userQueue.chain();
 		}
 		return user;
 	}
@@ -136,7 +137,7 @@ export class IdentityService {
 
 		user.status = status;
 		user.lastChanged = new Date();
-		this.queueSaveUsers();
+		this.userQueue.chain();
 		return user;
 	}
 
@@ -150,7 +151,7 @@ export class IdentityService {
 		if(clearAfk && user.isAfk){
 			user.isAfk = false;
 		}
-		this.queueSaveUsers();
+		this.userQueue.chain();
 		return user;
 	}
 
@@ -203,10 +204,14 @@ export class IdentityService {
 		this.registeredNicks.delete(cleanNick.toLowerCase());
 		this.deps.gameIdentityService.deleteGameUser(guid);
 		this.users.delete(guid);
-		this.queueSaveUsers();
+		this.userQueue.chain();
 	}
 
 	public reloadUsers(): number{
+		if(!existsFile(this.deps.usersPath)){
+			throw new AppError(`users file not found at ${this.deps.usersPath}`, 'user');
+		}
+
 		try{
 			const reload = this.loadUsers();
 			return reload;
@@ -215,6 +220,7 @@ export class IdentityService {
 			if(error instanceof AppError){
 				throw error;
 			}
+			
 			handleError(error, 'Reload Users');
 			
 			throw new AppError(`failed to reload users: unknown error`, 'user');
@@ -233,17 +239,10 @@ export class IdentityService {
 
 	private loadUsers(): number {
 		try{
-			if(!existsSync(this.deps.usersPath)){
-				this.users = new Map();
-				this.registeredNicks.clear();
-				const dir = dirname(this.deps.usersPath);
-				mkdirSync(dir, {recursive: true});
-				writeFileSync(this.deps.usersPath, '[]');
-				return 0;
+			if(!existsFile(this.deps.usersPath)){
+				throw new AppError('loadUsers called while file missing', 'bug');
 			}
-
-			const data = readFileSync(this.deps.usersPath, 'utf-8');
-			const parseData: [string, unknown][] = JSON.parse(data);
+			const parseData = readJsonFile(this.deps.usersPath) as [string, unknown][];
 			const defaultId = this.buildDefaultIdentity();
 
 			this.users = new Map();
@@ -271,7 +270,7 @@ export class IdentityService {
 				continue;
 			}
 
-			this.queueSaveUsers();
+			this.userQueue.chain();
 			return this.users.size;
 		} 
 		catch(error: unknown){
@@ -284,18 +283,9 @@ export class IdentityService {
 		}
 	}
 
-	private queueSaveUsers(){
-		this.userQ = this.userQ.then(() => this.saveUsers());
-	}
-
 	private async saveUsers(){
 		try{
-			const dir = dirname(this.deps.usersPath);
-			await mkdir(dir, {recursive: true});
-
-			const data = JSON.stringify(Array.from(this.users.entries()), null, 4);
-
-			await writeFile(this.deps.usersPath, data);
+			await writeJsonFile(this.deps.usersPath, Array.from(this.users.entries()));
 		} 
 		catch(error: unknown){
 			handleError(error, 'Save Users');

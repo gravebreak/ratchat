@@ -9,6 +9,8 @@ import { StateService } from '../state';
 
 import { mergeDefaults } from '../../utils/parse';
 import { AppError, handleError } from '../../utils/errors';
+import { createSaveQueue } from '../../utils/queue';
+import { existsFile, createJsonFile, readJsonFile, writeJsonFile } from '../../utils/serialize';
 
 const MAX_INT = 4294967295;
 
@@ -20,14 +22,17 @@ export interface GameIdentityServiceDependencies{
 
 export class GameIdentityService {
 	private gameUsers: Map<string, GameIdentity> = new Map();
-	private gameUserQ = Promise.resolve();
+	private gameUserQueue = createSaveQueue(() => this.saveGameUsers());
 
 	private deps: GameIdentityServiceDependencies;
 	constructor(dependencies: GameIdentityServiceDependencies){
 		this.deps = dependencies;
 		
 		try{
-			const count =this.loadGameUsers();
+			if(!existsFile(this.deps.gameUsersPath)){
+				createJsonFile(this.deps.gameUsersPath, []);
+			}
+			const count = this.loadGameUsers();
 			console.log(`loaded ${count} game users from disk`);
 		}
 		catch(error: unknown){
@@ -47,7 +52,7 @@ export class GameIdentityService {
 		}
 		user.lastGame = new Date(newDate);
 
-		this.queueSaveGameUsers();
+		this.gameUserQueue.chain();
 		return user;
 	}
 
@@ -64,7 +69,7 @@ export class GameIdentityService {
 		const newPoints = gameId.gamePoints + amount;
 		if(newPoints >= MAX_INT){
 			gameId.gamePoints = MAX_INT;
-			this.queueSaveGameUsers();
+			this.gameUserQueue.chain();
 			throw new AppError('you won the game, max points gained. use /broke to start again', 'user');
 		}
 		if(newPoints < 0){
@@ -72,7 +77,7 @@ export class GameIdentityService {
 		}
 		gameId.gamePoints = newPoints;
 
-		this.queueSaveGameUsers();
+		this.gameUserQueue.chain();
 		return gameId;
 	}
 
@@ -87,7 +92,7 @@ export class GameIdentityService {
 		}
 		const newPoints = Math.round(this.deps.stateService.getGameConfig().pointStartAmt);
 		gameId.gamePoints = newPoints;
-		this.queueSaveGameUsers();
+		this.gameUserQueue.chain();
 		return gameId;
 	}
 
@@ -116,7 +121,7 @@ export class GameIdentityService {
 			...this.buildDefaultGameIdentity()
 		};
 		this.gameUsers.set(inputGuid, newGameIdentity);
-		this.queueSaveGameUsers();
+		this.gameUserQueue.chain();
 		return newGameIdentity;
 	}
 
@@ -126,10 +131,14 @@ export class GameIdentityService {
 			throw new AppError('delete game user: no matching game user found to GUID', 'internal', 'error');
 		}
 		this.gameUsers.delete(guid);
-		this.queueSaveGameUsers();
+		this.gameUserQueue.chain();
 	}
 
 	public reloadGameUsers(): number{
+		if(!existsFile(this.deps.gameUsersPath)){
+			throw new AppError(`game users file not found at ${this.deps.gameUsersPath}`, 'user');
+		}
+
 		try{
 			const reload = this.loadGameUsers();
 			return reload;
@@ -138,6 +147,7 @@ export class GameIdentityService {
 			if(error instanceof AppError){
 				throw error;
 			}
+
 			handleError(error, 'Reload Game Users');
 			
 			throw new AppError(`failed to reload game users: unknown error`, 'user');
@@ -153,16 +163,11 @@ export class GameIdentityService {
 
 	private loadGameUsers(): number {
 		try{
-			if(!existsSync(this.deps.gameUsersPath)){
-				this.gameUsers = new Map();
-				const dir = dirname(this.deps.gameUsersPath);
-				mkdirSync(dir, {recursive: true});
-				writeFileSync(this.deps.gameUsersPath, '[]');
-				return 0;
+			if(!existsFile(this.deps.gameUsersPath)){
+				throw new AppError('loadGameUsers called without existence check', 'bug');
 			}
 
-			const data = readFileSync(this.deps.gameUsersPath, 'utf-8');
-			const parseData: [string, unknown][] = JSON.parse(data);
+			const parseData = readJsonFile(this.deps.gameUsersPath) as [string, unknown][];
 			const defaultGameId = this.buildDefaultGameIdentity();
 
 			this.gameUsers = new Map();
@@ -177,7 +182,7 @@ export class GameIdentityService {
 
 				this.gameUsers.set(guid, gameIdentity);
 			}
-			this.queueSaveGameUsers();
+			this.gameUserQueue.chain();
 			return this.gameUsers.size;
 		} 
 		catch(error: unknown){
@@ -190,18 +195,9 @@ export class GameIdentityService {
 		}
 	}
 
-	private queueSaveGameUsers(){
-		this.gameUserQ = this.gameUserQ.then(() => this.saveGameUsers());
-	}
-
 	private async saveGameUsers(){
 		try{
-			const dir = dirname(this.deps.gameUsersPath);
-			await mkdir(dir, {recursive: true});
-
-			const data = JSON.stringify(Array.from(this.gameUsers.entries()), null, 4);
-
-			await writeFile(this.deps.gameUsersPath, data);
+			await writeJsonFile(this.deps.gameUsersPath, Array.from(this.gameUsers.entries()));
 		} 
 		catch(error: unknown){
 			handleError(error, 'Save Game Users');
