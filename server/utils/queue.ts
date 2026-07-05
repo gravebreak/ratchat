@@ -6,7 +6,7 @@ export function createSaveQueue(save: () => Promise<void>) {
 	return {
 		chain(){
 			pending = pending.then(save)
-            .catch((error: unknown) => {
+			.catch((error: unknown) => {
 				handleError(error, `Save Queue: ${save.name}`);
 			});
 		},
