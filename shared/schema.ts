@@ -73,14 +73,16 @@ export const eType = {
 } as const;
 export type GameEventType = typeof eType[keyof typeof eType];
 
-export type ChatMessage = {
-	id: number;
-	author: Identity['nick'];
-	content: string;
-	timestamp: number;
-	type: MessageType;
-	spoiler: boolean;
-}
+
+export const ChatMessageSchema = z.object({
+	id: z.number(),
+	author: IdentitySchema.shape.nick,
+	content: z.string(),
+	timestamp: z.number(),
+	type: z.enum(mType),
+	spoiler: z.boolean()
+});
+export type ChatMessage = z.infer<typeof ChatMessageSchema>;
 
 export type GameEvent = {
 	content: string;

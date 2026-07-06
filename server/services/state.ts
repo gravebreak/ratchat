@@ -1,11 +1,11 @@
 import { EventEmitter } from "events";
-import type { RedisClientType } from "redis";
 
 import type { Socket, Server } from "socket.io";
 
 import { defaultServerConfig, defaultMarkovConfig, mType, defaultGameConfig, ServerConfigSchema, MarkovConfigSchema, GameConfigSchema } from '../../shared/schema';
 import type { ServerConfig, Identity, UserSum, MarkovConfig, GameConfig } from "../../shared/schema";
 
+import { CacheService } from "./cache";
 import { DispatchService } from "./dispatch";
 import type { SafeString } from "./moderation";
 
@@ -29,13 +29,12 @@ type EmoteEntry = {
 const REDIS_ANNOUNCEMENT_KEY = 'ratchat:announcement';
 
 export interface StateServiceDependencies{
+	cacheService: CacheService;
 	dispatchService: DispatchService;
 	
 	serverConfigPath: string;
 	markovConfigPath: string;
 	gameConfigPath: string;
-	redisClient: RedisClientType | null;
-	redisTTL: number;
 	io: Server;
 }
 
@@ -294,33 +293,33 @@ export class StateService {
 	}
 
 	public async restoreAnnouncement(){
-		if(!this.deps.redisClient){
+		if(!this.deps.cacheService.existsRedisClient()){
 			return;
 		}
 
 		try{
-			const announcementLoad = await this.deps.redisClient.get(REDIS_ANNOUNCEMENT_KEY);
-			if(announcementLoad){
-				if(announcementLoad.length <= this.serverConfig.maxMsgLen){
+			const announcementLoad = await this.deps.cacheService.getRedisValue(REDIS_ANNOUNCEMENT_KEY);
+			if(announcementLoad !== null){
+				if(typeof announcementLoad !== 'string'){
+					this.announcement = '';
+					console.warn('Redis announcement load was not a string, starting fresh');
+				}
+				else if(announcementLoad.length > this.serverConfig.maxMsgLen){
+					this.announcement = '';
+					console.warn('Redis announcement load exceeded maxMsgLen, starting fresh');
+				}
+				else{
 					this.announcement = announcementLoad;
 					console.log(`Restored ${this.announcement} from Redis`);
 				}
-				else{
-					this.announcement = '';
-					console.warn('Redis annoucement load too long, starting fresh');
-				}
 			}
 			else{
-				console.log(`Empty Redis announcement load`);
+				console.log('Empty Redis announcement load');
 			}
 		}
 		catch(error: unknown){
 			handleError(error, 'Redis Announcment Load');
 		}
-	}
-
-	public disableRedis(){
-		this.deps.redisClient = null;
 	}
 
 	public queueSignup(socket: Socket, nick: SafeString): Promise<boolean> {
@@ -358,11 +357,11 @@ export class StateService {
 	}
 
 	private async saveAnnouncement(){
-		if(!this.deps.redisClient){
+		if(!this.deps.cacheService.existsRedisClient()){
 				return;
 		}
 		try {
-			await this.deps.redisClient.set(REDIS_ANNOUNCEMENT_KEY, this.announcement, { EX: this.deps.redisTTL});
+			await this.deps.cacheService.setRedisValue(REDIS_ANNOUNCEMENT_KEY, this.announcement);
 		} 
 		catch(error: unknown){
 			handleError(error, 'Redis Announcement Save');

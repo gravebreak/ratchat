@@ -1,12 +1,15 @@
 import { Server, Socket } from 'socket.io';
-import type { RedisClientType } from 'redis';
 
-import { mType, eType } from '../../shared/schema';
+import { mType, eType, ChatMessageSchema } from '../../shared/schema';
 import type { MessageType, UserSum, Identity, ChatMessage, GameEvent, GameEventType } from '../../shared/schema';
+
+import { CacheService } from './cache';
 
 import { getDisplayNick } from '../utils/format';
 import { createSaveQueue } from '../utils/queue';
 import { handleError } from '../utils/errors';
+import { parseEntryArray } from '../utils/parse';
+
 
 type Target = { emit: Server['emit'] };
 type TextPayload = typeof mType.chat | typeof mType.ann | typeof mType.error | typeof mType.info | typeof mType.welcome | typeof mType.markov;
@@ -30,8 +33,7 @@ const REDIS_COUNTER_KEY = 'ratchat:messageCounter';
 const MAX_INT = 4294967295;
 
 export interface DispatchServiceDependencies {
-	redisClient: RedisClientType | null;
-	redisTTL: number;
+	cacheService: CacheService
 }
 
 export class DispatchService{
@@ -129,24 +131,36 @@ export class DispatchService{
 	}
 
 	public async restoreChatHistory(msgArrayLen: number, msgArrayTimeout: number){
-		if(!this.deps.redisClient){
+		if(msgArrayLen === 0){
+			console.log('msgArrayLen is 0, skipping chat history restore');
+			return;
+		}
+		
+		if(!this.deps.cacheService.existsRedisClient()){
 			return;
 		}
 
 		try{
-			const historyLoad = await this.deps.redisClient.get(REDIS_HISTORY_KEY);
-			if(historyLoad){
-				const now = Date.now();
-				const expireTime = (msgArrayTimeout - 60) * 1000;
-				const entries: [number, ChatMessage][] = JSON.parse(historyLoad);
-				const fresh = entries.filter(([, msg]) => msg.timestamp + expireTime > now);
-				const trimmed = fresh.slice(-msgArrayLen);
-				this.chatHistory = new Map(trimmed);
-				console.log(`Restored ${this.chatHistory.size} messages from Redis`);
-			}
-			else{
+			const historyLoad = await this.deps.cacheService.getRedisValue(REDIS_HISTORY_KEY);
+
+			if(!historyLoad){
 				console.log('Empty Redis chat history load');
+				return;
 			}
+
+			if(!Array.isArray(historyLoad)){
+				console.warn('Redis chat history value was not an array, starting fresh');
+				return;
+			}
+			const now = Date.now();
+			const expireTime = (msgArrayTimeout - 60) * 1000;
+
+			const validMessages = parseEntryArray(historyLoad, ChatMessageSchema);
+			const fresh = validMessages.filter(msg => msg.timestamp + expireTime > now);
+			const trimmed = fresh.slice(-msgArrayLen);
+			const trimmedMap = trimmed.map((msg): [number, ChatMessage] => [msg.id, msg]);
+			this.chatHistory = new Map(trimmedMap);
+			console.log(`Restored ${this.chatHistory.size} chat history messages from Redis`);
 		}
 		catch(error: unknown){
 			handleError(error, 'Redis Message History Load');
@@ -154,21 +168,20 @@ export class DispatchService{
 	}
 	
 	public async restoreMessageCounter(){
-		if(!this.deps.redisClient){
+		if(!this.deps.cacheService.existsRedisClient()){
 			return;
 		}
 
 		try{
-			const counterLoad = await this.deps.redisClient.get(REDIS_COUNTER_KEY);
-			if(counterLoad){
-				const parsedLoad = parseInt(counterLoad, 10);
-				if(!isNaN(parsedLoad) && parsedLoad >= 0 && parsedLoad <= MAX_INT){
-					this.messageCounter = parsedLoad;
-					console.log(`Restored message id counter to ${parsedLoad} from Redis`);
+			const counterLoad = await this.deps.cacheService.getRedisValue(REDIS_COUNTER_KEY);
+			if(counterLoad !== null){
+				if(typeof counterLoad === 'number' && Number.isInteger(counterLoad) && counterLoad >= 0 && counterLoad <= MAX_INT){
+					this.messageCounter = counterLoad;
+					console.log(`Restored message id counter to ${counterLoad} from Redis`);
 				}
 				else{
 					this.messageCounter = 0;
-					console.warn(`Redis message id counter ${parsedLoad} out of range, starting fresh`);
+					console.warn('Redis message id counter load out of range or invalid, starting fresh');
 				}
 			}
 			else{
@@ -178,10 +191,6 @@ export class DispatchService{
 		catch(error: unknown){
 			handleError(error, 'Redis Message ID Counter Load');
 		}
-	}
-	
-	public disableRedis(){
-		this.deps.redisClient = null;
 	}
 
 	public startExpireMessageTimer(msgArrayTimeout: number){
@@ -225,11 +234,11 @@ export class DispatchService{
 	}
 
 	private async saveChatHistory(){
-		if(!this.deps.redisClient){
+		if(!this.deps.cacheService.existsRedisClient()){
 				return;
 		}
 		try {
-			await this.deps.redisClient.set(REDIS_HISTORY_KEY, JSON.stringify([...this.chatHistory.entries()]), { EX: this.deps.redisTTL });
+			await this.deps.cacheService.setRedisValue(REDIS_HISTORY_KEY, [...this.chatHistory.values()]);
 		} 
 		catch(error: unknown){
 			handleError(error, 'Redis Message History Save');
@@ -237,11 +246,11 @@ export class DispatchService{
 	}
 
 	private async saveMessageCounter(){
-		if(!this.deps.redisClient){
+		if(!this.deps.cacheService.existsRedisClient()){
 				return;
 		}
-		try {
-			await this.deps.redisClient.set(REDIS_COUNTER_KEY, this.messageCounter.toString(), { EX: this.deps.redisTTL });
+		try{
+			await this.deps.cacheService.setRedisValue(REDIS_COUNTER_KEY, this.messageCounter);
 		} 
 		catch(error: unknown){
 			handleError(error, 'Redis Message ID Counter Save');

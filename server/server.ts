@@ -1,7 +1,5 @@
 import { createServer } from 'http';
 import { join } from 'node:path';
-import { createClient } from 'redis';
-import type { RedisClientType } from 'redis';
 
 import { Server } from 'socket.io';
 import {default as express} from 'express';
@@ -9,6 +7,7 @@ import {default as express} from 'express';
 import { eType, mType, tType } from '../shared/schema';
 import type { Identity } from '../shared/schema';
 
+import { CacheService } from './services/cache';
 import { DispatchService } from './services/dispatch';
 import { StateService } from './services/state';
 import { ModerationService } from './services/moderation';
@@ -48,90 +47,36 @@ async function main(){
 	const bansPath = join(__dirname, 'data', 'bans.json');
 	const brainPath = join(__dirname, 'data', 'brain.db');
 	const gameUsersPath = join(__dirname, 'data', 'game-users.json');
-	const REDIS_TTL = 604800;
-	let redisClient: RedisClientType | null = null;
 	const gracePeriod = 3000;
 	let inGrace = true;
 	const clearInput: boolean = true;
 	const keepInput: boolean = false;
 
+	const cacheService = new CacheService();
+	
 	if(process.env.REDIS_URL){
-		const client : RedisClientType = createClient({url: process.env.REDIS_URL});
-
-		try{
-			client.on('error', () => {}); //suppress errors until startup completes
-			client.on('reconnecting', () => {});
-			client.on('connect', () => {
-				if(client.options.socket){
-					const port = 'port' in client.options.socket ? client.options.socket.port : 'unknown';
-					console.log(`Redis client connected on port: ${port}`);
-				}
-			});
-			await Promise.race([
-				client.connect(),
-				new Promise((_, reject) => setTimeout(() => reject(new Error('Redis startup timeout')), 3000)),
-			]);
-			redisClient = client;
-			client.removeAllListeners('error');
-			client.removeAllListeners('reconnecting');
-		}
-		catch(error: unknown){
-			client.destroy();
-			handleError(error, 'Redis Startup');
-		}
+		await cacheService.startRedisClient();
 	}
 	else{
 		console.warn('WARNING: REDIS_URL environment variable is not set. Restart persistence is not available.');
 	}
 
 	const dispatchService = new DispatchService({
-		redisClient: redisClient,
-		redisTTL: REDIS_TTL
+		cacheService: cacheService
 	});
 
 	const stateService = new StateService({
+		cacheService: cacheService,
 		dispatchService: dispatchService,
 
 		serverConfigPath: serverConfigPath,
 		markovConfigPath: markovConfigPath,
 		gameConfigPath: gameConfigPath,
-		redisClient: redisClient,
-		redisTTL: REDIS_TTL,
 		io: io
 	});
-	
-	//Redis error handler
-	if(redisClient){
-		let reconnectTimer: NodeJS.Timeout | null = null;
-
-		redisClient.on('reconnecting', () => {
-			if(!reconnectTimer){
-				console.warn('Redis connection lost, reconnecting...');
-				reconnectTimer = setTimeout(() => {
-					if(redisClient){ //protection against type errors on .destroy
-						redisClient.removeAllListeners();
-						redisClient.destroy();
-						redisClient = null;
-						dispatchService.disableRedis();
-						stateService.disableRedis();
-						console.error('Redis reconnection timeout exceeded 5s, fell back to stateless');
-					}
-				}, 5000);
-			}
-		});
-
-		redisClient.on('connect', () => {	  
-			if(reconnectTimer){
-				clearTimeout(reconnectTimer);
-				reconnectTimer = null;
-			}
-		});
-
-		redisClient.on('error', (error) => console.warn('Redis client error:', error.message));
-	}
 
 	//Redis history load
-	if(redisClient){
+	if(cacheService.existsRedisClient()){
 		await dispatchService.restoreChatHistory(stateService.getServerConfig().msgArrayLen, stateService.getServerConfig().msgArrayTimeout);
 		await dispatchService.restoreMessageCounter();
 		await stateService.restoreAnnouncement();
