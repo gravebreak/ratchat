@@ -27,6 +27,7 @@ type EmoteEntry = {
 }
 
 const REDIS_ANNOUNCEMENT_KEY = 'ratchat:announcement';
+const REDIS_MARKOVSLEEP_KEY = 'ratchat:markovsleep';
 
 export interface StateServiceDependencies{
 	cacheService: CacheService;
@@ -57,6 +58,7 @@ export class StateService {
 	private signupPromise: Map<Socket, (value: boolean)=> void> = new Map();
 
 	private announcementQueue = createSaveQueue(() => this.saveAnnouncement());
+	private markovSleepQueue = createSaveQueue(() => this.saveMarkovSleep());
 
 	private deps: StateServiceDependencies;
 	constructor(dependencies: StateServiceDependencies){
@@ -86,24 +88,6 @@ export class StateService {
 
 	public getGameConfig(): GameConfig{
 		return this.gameConfig;
-	}
-
-	public getAnnouncement(): string{
-		return this.announcement;
-	}
-
-	public setAnnouncement(io: Server, str: SafeString){
-		if(this.announcement === str){
-			throw new AppError("that's already the announcement", 'user');
-		}
-
-		this.announcement = str;
-		
-		if(str){
-		  	this.deps.dispatchService.sendSystemChat(io, mType.ann,`announcement: ${str}`);
-		}
-
-		this.announcementQueue.chain();
 	}
 
 	public getEmotes(): Map<string, string>{
@@ -288,8 +272,58 @@ export class StateService {
 		else{
 			this.markovSleep = true;
 		}
+		this.markovSleepQueue.chain();
 		this.broadcastUsers(io);
 		return this.markovSleep;
+	}
+
+	public async restoreMarkovSleep(){
+		if(!this.markovConfig.enabled){
+			console.log('markov bot disabled skipping markov toggle restore');
+			return;
+		}
+		
+		if(!this.deps.cacheService.existsRedisClient()){
+			return;
+		}
+
+		try{
+			const markovSleepLoad = await this.deps.cacheService.getRedisValue(REDIS_MARKOVSLEEP_KEY);
+			if(markovSleepLoad !== null){
+				if(typeof markovSleepLoad === 'boolean'){
+					this.markovSleep = markovSleepLoad;
+					console.log(`Restored markov sleep state to ${markovSleepLoad} from Redis`);
+				}
+				else{
+					this.markovSleep = false;
+					console.warn('Redis markov sleep load was not a boolean, starting fresh');
+				}
+			}
+			else{
+				console.log('Empty Redis Markov Sleep load');
+			}
+		}
+		catch(error: unknown){
+			handleError(error, 'Redis Markov Sleep load');
+		}
+	}
+
+	public getAnnouncement(): string{
+		return this.announcement;
+	}
+
+	public setAnnouncement(io: Server, str: SafeString){
+		if(this.announcement === str){
+			throw new AppError("that's already the announcement", 'user');
+		}
+
+		this.announcement = str;
+		
+		if(str){
+		  	this.deps.dispatchService.sendSystemChat(io, mType.ann,`announcement: ${str}`);
+		}
+
+		this.announcementQueue.chain();
 	}
 
 	public async restoreAnnouncement(){
@@ -365,6 +399,18 @@ export class StateService {
 		} 
 		catch(error: unknown){
 			handleError(error, 'Redis Announcement Save');
+		}
+	}
+
+	private async saveMarkovSleep(){
+		if(!this.deps.cacheService.existsRedisClient()){
+				return;
+		}
+		try {
+			await this.deps.cacheService.setRedisValue(REDIS_MARKOVSLEEP_KEY, this.markovSleep);
+		} 
+		catch(error: unknown){
+			handleError(error, 'Redis Markov Sleep Save');
 		}
 	}
 

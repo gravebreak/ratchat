@@ -80,6 +80,9 @@ async function main(){
 		await dispatchService.restoreChatHistory(stateService.getServerConfig().msgArrayLen, stateService.getServerConfig().msgArrayTimeout);
 		await dispatchService.restoreMessageCounter();
 		await stateService.restoreAnnouncement();
+		if(stateService.getMarkovConfig().enabled){
+			await stateService.restoreMarkovSleep();
+		}
 	}
 
 	const moderationService = new ModerationService({
