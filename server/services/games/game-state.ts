@@ -1,8 +1,9 @@
 import type { GameIdentity } from '../../../shared/schema';
-import type { LeaderboardEntry, BlackjackEntry, DuelingEntry, FishingEntry, HorseEntry, PrivateHorseRecordList, PrivateFishRecordList } from './game-schema'
-import type { PublicOverallLeaderboard, PublicBlackjackLeaderboard, PublicDuelingLeaderboard, PublicFishingLeaderboard, PublicHorseLeaderboard } from "./game-schema";
-import type { PrivateLeaderboard, PublicLeaderboard } from "./game-schema";
 
+import { HorseRecordEntrySchema, FishRecordEntrySchema } from './game-schema';
+import type { LeaderboardEntry, BlackjackEntry, DuelingEntry, FishingEntry, HorseEntry } from './game-schema';
+import type { PublicLeaderboard, PublicOverallLeaderboard, PublicBlackjackLeaderboard, PublicDuelingLeaderboard, PublicFishingLeaderboard, PublicHorseLeaderboard } from "./game-schema";
+import type { PrivateHorseRecordList, PrivateFishRecordList, PublicHorseRecordList, PublicFishRecordList, HorseRecordEntry, FishRecordEntry } from './game-schema';
 
 import { CacheService } from "../cache";
 import { DispatchService } from "../dispatch";
@@ -11,15 +12,16 @@ import { GameIdentityService } from "./game-identity";
 import { IdentityService } from "../identity";
 
 import { handleError, AppError } from "../../utils/errors";
-//import { parseEntryArray } from "../../utils/parse";
+import { createJsonFile, existsFile, readJsonFile } from '../../utils/serialize';
+import { defaultFishCatalog } from './fish-catalog';
+import { defaultHorseCatalog } from './horse-catalog';
+import { parseArray } from '../../utils/parse';
 
-
-
-//const REDIS_BLACKJACK_KEY = 'ratchat:blackjack';
 type StageOne = GameIdentity & {fullnick: string };
 type StageTwo = StageOne & { fishingTypesCaught: number, fishingRecords: number };
 type FullEntry = LeaderboardEntry & BlackjackEntry & DuelingEntry & FishingEntry & HorseEntry;
 type FullLeaderboard = FullEntry[];
+//const REDIS_BLACKJACK_KEY = 'ratchat:blackjack';
 
 export interface StateServiceDependencies{
 	cacheService: CacheService;
@@ -41,11 +43,19 @@ export class GameStateService {
 		this.deps = dependencies;
 
 		try{
+			if(!existsFile(this.deps.fishingRecordsPath)){
+				createJsonFile(this.deps.fishingRecordsPath, this.buildFishRecords());
+			}
+
+			if(!existsFile(this.deps.horseRecordsPath)){
+				createJsonFile(this.deps.horseRecordsPath, this.buildHorseRecords());
+			}
+
 			this.loadRecords();
 		}
 		catch(error: unknown){
-			handleError(error, 'Leaderboards Load');
-		}	
+			handleError(error, 'Records Load (Startup)');
+		}
 	}
 
 	public getLeaderboard(): PublicOverallLeaderboard;
@@ -97,6 +107,9 @@ export class GameStateService {
 		const recordCounts = new Map<string, number>();
 
 		for(const record of this.fishRecords){
+			if(record.playerid === null){
+				continue;
+			}
 			const count = recordCounts.get(record.playerid) ?? 0;
 			recordCounts.set(record.playerid, count + 1);
 		}
@@ -149,77 +162,41 @@ export class GameStateService {
 				}));
 		}
 	}
+	private buildFishRecords(): PrivateFishRecordList {
+		return defaultFishCatalog.map((catalogEntry) => ({
+			...catalogEntry,
+			weight: null,
+			playerid: null,
+			fullnick: null,
+		}));
+	}
+
+	private buildHorseRecords(): PrivateHorseRecordList {
+		return defaultHorseCatalog.map((catalogEntry) => ({
+			...catalogEntry,
+			wins: 0,
+		}));
+	}
 	private loadRecords(){
-		return;
+		this.fishRecords = this.loadRecordList(this.deps.fishingRecordsPath, 'fish');
+		this.horseRecords = this.loadRecordList(this.deps.horseRecordsPath, 'horse');
+	}
+
+	private loadRecordList(path: string, schemalabel: 'fish'): PrivateFishRecordList;
+	private loadRecordList(path: string, schemalabel: 'horse'): PrivateHorseRecordList;
+	private loadRecordList(path: string, schemalabel: 'fish' | 'horse'): PrivateFishRecordList | PrivateHorseRecordList {
+		const raw: unknown = readJsonFile(path);
+		if(!Array.isArray(raw)){
+			throw new AppError(`${schemalabel} record file did not contain an array`, 'internal', 'warn');
+		}
+
+		switch(schemalabel){
+			case 'fish':
+				return parseArray(raw, FishRecordEntrySchema);
+			case 'horse':
+				return parseArray(raw, HorseRecordEntrySchema);
+			default:
+				throw new AppError('LoadRecordList called without label', 'bug');
+		}
 	}
 }
-// 	private loadLeaderboards(){
-// 		this.blackjackLeaderboard = this.loadLeaderboard(this.deps.blackjackLeaderboardPath, 'blackjack');
-// 		this.duelingLeaderboard = this.loadLeaderboard(this.deps.duelingLeaderboardPath, 'dueling');
-// 		this.fishingLeaderboard = this.loadLeaderboard(this.deps.fishingLeaderboardPath, 'fishing');
-// 		this.horseLeaderboard = this.loadLeaderboard(this.deps.horseLeaderboardPath, 'horse');
-// 	}
-
-// 	private loadLeaderboard(path: string, label: 'blackjack'): BlackjackEntry[];
-// 	private loadLeaderboard(path: string, label: 'dueling'): DuelingEntry[];
-// 	private loadLeaderboard(path: string, label: 'fishing'): FishingEntry[];
-// 	private loadLeaderboard(path: string, label: 'horse'): HorseEntry[];
-// 	private loadLeaderboard(path: string, label: keyof typeof LeaderboardSchemaMap): PrivateLeaderboard {
-// 		const raw = this.readLeaderboardFile(path, label);
-// 		let parsed: unknown[] = [];
-// 		try {
-// 			const result: unknown = JSON.parse(raw);
-// 			if (!Array.isArray(result)) {
-// 				throw new AppError(`${label} leaderboard file did not contain an array`, 'internal', 'warn');
-// 			}
-// 			parsed = result;
-// 		} catch (error: unknown) {
-// 			handleError(error, `${label} Leaderboard Parse`);
-// 		}
-
-// 		let validEntries: PrivateLeaderboard;
-
-// 		switch (label) {
-// 			case 'blackjack':
-// 			validEntries = parseEntryArray(parsed, LeaderboardSchemaMap.blackjack);
-// 			break;
-// 			case 'dueling':
-// 			validEntries = parseEntryArray(parsed, LeaderboardSchemaMap.dueling);
-// 			break;
-// 			case 'fishing':
-// 			validEntries = parseEntryArray(parsed, LeaderboardSchemaMap.fishing);
-// 			break;
-// 			case 'horse':
-// 			validEntries = parseEntryArray(parsed, LeaderboardSchemaMap.horse);
-// 			break;
-// 			case 'overall':
-// 			throw new AppError(`loadLeaderboard must not be called with 'overall'`, 'bug');
-// 			default:
-// 			throw new AppError(`loadLeaderboard received unsupported label: ${label}`, 'internal', 'warn');
-// 		}
-
-// 		console.log(`LOADED ${label.toUpperCase()} LEADERBOARD:`, validEntries.length, 'entries');
-// 		return validEntries;
-// 	}
-
-// 	private readLeaderboardFile(path: string, label: string): string{
-// 		if(!existsSync(path)){
-// 			try{
-// 				writeFileSync(path, JSON.stringify([], null, 4));
-// 				console.log(`created default ${label} leaderboard file`);
-// 			}
-// 			catch(error: unknown){
-// 				handleError(error, `Create Leaderboard ${label} Default File`);
-// 			}
-// 			return "[]";
-// 		}
-
-// 		try{
-// 			return readFileSync(path, 'utf-8');
-// 		}
-// 		catch(error: unknown){
-// 			handleError(error, `${label} Leaderboard Read`);
-// 			return "[]";
-// 		}
-// 	}
-// }

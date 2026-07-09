@@ -8,7 +8,7 @@ import { CacheService } from './cache';
 import { getBaseNick } from '../utils/format';
 import { createSaveQueue } from '../utils/queue';
 import { handleError } from '../utils/errors';
-import { parseEntryArray } from '../utils/parse';
+import { parseArray } from '../utils/parse';
 
 
 type Target = { emit: Server['emit'] };
@@ -155,7 +155,7 @@ export class DispatchService{
 			const now = Date.now();
 			const expireTime = (msgArrayTimeout - 60) * 1000;
 
-			const validMessages = parseEntryArray(historyLoad, ChatMessageSchema);
+			const validMessages = parseArray(historyLoad, ChatMessageSchema);
 			const fresh = validMessages.filter(msg => msg.timestamp + expireTime > now);
 			const trimmed = fresh.slice(-msgArrayLen);
 			const trimmedMap = trimmed.map((msg): [number, ChatMessage] => [msg.id, msg]);

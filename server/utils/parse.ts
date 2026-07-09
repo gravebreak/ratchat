@@ -15,7 +15,7 @@ export type KeyedParseFailureRecord = ParseFailureRecord & {
 	recordKey: string;
 };
 
-export function parseEntryArray<T>(parsed: unknown[], schema: z.ZodType<T>): T[]{
+export function parseArray<T>(parsed: unknown[], schema: z.ZodType<T>): T[]{
 	return parsed.filter((entry): entry is T => schema.safeParse(entry).success);
 }
 

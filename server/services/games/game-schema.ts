@@ -48,16 +48,6 @@ export const HorseEntrySchema = LeaderboardIdentityEntrySchema.extend({
 export type HorseEntry = z.infer<typeof HorseEntrySchema>;
 export type PublicHorseEntry = Omit<HorseEntry, 'playerid'>;
 
-
-export const LeaderboardSchemaMap = {
-	overall: LeaderboardEntrySchema,
-	blackjack: BlackjackEntrySchema,
-	dueling: DuelingEntrySchema,
-	fishing: FishingEntrySchema,
-	horse: HorseEntrySchema,
-} as const;
-
-
 export type PrivateOverallLeaderboard = LeaderboardEntry[];
 export type PrivateBlackjackLeaderboard = BlackjackEntry[];
 export type PrivateDuelingLeaderboard = DuelingEntry[];
@@ -79,13 +69,11 @@ export const FishCatalogEntrySchema = z.object({
 	fishName: z.string().max(128),
 	baseline: z.number().min(0)
 });
-export const FishRecordEntrySchema = FishCatalogEntrySchema
-	.extend({
-		weight: z.number().min(0),
-	})
-	.extend(
-		LeaderboardIdentityEntrySchema.shape
-);
+export const FishRecordEntrySchema = FishCatalogEntrySchema.extend({
+	weight: z.number().min(0).nullable(),
+	playerid: LeaderboardIdentityEntrySchema.shape.playerid.nullable(),
+	fullnick: LeaderboardIdentityEntrySchema.shape.fullnick.nullable(),
+});
 export type FishCatalogEntry = z.infer<typeof FishCatalogEntrySchema>;
 export type FishRecordEntry = z.infer<typeof FishRecordEntrySchema>;
 export type PublicFishRecord = Omit<FishRecordEntry, 'playerid'>;
