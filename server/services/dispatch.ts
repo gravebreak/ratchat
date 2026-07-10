@@ -1,15 +1,15 @@
 import { Server, Socket } from 'socket.io';
 
-import { mType, eType, ChatMessageSchema } from '../../shared/schema';
-import type { MessageType, UserSum, Identity, ChatMessage, GameEvent, GameEventType } from '../../shared/schema';
+import { mType, eType, ChatMessageSchema } from '../defs/def-message';
+import type { UserSum, Identity } from '../defs/def-identity';
+import type { MessageType, ChatMessage, GameEvent, GameEventType } from '../defs/def-message';
 
 import { CacheService } from './cache';
 
-import { getBaseNick } from '../utils/format';
-import { createSaveQueue } from '../utils/queue';
 import { handleError } from '../utils/errors';
+import { getBaseNick } from '../utils/format';
 import { parseArray } from '../utils/parse';
-
+import { createSaveQueue } from '../utils/queue';
 
 type Target = { emit: Server['emit'] };
 type TextPayload = typeof mType.chat | typeof mType.ann | typeof mType.error | typeof mType.info | typeof mType.welcome | typeof mType.markov;

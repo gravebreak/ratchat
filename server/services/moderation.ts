@@ -1,12 +1,14 @@
-import { readFileSync } from "fs";
+import { readFileSync } from 'fs';
 
-import type { Identity, TimeType, TextType } from "../../shared/schema.ts";
+import type { Identity } from '../defs/def-identity';
+import type { TimeType, TextType } from '../defs/def-moderation';
 
-import { StateService } from "./state";
-import { sanitizeText } from "../utils/sanitize.js";
-import { isValidHexColor } from "../utils/validate.js";
-import { handleError, AppError } from "../utils/errors.js";
-import { getBaseNick } from "../utils/format.js";
+import { StateService } from './state';
+
+import { handleError, AppError } from '../utils/errors';
+import { getBaseNick } from '../utils/format';
+import { sanitizeText } from '../utils/sanitize';
+import { isValidHexColor } from '../utils/validate';
 
 export type SafeString = string & {__brand: 'SafeString'};
 
@@ -167,7 +169,7 @@ export class ModerationService {
 			other: serverConfig.otherSlow * 1000,
 		};
 
-		const last = type === "chat" || type === "joinleave" ? lastMessage : lastChanged;
+		const last = type === 'chat' || type === 'joinleave' ? lastMessage : lastChanged;
 		const waitTime = ((last + limits[type]) - now) /1000;
 
 		if(waitTime > 0){

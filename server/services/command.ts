@@ -1,27 +1,26 @@
 import { Server, Socket } from 'socket.io';
 
-import { tType, mType } from '../../shared/schema';
-import type { Command, Identity } from '../../shared/schema';
+import { keepInput, clearInput } from '../defs/def-input';
+import { mType } from '../defs/def-message';
+import { tType } from '../defs/def-moderation';
+import type { Identity } from '../defs/def-identity';
+import type { Command } from '../defs/def-message';
 
 import { DispatchService } from './dispatch';
-import { StateService } from './state';
 import { ModerationService } from './moderation';
+import { SecurityService } from './security';
 import { GameIdentityService } from './games/game-identity';
 import { IdentityService } from './identity';
-import { SecurityService } from './security';
+import { StateService } from './state';
 import { MarkovService } from './markov';
 import { MessageService } from './message';
-
-import { getBaseNick, getNickColor } from '../utils/format';
-import { isValidGUID } from '../utils/validate';
-import { AppError } from '../utils/errors';
-
 import { GameCommandService } from './games/game-command';
 
-const clearInput: boolean = true;
-const keepInput: boolean = false;
+import { getBaseNick, getNickColor } from '../utils/format';
+import { AppError } from '../utils/errors';
+import { isValidGUID } from '../utils/validate';
 
-export type CommandEntry = {
+type CommandEntry = {
 	requiresMod: boolean;
 	requiresMarkov: boolean;
 	handler: (ctx: Command) => boolean | Promise<boolean>;

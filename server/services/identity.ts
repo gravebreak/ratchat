@@ -1,22 +1,22 @@
 import { v4 as uuidv4 } from 'uuid';
 
-import { IdentitySchema, aType } from '../../shared/schema';
-import type { DefaultIdentity, Identity } from '../../shared/schema';
+import { IdentitySchema } from '../defs/def-identity';
+import { aType } from '../defs/def-parse';
+import type { DefaultIdentity, Identity } from '../defs/def-identity';
+import type { KeyedParseFailureRecord } from '../defs/def-parse';
 
 import { ModerationService } from './moderation';
+import { SecurityService } from './security';
 import { StateService } from './state';
 import { GameIdentityService } from './games/game-identity';
-import { SecurityService } from './security';
 import type { SafeString } from './moderation';
 
-import { mergeIdentityDefaults } from '../utils/parse';
-import { existsRepairFile, getRepairPath } from '../utils/repair';
-import { getBaseNick, getNickColor } from '../utils/format';
 import { handleError, AppError } from '../utils/errors';
+import { getBaseNick, getNickColor } from '../utils/format';
+import { mergeIdentityDefaults } from '../utils/parse';
 import { createSaveQueue } from '../utils/queue';
+import { existsRepairFile, getRepairPath } from '../utils/repair';
 import { existsFile, createJsonFile, readJsonFile, writeJsonFile } from '../utils/serialize';
-import type { KeyedParseFailureRecord } from '../utils/parse';
-
 
 export interface IdentityServiceDependencies{
 	moderationService: ModerationService;

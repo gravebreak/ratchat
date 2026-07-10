@@ -4,8 +4,10 @@ import { join } from 'node:path';
 import { Server } from 'socket.io';
 import {default as express} from 'express';
 
-import { eType, mType, tType } from '../shared/schema';
-import type { Identity } from '../shared/schema';
+import { eType, mType } from './defs/def-message';
+import { tType } from './defs/def-moderation';
+import { clearInput, keepInput } from './defs/def-input';
+import type { Identity } from './defs/def-identity';
 
 import { CacheService } from './services/cache';
 import { DispatchService } from './services/dispatch';
@@ -38,19 +40,21 @@ async function main(){
 	const app = express();
 	const httpserver = createServer(app);
 	const io = new Server(httpserver, {path:"/ratchat/socket.io/", connectionStateRecovery:{}});
-	const usersPath = join(__dirname, 'data', 'users.json');
+	
 	const serverConfigPath = join(__dirname, 'config.json');
 	const markovConfigPath = join(__dirname, 'markov.json');
 	const gameConfigPath = join(__dirname, 'minigames.json');
-	const basenickFilterPath = join(__dirname, 'basenickfilter.json');
-	const profFilterPath = join(__dirname, 'profanityfilter.json');
+	
+	const basenickFilterPath = join(__dirname, 'services/filters', 'filter-basenick.json');
+	const profFilterPath = join(__dirname, 'services/filters','filter-profanity.json');
+	
+	const usersPath = join(__dirname, 'data', 'users.json');
+	const gameUsersPath = join(__dirname, 'data', 'game-users.json');
 	const bansPath = join(__dirname, 'data', 'bans.json');
 	const brainPath = join(__dirname, 'data', 'brain.db');
-	const gameUsersPath = join(__dirname, 'data', 'game-users.json');
+
 	const gracePeriod = 3000;
 	let inGrace = true;
-	const clearInput: boolean = true;
-	const keepInput: boolean = false;
 
 	const cacheService = new CacheService();
 	

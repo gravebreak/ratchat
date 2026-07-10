@@ -1,22 +1,24 @@
-import { EventEmitter } from "events";
+import { EventEmitter } from 'events';
+import type { Socket, Server } from 'socket.io';
 
-import type { Socket, Server } from "socket.io";
+import { defaultServerConfig, defaultMarkovConfig, defaultGameConfig, ServerConfigSchema, MarkovConfigSchema, GameConfigSchema } from '../defs/def-config';
+import { mType } from '../defs/def-message';
+import { aType } from '../defs/def-parse';
+import type { ServerConfig, MarkovConfig, GameConfig } from '../defs/def-config';
+import type { Identity, UserSum } from '../defs/def-identity';
 
-import { defaultServerConfig, defaultMarkovConfig, mType, aType, defaultGameConfig, ServerConfigSchema, MarkovConfigSchema, GameConfigSchema } from '../../shared/schema';
-import type { ServerConfig, Identity, UserSum, MarkovConfig, GameConfig } from "../../shared/schema";
+import { CacheService } from './cache';
+import { DispatchService } from './dispatch';
+import type { SafeString } from './moderation';
 
-import { CacheService } from "./cache";
-import { DispatchService } from "./dispatch";
-import type { SafeString } from "./moderation";
-
-import { mergeConfigDefaults } from "../utils/parse";
-import { existsRepairFile, getRepairPath } from "../utils/repair";
-import { hashIP } from "../utils/hash";
-import { getBaseNick } from "../utils/format";
-import { isValid7TVID } from "../utils/validate";
-import { handleError, AppError } from "../utils/errors";
-import { createSaveQueue } from "../utils/queue";
-import { existsFile, createJsonFile, readJsonFile } from "../utils/serialize";
+import { handleError, AppError } from '../utils/errors';
+import { getBaseNick } from '../utils/format';
+import { hashIP } from '../utils/hash';
+import { mergeConfigDefaults } from '../utils/parse';
+import { createSaveQueue } from '../utils/queue';
+import { existsRepairFile, getRepairPath } from '../utils/repair';
+import { existsFile, createJsonFile, readJsonFile } from '../utils/serialize';
+import { isValid7TVID } from '../utils/validate';
 
 type EmoteEntry = {
 	name: string;
@@ -52,7 +54,7 @@ export class StateService {
 	private markovConfig: MarkovConfig = {...defaultMarkovConfig};
 	private gameConfig: GameConfig = {...defaultGameConfig};
 
-	private announcement: string = "";
+	private announcement: string = '';
 
 	private signupBuffer: Map<string, {socket: Socket; basenick: SafeString}> = new Map();
 	private signupTimer: NodeJS.Timeout | null = null;
@@ -124,7 +126,7 @@ export class StateService {
 
 			const data = await response.json();
 			if(!data.emotes || !Array.isArray(data.emotes)){ 
-				throw new AppError("invalid 7tv response structure", 'internal', 'warn'); 
+				throw new AppError('invalid 7tv response structure', 'internal', 'warn'); 
 			}
 			
 			let size: number = 0;
@@ -166,7 +168,7 @@ export class StateService {
 
 			const data = await response.json();
 			if(!data.emotes || !Array.isArray(data.emotes)){ 
-				throw new AppError("invalid 7tv response structure", 'internal', 'warn'); 
+				throw new AppError('invalid 7tv response structure', 'internal', 'warn'); 
 			}
 
 			let deleteCount: number = 0;
@@ -541,7 +543,7 @@ export class StateService {
 
 				if(now - lastMessage > afkTime && now - lastChanged > afkTime){
 					if(!user.isAfk){
-						this.events.emit("afk-check", user.guid);
+						this.events.emit('afk-check', user.guid);
 						updates.push({id, user});
 					}
 				}

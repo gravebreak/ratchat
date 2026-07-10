@@ -1,27 +1,27 @@
 import { Server, Socket } from 'socket.io';
 
-import { mType, allGames } from '../../../shared/schema';
-import type { Command, Identity, GameType } from '../../../shared/schema';
+import { allGames } from '../../defs/def-config';
+import { clearInput, keepInput } from '../../defs/def-input';
+import { mType } from '../../defs/def-message';
+import type { GameType } from '../../defs/def-config';
+import type { Identity } from '../../defs/def-identity';
+import type { Command } from '../../defs/def-message';
 
 import { DispatchService } from '../dispatch';
-import { StateService } from '../state';
 import { GameIdentityService } from './game-identity';
 import { IdentityService } from '../identity';
+import { StateService } from '../state';
 
-
-const clearInput: boolean = true;
-const keepInput: boolean = false;
+type GameCommandEntry = {
+	enabledFor: GameType[];
+	handler: (ctx: Command) => boolean | Promise<boolean>;
+}
 
 export interface GameCommandServiceDependencies {
 	dispatchService: DispatchService;
 	stateService: StateService;
 	gameIdentityService: GameIdentityService;
 	identityService: IdentityService;
-}
-
-export type GameCommandEntry = {
-	enabledFor: GameType[];
-	handler: (ctx: Command) => boolean | Promise<boolean>;
 }
 
 export class GameCommandService {

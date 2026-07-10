@@ -1,19 +1,11 @@
-import type { z } from "zod";
+import type { z } from 'zod';
 
-import { IdentitySchema, ServerConfigSchema, MarkovConfigSchema, GameConfigSchema } from "../../shared/schema";
-import { Config, ConfigSchema, aType, DefaultGameIdentity, DefaultIdentity, GameIdentity, GameIdentitySchema, Identity } from "../../shared/schema";
-import type { ServerConfig, MarkovConfig, GameConfig, SchemaType } from "../../shared/schema";
-
-export type ParseFailureRecord = {
-	raw: unknown;
-	schemaName: SchemaType;
-	field: string;
-	invalidValue: unknown;
-	substitutedValue: unknown;
-};
-export type KeyedParseFailureRecord = ParseFailureRecord & {
-	recordKey: string;
-};
+import { ServerConfigSchema, MarkovConfigSchema, GameConfigSchema } from '../defs/def-config';
+import { IdentitySchema, GameIdentitySchema } from '../defs/def-identity';
+import { aType } from '../defs/def-parse';
+import type { Config, ConfigSchema, ServerConfig, MarkovConfig, GameConfig } from '../defs/def-config';
+import type { Identity, GameIdentity, DefaultIdentity, DefaultGameIdentity} from '../defs/def-identity';
+import type { SchemaType, ParseFailureRecord } from '../defs/def-parse';
 
 export function parseArray<T>(parsed: unknown[], schema: z.ZodType<T>): T[]{
 	return parsed.filter((entry): entry is T => schema.safeParse(entry).success);
@@ -34,7 +26,7 @@ export function mergeIdentityDefaults(input: unknown, defaults: DefaultIdentity 
 	}
 }
 
-export function mergeConfigDefaults(input: unknown, defaults: ServerConfig, schemaName: typeof aType.sconfig, schema: typeof ServerConfigSchema): [ServerConfig, ParseFailureRecord[]];
+export function mergeConfigDefaults(input: unknown, defaults: ServerConfig, schemsaName: typeof aType.sconfig, schema: typeof ServerConfigSchema): [ServerConfig, ParseFailureRecord[]];
 export function mergeConfigDefaults(input: unknown, defaults: MarkovConfig, schemaName: typeof aType.mconfig, schema: typeof MarkovConfigSchema): [MarkovConfig, ParseFailureRecord[]];
 export function mergeConfigDefaults(input: unknown, defaults: GameConfig, schemaName: typeof aType.gconfig, schema: typeof GameConfigSchema): [GameConfig, ParseFailureRecord[]];
 export function mergeConfigDefaults(input: unknown, defaults: Config, schemaName: SchemaType, schema: ConfigSchema): [Config, ParseFailureRecord[]] {

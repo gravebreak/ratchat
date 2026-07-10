@@ -1,14 +1,15 @@
-import { GameIdentitySchema, aType } from '../../../shared/schema';
-import type { DefaultGameIdentity, GameIdentity } from '../../../shared/schema';
+import { GameIdentitySchema } from '../../defs/def-identity';
+import { aType } from '../../defs/def-parse';
+import type { GameIdentity, DefaultGameIdentity } from '../../defs/def-identity';
+import type { KeyedParseFailureRecord } from '../../defs/def-parse';
 
 import { StateService } from '../state';
 
-import { mergeIdentityDefaults } from '../../utils/parse';
-import { existsRepairFile, getRepairPath } from '../../utils/repair';
 import { AppError, handleError } from '../../utils/errors';
+import { mergeIdentityDefaults } from '../../utils/parse';
 import { createSaveQueue } from '../../utils/queue';
+import { existsRepairFile, getRepairPath } from '../../utils/repair';
 import { existsFile, createJsonFile, readJsonFile, writeJsonFile } from '../../utils/serialize';
-import type { KeyedParseFailureRecord } from '../../utils/parse';
 
 const MAX_INT = 4294967295;
 

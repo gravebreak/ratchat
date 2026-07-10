@@ -1,5 +1,5 @@
-export type LogLevel = 'none' | 'log' | 'warn' | 'error';
-export type ErrorMode = 'user' | 'internal' | 'silent' | 'bug';
+type LogLevel = 'none' | 'log' | 'warn' | 'error';
+type ErrorMode = 'user' | 'internal' | 'silent' | 'bug';
 
 export class AppError extends Error {
 	public readonly mode: ErrorMode;

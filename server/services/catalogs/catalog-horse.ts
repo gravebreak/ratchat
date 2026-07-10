@@ -1,4 +1,4 @@
-import type { HorseCatalogEntry } from "./game-schema";
+import type { HorseCatalogEntry } from "../../defs/def-record";
 
 export const defaultHorseCatalog: HorseCatalogEntry[] = [
     {horseName: 'American Scarecrow'},

@@ -1,18 +1,19 @@
 import { existsSync } from 'fs';
-
 import { DatabaseSync } from "node:sqlite";
 import { Server } from 'socket.io';
 
-import { mType, tType} from '../../shared/schema';
+import { mType } from '../defs/def-message';
+import { tType } from '../defs/def-moderation';
+import type { RandomCandidateMap } from '../defs/def-random';
 
 import { DispatchService } from './dispatch';
-import { StateService } from './state';
 import { ModerationService } from './moderation';
 import { IdentityService } from './identity';
+import { StateService } from './state';
 
-import { RandomCandidateMap, pickWeighted } from '../utils/random';
-import { getBaseNick } from '../utils/format';
 import { AppError, handleError } from '../utils/errors';
+import { getBaseNick } from '../utils/format';
+import { pickWeighted } from '../utils/random';
 
 type Neuron = {
 	table: string;

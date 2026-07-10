@@ -1,12 +1,12 @@
-import { Server } from "socket.io";
+import { Server } from 'socket.io';
 
-import { mType } from "../../shared/schema";
+import { mType } from '../defs/def-message';
 
-import { StateService } from "./state";
-import { DispatchService } from "./dispatch";
+import { DispatchService } from './dispatch';
+import { StateService } from './state';
 
-import { hashIP } from '../utils/hash.js';
-import { handleError, AppError } from "../utils/errors";
+import { handleError, AppError } from '../utils/errors';
+import { hashIP } from '../utils/hash';
 import { createSaveQueue } from '../utils/queue';
 import { existsFile, createJsonFile, readJsonFile, writeJsonFile } from '../utils/serialize';
 

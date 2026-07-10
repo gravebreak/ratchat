@@ -1,8 +1,6 @@
-import { AppError } from "./errors";
+import type { RandomCandidateMap, Candidate } from "../defs/def-random";
 
-type Candidate = string;
-type Weight = number;
-export type RandomCandidateMap = Map<Candidate, Weight>;
+import { AppError } from "./errors";
 
 export function pickWeighted(candidates: RandomCandidateMap): Candidate {
 	const firstEntry = candidates.keys().next().value;

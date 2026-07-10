@@ -1,26 +1,29 @@
-import type { GameIdentity } from '../../../shared/schema';
 
-import { HorseRecordEntrySchema, FishRecordEntrySchema } from './game-schema';
-import type { LeaderboardEntry, BlackjackEntry, DuelingEntry, FishingEntry, HorseEntry } from './game-schema';
-import type { PublicLeaderboard, PublicOverallLeaderboard, PublicBlackjackLeaderboard, PublicDuelingLeaderboard, PublicFishingLeaderboard, PublicHorseLeaderboard } from "./game-schema";
-import type { PrivateHorseRecordList, PrivateFishRecordList, PublicHorseRecordList, PublicFishRecordList, HorseRecordEntry, FishRecordEntry } from './game-schema';
+
+import { HorseRecordEntrySchema, FishRecordEntrySchema } from '../../defs/def-record'
+import type { GameIdentity } from '../../defs/def-identity'
+import type { LeaderboardEntry, BlackjackEntry, DuelingEntry, FishingEntry, HorseEntry } from '../../defs/def-leaderboard';
+import type { PublicLeaderboard, PublicOverallLeaderboard, PublicBlackjackLeaderboard, PublicDuelingLeaderboard, PublicFishingLeaderboard, PublicHorseLeaderboard } from '../../defs/def-leaderboard';
+import type { PrivateHorseRecordList, PrivateFishRecordList } from '../../defs/def-record';
 
 import { CacheService } from "../cache";
 import { DispatchService } from "../dispatch";
-import { StateService } from "../state";
 import { GameIdentityService } from "./game-identity";
 import { IdentityService } from "../identity";
+import { StateService } from "../state";
 
 import { handleError, AppError } from "../../utils/errors";
-import { createJsonFile, existsFile, readJsonFile } from '../../utils/serialize';
-import { defaultFishCatalog } from './fish-catalog';
-import { defaultHorseCatalog } from './horse-catalog';
 import { parseArray } from '../../utils/parse';
+import { createJsonFile, existsFile, readJsonFile } from '../../utils/serialize';
+
+import { defaultFishCatalog } from '../catalogs/catalog-fish';
+import { defaultHorseCatalog } from '../catalogs/catalog-horse';
 
 type StageOne = GameIdentity & {fullnick: string };
 type StageTwo = StageOne & { fishingTypesCaught: number, fishingRecords: number };
 type FullEntry = LeaderboardEntry & BlackjackEntry & DuelingEntry & FishingEntry & HorseEntry;
 type FullLeaderboard = FullEntry[];
+
 //const REDIS_BLACKJACK_KEY = 'ratchat:blackjack';
 
 export interface StateServiceDependencies{

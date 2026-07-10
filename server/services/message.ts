@@ -1,16 +1,16 @@
 import { Server, Socket } from 'socket.io';
 
-import { mType, Identity } from '../../shared/schema';
+import { clearInput, keepInput } from '../defs/def-input';
+import { mType } from '../defs/def-message';
+import type { Identity } from '../defs/def-identity';
 
 import { DispatchService } from './dispatch';
-import { StateService } from './state';
 import { ModerationService } from './moderation';
 import { IdentityService } from './identity';
+import { StateService } from './state';
 import { MarkovService } from './markov';
-import { handleError } from '../utils/errors';
 
-const clearInput: boolean = true;
-const keepInput: boolean = false;
+import { handleError } from '../utils/errors';
 
 export interface MessageServiceDependencies {
 	dispatchService: DispatchService;
