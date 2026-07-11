@@ -1,6 +1,6 @@
 import { aType } from '../../defs/def-parse';
-import { HorseRecordEntrySchema, FishRecordEntrySchema } from '../../defs/def-record'
-import type { GameIdentity } from '../../defs/def-identity'
+import { HorseRecordEntrySchema, FishRecordEntrySchema } from '../../defs/def-record';
+import type { GameIdentity } from '../../defs/def-identity';
 import type { LeaderboardEntry, BlackjackEntry, DuelingEntry, FishingEntry, HorseEntry } from '../../defs/def-leaderboard';
 import type { PublicLeaderboard, PublicOverallLeaderboard, PublicBlackjackLeaderboard, PublicDuelingLeaderboard, PublicFishingLeaderboard, PublicHorseLeaderboard } from '../../defs/def-leaderboard';
 import type { KeyedParseFailureRecord, ParseFailureRecord } from '../../defs/def-parse';
@@ -13,8 +13,9 @@ import { IdentityService } from "../identity";
 
 import { handleError, AppError } from "../../utils/errors";
 import { mergeRecordDefaults } from '../../utils/parse';
-import { assertRepairClear, getRepairPath } from '../../utils/repair';
-import { createJsonFile, existsFile, readJsonFile } from '../../utils/serialize';
+import { createSaveQueue } from '../../utils/queue';
+import { assertSafeStartup, getRepairPath } from '../../utils/repair';
+import { createJsonFile, existsFile, readJsonFile, writeJsonFile } from '../../utils/serialize';
 
 import { defaultFishCatalog } from '../catalogs/catalog-fish';
 import { defaultHorseCatalog } from '../catalogs/catalog-horse';
@@ -40,6 +41,9 @@ export class GameStateService {
 	private horseRecords: PrivateHorseRecordList = [];
 	private fishRecords: PrivateFishRecordList = [];
 
+	private fishQueue = createSaveQueue(() => this.saveRecords(this.deps.fishingRecordsPath, this.fishRecords));
+	private horseQueue = createSaveQueue(() => this.saveRecords(this.deps.horseRecordsPath, this.horseRecords));
+
 	private deps: GameStateServiceDependencies;
 	constructor(dependencies: GameStateServiceDependencies){
 		this.deps = dependencies;
@@ -47,8 +51,8 @@ export class GameStateService {
 	}
 
 	private init(){
-		assertRepairClear(this.deps.fishingRecordsPath);
-		assertRepairClear(this.deps.horseRecordsPath);
+		assertSafeStartup(this.deps.fishingRecordsPath);
+		assertSafeStartup(this.deps.horseRecordsPath);
 		this.initializeFishRecords();
 		this.initializeHorseRecords();
 	}
@@ -175,6 +179,29 @@ export class GameStateService {
 		}
 	}
 
+	private buildDefaultFishRecordEntry(): DefaultFishRecordEntry{
+		return{
+			weight: null,
+			playerid: null,
+			fullnick: null
+		};
+	}
+
+	private buildDefaultHorseRecordEntry(): DefaultHorseRecordEntry{
+		return{
+			wins: 0
+		};
+	}
+
+	private async saveRecords(path: string, data: unknown){
+		try{
+			await writeJsonFile(path, data);
+		}
+		catch(error: unknown){
+			handleError(error, `Save Records (${path})`);
+		}
+	}
+
 	private initializeFishRecords(){
 		try{
 			const raw = this.fetchRecords(this.deps.fishingRecordsPath, 'fish');
@@ -186,11 +213,13 @@ export class GameStateService {
 			}
 
 			this.fishRecords = resolvedRecords;
+			this.fishQueue.chain();
 		}
 		catch(error: unknown){
 			handleError(error, 'Fish Records Load (Startup)');
 			const defaultRecords = this.buildFishRecords();
 			this.fishRecords = defaultRecords;
+
 		}
 	}
 
@@ -205,6 +234,7 @@ export class GameStateService {
 			}
 
 			this.horseRecords = resolvedRecords;
+			this.horseQueue.chain();
 		}
 		catch(error: unknown){
 			handleError(error, 'Horse Records Load (Startup)');
@@ -253,20 +283,6 @@ export class GameStateService {
 			...catalogEntry,
 			...this.buildDefaultHorseRecordEntry()
 		}));
-	}
-
-	private buildDefaultFishRecordEntry(): DefaultFishRecordEntry{
-		return{
-			weight: null,
-			playerid: null,
-			fullnick: null
-		};
-	}
-
-	private buildDefaultHorseRecordEntry(): DefaultHorseRecordEntry{
-		return{
-			wins: 0
-		};
 	}
 
 	private resolveRecords(input: unknown, label: 'fish'): [PrivateFishRecordList, KeyedParseFailureRecord[]];

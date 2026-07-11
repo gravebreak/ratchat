@@ -13,7 +13,7 @@ import { handleError, AppError } from '../utils/errors';
 import { getBaseNick, getNickColor } from '../utils/format';
 import { mergeIdentityDefaults } from '../utils/parse';
 import { createSaveQueue } from '../utils/queue';
-import { assertRepairClear, getRepairPath } from '../utils/repair';
+import { assertSafeStartup, getRepairPath } from '../utils/repair';
 import { existsFile, createJsonFile, readJsonFile, writeJsonFile } from '../utils/serialize';
 
 export interface IdentityServiceDependencies{
@@ -36,7 +36,7 @@ export class IdentityService {
 	}
 
 	private init(){
-		assertRepairClear(this.deps.usersPath);
+		assertSafeStartup(this.deps.usersPath);
 		this.initializeUsers();
 	}
 
@@ -285,7 +285,7 @@ export class IdentityService {
 			lastChanged: new Date(),
 			isMod: false,
 			isAfk: false
-		}
+		};
 	}
 
 	private fetchUsersStrict(): unknown{

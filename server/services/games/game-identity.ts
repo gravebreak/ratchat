@@ -8,7 +8,7 @@ import { ConfigService } from '../config';
 import { AppError, handleError } from '../../utils/errors';
 import { mergeIdentityDefaults } from '../../utils/parse';
 import { createSaveQueue } from '../../utils/queue';
-import { assertRepairClear, getRepairPath } from '../../utils/repair';
+import { assertSafeStartup, getRepairPath } from '../../utils/repair';
 import { existsFile, createJsonFile, readJsonFile, writeJsonFile } from '../../utils/serialize';
 
 
@@ -31,7 +31,7 @@ export class GameIdentityService {
 	}
 
 	private init(){
-		assertRepairClear(this.deps.gameUsersPath);
+		assertSafeStartup(this.deps.gameUsersPath);
 		this.initializeGameUsers();
 	}
 

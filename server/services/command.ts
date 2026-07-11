@@ -223,7 +223,7 @@ export class CommandService {
 				this.deps.dispatchService.sendSystemChat(ctx.socket, mType.info, formatTable);
 				return clearInput;
 			}
-		}
+		};
 		
 		this.commands['mutehelp'] = {
 			requiresMod: false,
@@ -247,7 +247,7 @@ export class CommandService {
 				this.deps.dispatchService.sendSystemChat(ctx.socket, mType.info, formatTable);
 				return clearInput;
 			}
-		}
+		};
 
 		this.commands['nick'] = {
 			requiresMod: false,
@@ -293,7 +293,7 @@ export class CommandService {
 					}
 				}
 			}
-		}
+		};
 
 		this.commands['color'] = {
 			requiresMod: false,
@@ -317,7 +317,7 @@ export class CommandService {
 					return keepInput;
 				}
 			}
-		}
+		};
 
 		//anti-canadian trap
 		this.commands['colour'] = {
@@ -330,7 +330,7 @@ export class CommandService {
 				this.deps.dispatchService.sendSystemChat(ctx.socket, mType.error, "system: lern to speak american");
 				return keepInput;
 			}
-		}
+		};
 
 		this.commands['import'] = {
 			requiresMod: false,
@@ -361,7 +361,7 @@ export class CommandService {
 					return keepInput;
 				}
 			}
-		}
+		};
 
 		this.commands['afk'] = {
 			requiresMod: false,
@@ -380,7 +380,7 @@ export class CommandService {
 					this.deps.dispatchService.sendSystemChat(ctx.socket, mType.info, afkUser.isAfk ? "you've gone afk" : `welcome back, ${getBaseNick(afkUser.fullnick)}`);
 
 					if(ctx.fullArgs && ctx.fullArgs.trim().length > 0){
-						return this.executeCommand('status', ctx)
+						return this.executeCommand('status', ctx);
 					}
 				
 					return clearInput;
@@ -390,7 +390,7 @@ export class CommandService {
 					return keepInput;
 				}
 			}
-		}
+		};
 
 		this.commands['status'] = {
 			requiresMod: false,
@@ -414,7 +414,7 @@ export class CommandService {
 					return keepInput;
 				}
 			}
-		}
+		};
 
 		this.commands['spoiler'] = {
 			requiresMod: false,
@@ -425,7 +425,7 @@ export class CommandService {
 			}
 			return this.deps.messageService.handleChat(ctx.fullArgs, ctx.commandUser, ctx.socket, true);
 			}
-		}
+		};
 
 		this.commands['markov'] = {
 			requiresMod: false,
@@ -478,7 +478,7 @@ export class CommandService {
 					return keepInput;
 				}
 			}
-		}
+		};
 	}
 
 	private registerModeratorCommands(){
@@ -510,7 +510,7 @@ export class CommandService {
 				this.deps.dispatchService.sendSystemChat(ctx.socket, mType.info, formatTable);
 				return clearInput;
 			}
-		}
+		};
 
 		this.commands['announce'] = {
 			requiresMod: true,
@@ -532,7 +532,7 @@ export class CommandService {
 					return keepInput;
 				}
 			}
-		}
+		};
 
 		this.commands['ban'] = {
 			requiresMod: true,
@@ -559,7 +559,7 @@ export class CommandService {
 					}
 					if(msgArray.length > 0){
 						this.deps.dispatchService.deleteMessage(ctx.io, msgArray);
-						this.deps.dispatchService.sendSystemChat(ctx.socket, mType.info, `deleted ${msgArray.length} user messages`)
+						this.deps.dispatchService.sendSystemChat(ctx.socket, mType.info, `deleted ${msgArray.length} user messages`);
 					}
 
 					for (const [socketID, identity] of this.deps.stateService.getSocketUsersMap()){
@@ -590,7 +590,7 @@ export class CommandService {
 					return keepInput;
 				}
 			}
-		}
+		};
 
 		this.commands['timeout'] = {
 			requiresMod: true,
@@ -645,7 +645,7 @@ export class CommandService {
 					return keepInput;
 				}
 			}
-		}
+		};
 
 		this.commands['delete'] = {
 			requiresMod: true,
@@ -662,7 +662,7 @@ export class CommandService {
 
 				return clearInput;
 			}
-		}
+		};
 
 		this.commands['emotes'] = {
 			requiresMod: true,
@@ -687,7 +687,7 @@ export class CommandService {
 					return keepInput;
 				}
 			}
-		}
+		};
 
 		this.commands['unemotes'] = {
 			requiresMod: true,
@@ -706,7 +706,7 @@ export class CommandService {
 					return keepInput;
 				}
 			}
-		}
+		};
 
 		this.commands['loadusers'] = {
 			requiresMod: true,
@@ -724,7 +724,7 @@ export class CommandService {
 					return keepInput;
 				}
 			}
-		}
+		};
 
 		this.commands['botstatus'] = {
 			requiresMod: true,
@@ -749,7 +749,7 @@ export class CommandService {
 					return keepInput;
 				}
 			}
-		}
+		};
 		
 		this.commands['botsleep'] = {
 			requiresMod: true,
@@ -772,7 +772,7 @@ export class CommandService {
 					return clearInput;
 				}
 			}
-		}
+		};
 	}
 	
 	private registerGdprCommands(){
@@ -862,7 +862,7 @@ export class CommandService {
 							return clearInput;
 						}
 						catch(error: unknown){
-							this.deps.dispatchService.sendUserError(ctx.socket, error, 'GDPR Export Command')
+							this.deps.dispatchService.sendUserError(ctx.socket, error, 'GDPR Export Command');
 							return keepInput;
 						}
 					}
@@ -916,7 +916,7 @@ export class CommandService {
 					}
 				}
 			}
-		}
+		};
 	}
 
 	private initializeGameCommands(){

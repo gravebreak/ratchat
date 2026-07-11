@@ -1,5 +1,5 @@
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from "fs";
-import { mkdir, writeFile } from "fs/promises";
+import { mkdir, writeFile, rename } from "fs/promises";
 import { dirname } from "path";
 
 import { AppError } from "./errors";
@@ -39,11 +39,14 @@ export function readJsonFile(path: string): unknown {
 }
 
 export async function writeJsonFile(path: string, data: unknown){
-	try {
+	const tempPath = `${path}.tmp`;
+
+	try{
 		await mkdir(dirname(path), { recursive: true });
-		await writeFile(path, JSON.stringify(data, null, 4));
+		await writeFile(tempPath, JSON.stringify(data, null, 4));
+		await rename(tempPath, path);
 	}
-	catch (error: unknown) {
+	catch(error: unknown){
 		if (error instanceof Error) {
 			throw new AppError(`failed to write JSON file at ${path}: ${error.message}`, 'internal', 'error');
 		}

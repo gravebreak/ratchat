@@ -5,7 +5,7 @@ import type { ParseFailureRecord } from '../defs/def-parse';
 
 import { handleError, AppError } from '../utils/errors';
 import { mergeConfigDefaults } from '../utils/parse';
-import { assertRepairClear, getRepairPath } from '../utils/repair';
+import { assertSafeStartup, getRepairPath } from '../utils/repair';
 import { existsFile, createJsonFile, readJsonFile } from '../utils/serialize';
 
 export interface ConfigServiceDependencies{
@@ -26,9 +26,9 @@ export class ConfigService {
 	}
 
 	private init(){
-		assertRepairClear(this.deps.serverConfigPath);
-		assertRepairClear(this.deps.markovConfigPath);
-		assertRepairClear(this.deps.gameConfigPath);
+		assertSafeStartup(this.deps.serverConfigPath);
+		assertSafeStartup(this.deps.markovConfigPath);
+		assertSafeStartup(this.deps.gameConfigPath);
 		this.initializeServerConfig();
 		this.initializeMarkovConfig();
 		this.initializeGameConfig();
