@@ -25,7 +25,9 @@ export function pickWeighted(candidates: RandomCandidateMap): Candidate {
 
 	for (const [candidate, weight] of candidates) {
 		range -= weight;
-		if (range <= 0) return candidate;
+		if(range <= 0){
+			return candidate;
+		}
 		currentCandidate = candidate;
 	}
 

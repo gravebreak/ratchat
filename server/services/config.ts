@@ -25,7 +25,7 @@ export class ConfigService {
 		this.init();
 	}
 
-	private init(){
+	private init(): void {
 		assertSafeStartup(this.deps.serverConfigPath);
 		assertSafeStartup(this.deps.markovConfigPath);
 		assertSafeStartup(this.deps.gameConfigPath);
@@ -46,7 +46,7 @@ export class ConfigService {
 		return this.gameConfig;
 	}
 
-	private initializeServerConfig(){
+	private initializeServerConfig(): void {
 		try{
 			const raw = this.fetchConfigFile(this.deps.serverConfigPath, defaultServerConfig, 'Server');
 			const resolved = this.resolveConfig(raw, this.deps.serverConfigPath, {label: aType.sconfig, fallback: defaultServerConfig, schema: ServerConfigSchema});
@@ -57,7 +57,7 @@ export class ConfigService {
 			Object.freeze(this.serverConfig);
 			console.log('LOADED SERVER CONFIG:', this.serverConfig);
 		} 
-		catch(error){
+		catch(error: unknown){
 			handleError(error, 'Server Config Merge');
 			this.serverConfig = defaultServerConfig;
 			Object.freeze(this.serverConfig);
@@ -65,7 +65,7 @@ export class ConfigService {
 		}
 	}
 
-	private initializeMarkovConfig(){
+	private initializeMarkovConfig(): void {
 		try{
 			const raw = this.fetchConfigFile(this.deps.markovConfigPath, defaultMarkovConfig, 'Markov');
 			const resolved = this.resolveConfig(raw, this.deps.markovConfigPath, {label: aType.mconfig, fallback: defaultMarkovConfig, schema: MarkovConfigSchema});
@@ -73,7 +73,7 @@ export class ConfigService {
 			Object.freeze(this.markovConfig);
 			console.log('LOADED MARKOV CONFIG:', this.markovConfig);
 		} 
-		catch(error){
+		catch(error: unknown){
 			handleError(error, 'Markov Config Merge');
 			this.markovConfig = defaultMarkovConfig;
 			Object.freeze(this.markovConfig);
@@ -81,7 +81,7 @@ export class ConfigService {
 		}
 	}
 
-	private initializeGameConfig(){
+	private initializeGameConfig(): void {
 		try{
 			const raw = this.fetchConfigFile(this.deps.gameConfigPath, defaultGameConfig, 'Game');
 			const resolved = this.resolveConfig(raw, this.deps.gameConfigPath, {label: aType.gconfig, fallback: defaultGameConfig, schema: GameConfigSchema});
@@ -89,7 +89,7 @@ export class ConfigService {
 			Object.freeze(this.gameConfig);
 			console.log('LOADED GAME CONFIG:', this.gameConfig);
 		} 
-		catch(error){
+		catch(error: unknown){
 			handleError(error, 'Game Config Merge');
 			this.gameConfig = defaultGameConfig;
 			Object.freeze(this.gameConfig);
@@ -151,10 +151,10 @@ export class ConfigService {
 			console.error(`${params.label} had ${failures.length} field(s) fall back to default, writing repair file`);
 			createJsonFile(repairPath, failures);
 		}
-		if(merged){
-			return merged;
-		}
 
-		throw new AppError('Merged fallthrough, resolve config', 'bug');
+		if(merged === null || merged === undefined){
+			throw new AppError('config null/undefined, resolve config', 'bug');
+		}
+		return merged;
 	}
 }

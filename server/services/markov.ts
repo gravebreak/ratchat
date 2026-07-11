@@ -22,8 +22,8 @@ type Neuron = {
 	word2: string;
 	word3: string;
 	count: number;
-}
-type InsertNeuron = Omit<Neuron, 'count' | 'word3'> & {word3?: string}
+};
+type InsertNeuron = Omit<Neuron, 'count' | 'word3'> & {word3?: string};
 type StartNeuron = Omit<Neuron, 'table' | 'word3'>;
 type GramNeuron = Omit<Neuron, 'table'>;
 
@@ -49,7 +49,7 @@ export class MarkovService{
 		this.init();		
 	}
 	
-	private init(){
+	private init(): void {
 		this.initializeMarkovBrain();
 		this.startMarkovTimer(this.deps.io);
 	}
@@ -75,9 +75,7 @@ export class MarkovService{
 					throw new AppError(`${getBaseNick(markovUser.fullnick)} don't know nothin about '${seed}'`, 'user');
 				}
 
-				let letter = seedLow[0].toUpperCase();
-				letter = letter.replace(/[^A-Z_]/g, "_");
-				const candidates = await this.loadNeuron(letter, seedLow);
+				const candidates = await this.loadStartNeuron(seedLow);
 
 				if(candidates.length === 0){
 					throw new AppError(`${getBaseNick(markovUser.fullnick)} don't know nothin about '${seed}'`, 'user');
@@ -89,10 +87,10 @@ export class MarkovService{
 
 				const chosen = candidates[Number(pickWeighted(weightMap))];
 				
-				raw.push(chosen.words[0], chosen.words[1]);
+				raw.push(chosen.word1, chosen.word2);
 			}
 			else{
-				const candidates = await this.loadNeuron();
+				const candidates = await this.loadStartNeuron();
 
 				if(candidates.length === 0){
 					throw new AppError("no start entries in markov brain", 'internal', 'warn');
@@ -103,18 +101,15 @@ export class MarkovService{
 				);
 
 				const chosen = candidates[Number(pickWeighted(weightMap))];
-				
 
-				raw.push(chosen.words[0], chosen.words[1]);
+				raw.push(chosen.word1, chosen.word2);
 			}
 
 			while(true){
 				const prev = raw[raw.length - 2];
 				const curr = raw[raw.length - 1];
-
-				let letters = (prev[0] + curr[0]).toUpperCase();
-				letters = letters.replace(/[^A-Z_]/g, "_");
-				const candidates = await this.loadNeuron(letters, prev, curr);
+				
+				const candidates = await this.loadGramNeuron(prev, curr);
 
 				if(candidates.length === 0){
 					break;
@@ -124,7 +119,7 @@ export class MarkovService{
 				);
 
 				const chosen = candidates[Number(pickWeighted(weightMap))];
-				const next = chosen.words[2];
+				const next = chosen.word3;
 
 				if(!next || next === "<END>"){
 					break;
@@ -166,7 +161,7 @@ export class MarkovService{
 		throw new AppError("no valid text generated after 5 attempts", 'user');
 	}
 
-	public async learnMarkovText(str: string){
+	public async learnMarkovText(str: string): Promise<void> {
 		if(!this.deps.configService.getMarkovConfig().learning){
 			return;
 		}
@@ -222,11 +217,11 @@ export class MarkovService{
 		return;
 	}
 
-	private queueSaveNeuron(entries: InsertNeuron[]){
+	private queueSaveNeuron(entries: InsertNeuron[]): void {
 		this.markovQ = this.markovQ.then(() => this.saveNeuron(entries));
 	}
 
-	private async saveNeuron(entries: InsertNeuron[]){
+	private async saveNeuron(entries: InsertNeuron[]): Promise<void> {
 		if(!this.db){
 			return;
 		}
@@ -258,73 +253,112 @@ export class MarkovService{
 		}
 	}
 
-	private async loadNeuron(letters?: string, prev?: string, curr?: string){
+	private async loadStartNeuron(seed?: string): Promise<StartNeuron[]> {
 		if(!this.db){
 			throw new AppError('brain db not initialized', 'internal', 'warn');
 		}
 
-		if(!letters){
-			const results: { 
-				words: string[], count: number }[] = [];
-
-			const tables = 
-				(this.db
-					.prepare(`SELECT name FROM sqlite_master WHERE type='table' AND name LIKE 'start_%'`)
-					.all() as {name: string}[]
-				)
+		if(!seed){
+			const results: StartNeuron[] = [];
+			const tables = (this.db
+				.prepare(`SELECT name FROM sqlite_master WHERE type='table' AND name LIKE 'start_%'`)
+				.all() as {name: string}[])
 				.map(row => row.name);
 
 			for(const table of tables){
 				const rows = this.db.prepare(`SELECT word1, word2, count FROM ${table}`).all() as StartNeuron[];
-				for (const row of rows){
-					results.push({
-						words: [row.word1, row.word2],
-						count: row.count
-					});
-				}
+				results.push(...rows);
 			}
-
 			return results;
 		}
 
-		if(letters.length === 1){
-			const table = `start_${letters}`;
-
-			let rows: StartNeuron[];
-
-			if(prev && !curr){
-				rows = this.db.prepare(`SELECT word1, word2, count FROM ${table} WHERE LOWER(word1) = LOWER(?)`).all(prev) as StartNeuron[];
-			} else {
-				rows = this.db.prepare(`SELECT word1, word2, count FROM ${table}`).all() as StartNeuron[];
-			}
-
-			return rows.map(row => ({
-				words: [row.word1, row.word2],
-				count: row.count
-			}));
-		}
-
-		if(letters.length === 2){
-			const table = `gram_${letters}`;
-
-			let rows: GramNeuron[];
-
-			if(prev && curr){
-				rows = this.db.prepare(`SELECT word1, word2, word3, count FROM ${table} WHERE LOWER(word1) = LOWER(?) AND LOWER(word2) = LOWER(?)`).all(prev, curr) as GramNeuron[];
-			} 
-			else{
-				rows = this.db.prepare(`SELECT word1, word2, word3, count FROM ${table}`).all() as GramNeuron[];
-			}
-
-			return rows.map(row => ({
-				words: [row.word1, row.word2, row.word3],
-				count: row.count
-			}));
-		}
-		throw new AppError ('neuron load failure', 'internal', 'warn');
+		const letter = seed[0].toUpperCase().replace(/[^A-Z_]/g, "_");
+		const table = `start_${letter}`;
+		return this.db.prepare(`SELECT word1, word2, count FROM ${table} WHERE LOWER(word1) = LOWER(?)`).all(seed) as StartNeuron[];
 	}
 
-	private initializeMarkovBrain(){
+	private async loadGramNeuron(prev: string, curr: string): Promise<GramNeuron[]> {
+		if(!this.db){
+			throw new AppError('brain db not initialized', 'internal', 'warn');
+		}
+
+		const letters = (prev[0] + curr[0]).toUpperCase().replace(/[^A-Z_]/g, "_");
+		const table = `gram_${letters}`;
+		return this.db.prepare(`SELECT word1, word2, word3, count FROM ${table} WHERE LOWER(word1) = LOWER(?) AND LOWER(word2) = LOWER(?)`).all(prev, curr) as GramNeuron[];
+	}
+
+	// private async loadNeuron(): Promise<StartNeuron[]>;
+	// private async loadNeuron(letters: string, prev?: string, curr?: string): Promise<StartNeuron[] | GramNeuron[]>;
+	// private async loadNeuron(letters?: string, prev?: string, curr?: string): Promise<StartNeuron[] | GramNeuron[]> {
+	// 	if(!this.db){
+	// 		throw new AppError('brain db not initialized', 'internal', 'warn');
+	// 	}
+
+	// 	if(!letters){
+	// 		const results: StartNeuron[] = [];
+
+	// 		const tables = 
+	// 			(this.db
+	// 				.prepare(`SELECT name FROM sqlite_master WHERE type='table' AND name LIKE 'start_%'`)
+	// 				.all() as {name: string}[]
+	// 			)
+	// 			.map(row => row.name);
+
+	// 		for(const table of tables){
+	// 			const rows = this.db.prepare(`SELECT word1, word2, count FROM ${table}`).all() as StartNeuron[];
+	// 			for (const row of rows){
+	// 				results.push({
+	// 					word1: row.word1, 
+	// 					word2: row.word2,
+	// 					count: row.count
+	// 				});
+	// 			}
+	// 		}
+
+	// 		return results;
+	// 	}
+
+	// 	if(letters.length === 1){
+	// 		const table = `start_${letters}`;
+
+	// 		let rows: StartNeuron[];
+
+	// 		if(prev && !curr){
+	// 			rows = this.db.prepare(`SELECT word1, word2, count FROM ${table} WHERE LOWER(word1) = LOWER(?)`).all(prev) as StartNeuron[];
+	// 		} else {
+	// 			rows = this.db.prepare(`SELECT word1, word2, count FROM ${table}`).all() as StartNeuron[];
+	// 		}
+
+	// 		return rows.map(row => ({
+	// 			word1: row.word1, 
+	// 			word2: row.word2,
+	// 			count: row.count
+	// 		}));
+	// 	}
+
+	// 	if(letters.length === 2){
+	// 		const table = `gram_${letters}`;
+
+	// 		let rows: GramNeuron[];
+
+	// 		if(prev && curr){
+	// 			rows = this.db.prepare(`SELECT word1, word2, word3, count FROM ${table} WHERE LOWER(word1) = LOWER(?) AND LOWER(word2) = LOWER(?)`).all(prev, curr) as GramNeuron[];
+	// 		} 
+	// 		else{
+	// 			rows = this.db.prepare(`SELECT word1, word2, word3, count FROM ${table}`).all() as GramNeuron[];
+	// 		}
+
+	// 		return rows.map(row => ({
+	// 			word1: row.word1,
+	// 			word2: row.word2,
+	// 			word3: row.word3,
+	// 			count: row.count
+	// 		}));
+	// 	}
+	// 	throw new AppError ('neuron load failure', 'internal', 'warn');
+	// }
+
+	private initializeMarkovBrain(): void {
 		try{
 			this.db = new DatabaseSync(this.deps.brainPath);
 			const tables = this.fetchBrain(this.deps.brainPath);
@@ -374,7 +408,7 @@ export class MarkovService{
 	}
 
 	private resolveBrain(tables: string[]): string[]{
-		let results: string[] = [];
+		const results: string[] = [];
 		for(const table of tables){
 			if(!/^[A-Za-z0-9_]+$/.test(table)){
 				console.log("sus table:", table);
@@ -409,7 +443,7 @@ export class MarkovService{
 		return dictentries;
 	}
 
-	private startMarkovTimer(io: Server){
+	private startMarkovTimer(io: Server): void {
 		setInterval(async () =>{
 			if(this.deps.stateService.markovSleep){
 				return;

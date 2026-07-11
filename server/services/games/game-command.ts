@@ -11,6 +11,7 @@ import { ConfigService } from '../config';
 import { DispatchService } from '../dispatch';
 import { GameIdentityService } from './game-identity';
 import { IdentityService } from '../identity';
+import { GameStateService } from './game-state';
 
 type GameCommandEntry = {
 	enabledFor: GameType[];
@@ -22,6 +23,7 @@ export interface GameCommandServiceDependencies {
 	configService: ConfigService;
 	gameIdentityService: GameIdentityService;
 	identityService: IdentityService;
+	gameStateService: GameStateService
 }
 
 export class GameCommandService {
@@ -34,7 +36,7 @@ export class GameCommandService {
 		this.init();
 	}
 
-	private init(){
+	private init(): void {
 		this.registerGameCommands();
 	}
 
@@ -96,14 +98,19 @@ export class GameCommandService {
 		return await entry.handler(ctx);
 	}
 
-	private registerGameCommands(){
+	private registerGameCommands(): void {
 		this.gameCommands['gamehelp'] = {
 			enabledFor: allGames,
-				handler: (ctx) => {
+				handler: (ctx): boolean => {
 				const config = this.deps.configService.getGameConfig();
 				const helpMessages = [
 					'/gamehelp  : View this list.',
 				];
+				if(config.fishing){
+					helpMessages.push(
+					'/fish to fish'
+					);
+				}
 
 				const formatTable = helpMessages.join('\n');
 				this.deps.dispatchService.sendSystemChat(ctx.socket, mType.info, formatTable);

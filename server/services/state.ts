@@ -21,8 +21,8 @@ type EmoteEntry = {
 		host:{ 
 			url: string;
 		};
-  };
-}
+  	};
+};
 
 const REDIS_ANNOUNCEMENT_KEY = 'ratchat:announcement';
 const REDIS_MARKOVSLEEP_KEY = 'ratchat:markovsleep';
@@ -58,7 +58,7 @@ export class StateService {
 		this.init();
 	}
 
-	private init(){
+	private init(): void {
 		this.initializeMarkovUser();
 		this.startAfkTimer();
 	}
@@ -172,7 +172,7 @@ export class StateService {
 		return structuredClone(user);
 	}
 	
-	public updateSocketUser(io: Server, socketID: string, identity: Identity){
+	public updateSocketUser(io: Server, socketID: string, identity: Identity): void {
 		this.socketUsers.set(socketID, identity);
 
 		for (const [sId, user] of this.socketUsers.entries()){
@@ -184,12 +184,12 @@ export class StateService {
 		this.broadcastUsers(io);
 	}
 
-	public deleteSocketUser(io: Server, socketID: string){
+	public deleteSocketUser(io: Server, socketID: string): void {
 		this.socketUsers.delete(socketID);
 		this.broadcastUsers(io);
 	}
 
-	public broadcastUsers(io: Server){		
+	public broadcastUsers(io: Server): void {		
 		const userList: UserSum[] = Array.from(this.socketUsers.values())
 			.map(({ fullnick, status, isMod, isAfk }) => ({ fullnick, status, isMod, isAfk }))
 			.sort((a,b) =>{
@@ -199,7 +199,7 @@ export class StateService {
 				if(a.isMod !== b.isMod){
 					return a.isMod ? -1 : 1;
 				}
-					return getBaseNick(a.fullnick).localeCompare(getBaseNick(b.fullnick), 'en', {sensitivity: 'base'});;
+					return getBaseNick(a.fullnick).localeCompare(getBaseNick(b.fullnick), 'en', {sensitivity: 'base'});
 			});
 		
 		const lurkers = io.sockets.sockets.size - this.socketUsers.size;
@@ -233,7 +233,7 @@ export class StateService {
 		this.deps.dispatchService.sendUserList(io, userList);
 	}
 
-	public toggleMarkov(io: Server){
+	public toggleMarkov(io: Server): Identity {
 		if(this.markovUser === null){
 			throw new AppError('toggleMarkov called while markov bot is disabled', 'bug');
 		}
@@ -246,9 +246,11 @@ export class StateService {
 				this.broadcastUsers(io); 
 			}
 		}, this.deps.configService.getMarkovConfig().cooldown * 1000);
+
+		return this.markovUser; 
 	}
 
-	public toggleMarkovSleep(io: Server): boolean{
+	public toggleMarkovSleep(io: Server): boolean {
 		if(this.markovSleep){
 			this.markovSleep = false;
 		}
@@ -260,7 +262,7 @@ export class StateService {
 		return this.markovSleep;
 	}
 
-	public async restoreMarkovSleep(){
+	public async restoreMarkovSleep(): Promise<void> {
 		if(!this.deps.configService.getMarkovConfig().enabled){
 			console.log('markov bot disabled skipping markov toggle restore');
 			return;
@@ -295,7 +297,7 @@ export class StateService {
 		return this.announcement;
 	}
 
-	public setAnnouncement(io: Server, str: SafeString){
+	public setAnnouncement(io: Server, str: SafeString): void {
 		if(this.announcement === str){
 			throw new AppError("that's already the announcement", 'user');
 		}
@@ -309,7 +311,7 @@ export class StateService {
 		this.announcementQueue.chain();
 	}
 
-	public async restoreAnnouncement(){
+	public async restoreAnnouncement(): Promise<void> {
 		if(!this.deps.cacheService.existsRedisClient()){
 			return;
 		}
@@ -360,7 +362,7 @@ export class StateService {
 		});
 	}
 
-	private resolveSignups(){
+	private resolveSignups(): void {
 		const queue = Array.from(this.signupBuffer.values());
 
 		for (const [socket, resolve] of this.signupPromise.entries()){
@@ -373,7 +375,7 @@ export class StateService {
 		this.signupTimer = null;
 	}
 
-	private async saveAnnouncement(){
+	private async saveAnnouncement(): Promise<void> {
 		if(!this.deps.cacheService.existsRedisClient()){
 				return;
 		}
@@ -385,7 +387,7 @@ export class StateService {
 		}
 	}
 
-	private async saveMarkovSleep(){
+	private async saveMarkovSleep(): Promise<void> {
 		if(!this.deps.cacheService.existsRedisClient()){
 				return;
 		}
@@ -397,7 +399,7 @@ export class StateService {
 		}
 	}
 
-	private initializeMarkovUser(){
+	private initializeMarkovUser(): void {
 		const markovConfig = this.deps.configService.getMarkovConfig();
 		if(markovConfig.enabled){
 			this.markovUser = {
@@ -416,7 +418,7 @@ export class StateService {
 		}	
 	}
 
-	private startAfkTimer(){
+	private startAfkTimer(): void {
 		setInterval(() =>{
 			const now = Date.now();
 			const afkTime = this.deps.configService.getServerConfig().afkDef * 1000;

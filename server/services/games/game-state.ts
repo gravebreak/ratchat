@@ -4,7 +4,7 @@ import type { GameIdentity } from '../../defs/def-identity';
 import type { LeaderboardEntry, BlackjackEntry, DuelingEntry, FishingEntry, HorseEntry } from '../../defs/def-leaderboard';
 import type { PublicLeaderboard, PublicOverallLeaderboard, PublicBlackjackLeaderboard, PublicDuelingLeaderboard, PublicFishingLeaderboard, PublicHorseLeaderboard } from '../../defs/def-leaderboard';
 import type { KeyedParseFailureRecord, ParseFailureRecord } from '../../defs/def-parse';
-import type { PrivateHorseRecordList, PrivateFishRecordList, DefaultFishRecordEntry, DefaultHorseRecordEntry, FishRecordEntry, HorseRecordEntry } from '../../defs/def-record';
+import type { PrivateHorseRecordList, PrivateFishRecordList, DefaultFishRecordEntry, DefaultHorseRecordEntry } from '../../defs/def-record';
 
 import { CacheService } from "../cache";
 import { DispatchService } from "../dispatch";
@@ -50,7 +50,7 @@ export class GameStateService {
 		this.init();
 	}
 
-	private init(){
+	private init(): void {
 		assertSafeStartup(this.deps.fishingRecordsPath);
 		assertSafeStartup(this.deps.horseRecordsPath);
 		this.initializeFishRecords();
@@ -193,7 +193,7 @@ export class GameStateService {
 		};
 	}
 
-	private async saveRecords(path: string, data: unknown){
+	private async saveRecords(path: string, data: unknown): Promise<void> {
 		try{
 			await writeJsonFile(path, data);
 		}
@@ -202,7 +202,7 @@ export class GameStateService {
 		}
 	}
 
-	private initializeFishRecords(){
+	private initializeFishRecords(): void {
 		try{
 			const raw = this.fetchRecords(this.deps.fishingRecordsPath, 'fish');
 			const [resolvedRecords, failures] = this.resolveRecords(raw, 'fish');
@@ -223,7 +223,7 @@ export class GameStateService {
 		}
 	}
 
-	private initializeHorseRecords(){
+	private initializeHorseRecords(): void {
 		try{
 			const raw = this.fetchRecords(this.deps.horseRecordsPath, 'horse');
 			const [resolvedRecords, failures] = this.resolveRecords(raw, 'horse');

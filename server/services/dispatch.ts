@@ -18,14 +18,14 @@ type EmotePayload = Record<string, string>;
 type EventPayload = GameEventType[];
 type ChatHistory = Map<number, ChatMessage>;
 type MessagePayloadMap = {
-	[T in MessageType]:
-		T extends typeof mType.game ? GameEvent :
-		T extends typeof mType.identity ? Identity :
-		T extends typeof mType.ulist ? UserSum[] :
-		T extends typeof mType.elist ? EventPayload :
-		T extends typeof mType.emotelist ? EmotePayload :
-		T extends typeof mType.delmsg ? number[] :
-		T extends typeof mType.clrlocal ? string :
+	[MType in MessageType]:
+		MType extends typeof mType.game ? GameEvent :
+		MType extends typeof mType.identity ? Identity :
+		MType extends typeof mType.ulist ? UserSum[] :
+		MType extends typeof mType.elist ? EventPayload :
+		MType extends typeof mType.emotelist ? EmotePayload :
+		MType extends typeof mType.delmsg ? number[] :
+		MType extends typeof mType.clrlocal ? string :
 		ChatMessage;
 };
 
@@ -50,11 +50,11 @@ export class DispatchService{
 		  this.init();
 	}
 
-	private init(){
+	private init(): void {
 		this.startExpireMessageTimer();
 	}
 
-	public sendChat(to: Target, author: Identity, content:string, msgArrayLen: number, spoiler: boolean){
+	public sendChat(to: Target, author: Identity, content:string, msgArrayLen: number, spoiler: boolean): void {
 		const msg = this.createMessage(false, author, content, mType.chat, spoiler);
 		this.sendPayload(to, mType.chat, msg);
 		if(msgArrayLen > 0){
@@ -63,22 +63,22 @@ export class DispatchService{
 		}
 	}
 
-	public sendChatHistory(to: Target){
+	public sendChatHistory(to: Target): void {
 		for (const [, msg] of this.chatHistory){
 			this.sendPayload(to, mType.chat, msg);
 		}
 	}
 
-	public sendSystemChat(to: Target, type: TextPayload, text: string){
+	public sendSystemChat(to: Target, type: TextPayload, text: string): void {
 		this.sendPayload(to, type, this.createMessage(true,'system',text, type, false));
 	}
 
-	public sendMarkovChat(to: Target, text: string, markov: Identity, user: Identity, seed?: string){
+	public sendMarkovChat(to: Target, text: string, markov: Identity, user: Identity, seed?: string): void {
 		const payload = `${getBaseNick(user.fullnick)}|${seed}|${text}`;
 		this.sendPayload(to, mType.markov, this.createMessage(false,markov, payload, mType.markov, false));
 	}
 
-	public sendGameEvent(to: Target, content: string, event: GameEventType){
+	public sendGameEvent(to: Target, content: string, event: GameEventType): void {
 		const payload: GameEvent = {
 			content: content,
 			timestamp: Date.now(),
@@ -87,27 +87,27 @@ export class DispatchService{
 		this.sendPayload(to, mType.game, payload);
 	}
 
-	public sendIdentity(to: Target, identity: Identity){
+	public sendIdentity(to: Target, identity: Identity): void {
 		this.sendPayload(to, mType.identity, identity);
 	}
 
-	public sendEmoteList(to: Target, emotes: EmotePayload){
+	public sendEmoteList(to: Target, emotes: EmotePayload): void {
 		this.sendPayload(to, mType.emotelist, emotes);
 	}
 
-	public sendUserList(to: Target, users: UserSum[]){
+	public sendUserList(to: Target, users: UserSum[]): void {
 		this.sendPayload(to, mType.ulist, users);
 	}
 
-	public sendEventList(to: Target){
+	public sendEventList(to: Target): void {
 		this.sendPayload(to, mType.elist, Object.values(eType));
 	}
 
-	public sendClearLocalData(to: Target, guid: string){
+	public sendClearLocalData(to: Target, guid: string): void {
 		this.sendPayload(to, mType.clrlocal, guid);
 	}
 
-	public sendUserError(to: Socket, error: unknown, prefix: string){
+	public sendUserError(to: Socket, error: unknown, prefix: string): void {
 		const response = handleError(error, prefix);
 		if(response){
 			this.sendSystemChat(to, mType.error, `system: ${response}`);
@@ -117,7 +117,7 @@ export class DispatchService{
 		}
 	}
 
-	public deleteMessage(io: Server, msgArray: number[]){
+	public deleteMessage(io: Server, msgArray: number[]): void {
 		const deleted: number[] = [];
 
 		this.sendPayload(io, mType.delmsg, msgArray);
@@ -127,17 +127,17 @@ export class DispatchService{
 				deleted.push(id);
 			}
 		});
+
 		if(deleted.length > 0){
 			this.historyQueue.chain();
 		}
-		return;
 	}
 
-	public getChatHistory(): ChatHistory{
+	public getChatHistory(): ChatHistory {
 		return this.chatHistory;
 	}
 
-	public async restoreChatHistory(){
+	public async restoreChatHistory(): Promise<void> {
 		const config = this.deps.configService.getServerConfig();
 		if(config.msgArrayLen === 0){
 			console.log('msgArrayLen is 0, skipping chat history restore');
@@ -175,7 +175,7 @@ export class DispatchService{
 		}
 	}
 	
-	public async restoreMessageCounter(){
+	public async restoreMessageCounter(): Promise<void> {
 		if(!this.deps.cacheService.existsRedisClient()){
 			return;
 		}
@@ -201,7 +201,7 @@ export class DispatchService{
 		}
 	}
 
-	private sendPayload<T extends MessageType>(to: Target, metype: T, msg: MessagePayloadMap[T]){
+	private sendPayload<MType extends MessageType>(to: Target, metype: MType, msg: MessagePayloadMap[MType]): void {
 		to.emit(metype, msg);
 	}
 
@@ -227,7 +227,7 @@ export class DispatchService{
 		return id;
 	}
 
-	private trimChatHistory(msgArrayLen: number){
+	private trimChatHistory(msgArrayLen: number): void {
 		while (this.chatHistory.size > msgArrayLen){
 			const oldestMessage = this.chatHistory.keys().next().value;
 			if(oldestMessage !== undefined){
@@ -237,7 +237,7 @@ export class DispatchService{
 		this.historyQueue.chain();
 	}
 
-	private async saveChatHistory(){
+	private async saveChatHistory(): Promise<void> {
 		if(!this.deps.cacheService.existsRedisClient()){
 				return;
 		}
@@ -249,7 +249,7 @@ export class DispatchService{
 		}
 	}
 
-	private async saveMessageCounter(){
+	private async saveMessageCounter(): Promise<void> {
 		if(!this.deps.cacheService.existsRedisClient()){
 				return;
 		}
@@ -261,7 +261,7 @@ export class DispatchService{
 		}
 	}
 
-	private startExpireMessageTimer(){
+	private startExpireMessageTimer(): void {
 		const msgArrayTimeout = this.deps.configService.getServerConfig().msgArrayTimeout;
 		setInterval(() => {
 			const now = Date.now();

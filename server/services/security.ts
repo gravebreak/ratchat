@@ -19,7 +19,7 @@ export class SecurityService{
 		this.init();
 	}
 
-	private init(){
+	private init(): void {
 		this.initializeBans();
 	}
 	
@@ -43,13 +43,13 @@ export class SecurityService{
 		}
 	}
 
-	public setBan(socket: Socket){
+	public setBan(socket: Socket): void {
 		const banIP = hashIP(socket.handshake.address);
 		this.bans.set(banIP, new Date());
 		this.banQueue.chain();
 	}
 
-	private async saveBans(){
+	private async saveBans(): Promise<void> {
 		try{
 			await writeJsonFile(this.deps.bansPath, Array.from(this.bans.entries()));
 		}
@@ -58,7 +58,7 @@ export class SecurityService{
 		}
 	}
 
-	private initializeBans(){
+	private initializeBans(): void {
 		const loadedbans = this.fetchBans();
 		const validbans = this.resolveBans(loadedbans);
 		this.bans = validbans;

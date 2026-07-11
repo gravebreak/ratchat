@@ -35,7 +35,7 @@ export class IdentityService {
 		this.init();
 	}
 
-	private init(){
+	private init(): void {
 		assertSafeStartup(this.deps.usersPath);
 		this.initializeUsers();
 	}
@@ -192,7 +192,7 @@ export class IdentityService {
 		return user;
 	}
 
-	public deleteUser(guid: string){
+	public deleteUser(guid: string): void {
 		const user = this.users.get(guid);
 		if(!user){
 			throw new AppError('delete user: no matching user found to GUID', 'internal', 'error');
@@ -230,7 +230,7 @@ export class IdentityService {
 		return true;
 	}
 
-	public setLastMessageByBaseNick(basenick: string, msgdate: number, clearAfk = true){
+	public setLastMessageByBaseNick(basenick: string, msgdate: number, clearAfk = true): void {
 		const guid = this.basenickIndex.get(basenick.trim().toLowerCase());
 		if(!guid){
 			throw new AppError(`couldn't find user with nickname ${basenick}`, 'user');
@@ -238,7 +238,7 @@ export class IdentityService {
 		this.setLastMessage(guid, msgdate, clearAfk);
 	}
 
-	public deleteUserByBaseNick(basenick: string){
+	public deleteUserByBaseNick(basenick: string): void {
 		const guid = this.basenickIndex.get(basenick.trim().toLowerCase());
 		if(!guid){
 			throw new AppError(`couldn't find user with nickname ${basenick}`, 'user');
@@ -321,7 +321,7 @@ export class IdentityService {
 		return resolvedUsers;
 	}
 
-	private assignUsers(resolvedUsers: Map<string, Identity>){
+	private assignUsers(resolvedUsers: Map<string, Identity>): void {
 		const basenickIndex = new Map<string, string>();
 		const playeridIndex = new Map<string, string>();
 
@@ -337,7 +337,7 @@ export class IdentityService {
 		this.userQueue.chain();
 	}
 	
-	private async saveUsers(){
+	private async saveUsers(): Promise<void> {
 		try{
 			await writeJsonFile(this.deps.usersPath, Array.from(this.users.entries()));
 		} 
@@ -346,7 +346,7 @@ export class IdentityService {
 		}
 	}
 
-	private initializeUsers(){
+	private initializeUsers(): void {
 		try{
 			const raw = this.fetchUsers();
 			const [resolvedUsers, resolveFailures] = this.resolveUsers(raw);

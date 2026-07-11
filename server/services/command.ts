@@ -52,7 +52,7 @@ export class CommandService {
 		this.init();
 	}
 
-	private init(){
+	private init(): void {
 		this.initializeMarkovCommand();
 		this.initializeCommands();
 		this.initializeGameCommands();
@@ -134,7 +134,7 @@ export class CommandService {
 		return await entry.handler(ctx);
 	}
 
-	private initializeMarkovCommand(){
+	private initializeMarkovCommand(): void {
 		if(this.deps.configService.getMarkovConfig().enabled  && this.deps.stateService.markovUser){
 			this.markovBaseNick = getBaseNick(this.deps.stateService.markovUser.fullnick);
 		}
@@ -143,7 +143,7 @@ export class CommandService {
 		}
 	}
 
-	private initializeCommands(){
+	private initializeCommands(): void {
 		this.registerStandardCommands();
 		this.registerModeratorCommands();
 		this.registerGdprCommands();
@@ -160,11 +160,11 @@ export class CommandService {
 		}
 	}
 
-	private registerStandardCommands(){
+	private registerStandardCommands(): void{
 		this.commands['help'] = {
 			requiresMod: false,
 			requiresMarkov: false,
-			handler: (ctx) => {
+			handler: (ctx): boolean => {
 
 				const helpMessages = [
 					'/help, /h, or /commands : View this list.',
@@ -228,7 +228,7 @@ export class CommandService {
 		this.commands['mutehelp'] = {
 			requiresMod: false,
 			requiresMarkov: false,
-			handler:(ctx) => {
+			handler:(ctx): boolean => {
 				const helpMessages = [
 					"/mutehelp : information on how to use the /mute feature. you're looking at it",
 					//./mute and /m are handled client side
@@ -252,7 +252,7 @@ export class CommandService {
 		this.commands['nick'] = {
 			requiresMod: false,
 			requiresMarkov: false,
-			handler: async (ctx) => {
+			handler: async (ctx): Promise<boolean> => {
 				const newBaseNick = ctx.fullArgs;
 
 				if(ctx.commandUser){
@@ -298,7 +298,7 @@ export class CommandService {
 		this.commands['color'] = {
 			requiresMod: false,
 			requiresMarkov: false,		
-			handler: (ctx) => {
+			handler: (ctx): boolean => {
 				if(!ctx.commandUser){
 					return this.sendRegistrationWarning(ctx.socket, 'set a color');
 				}
@@ -323,7 +323,7 @@ export class CommandService {
 		this.commands['colour'] = {
 			requiresMod: false,
 			requiresMarkov: false,
-			handler: (ctx) => {
+			handler: (ctx): boolean => {
 				if(!ctx.commandUser){
 					return this.sendRegistrationWarning(ctx.socket, 'set a colour');
 				}
@@ -335,7 +335,7 @@ export class CommandService {
 		this.commands['import'] = {
 			requiresMod: false,
 			requiresMarkov: false,
-			handler: (ctx) => {
+			handler: (ctx): boolean => {
 				try{
 					const newGUID = ctx.args[0];	
 					if(!isValidGUID(newGUID)){
@@ -366,7 +366,7 @@ export class CommandService {
 		this.commands['afk'] = {
 			requiresMod: false,
 			requiresMarkov: false,
-			handler: (ctx) => {
+			handler: async (ctx): Promise<boolean> => {
 				if(!ctx.commandUser){
 					return this.sendRegistrationWarning(ctx.socket, 'go afk lmao');
 				} 
@@ -380,7 +380,7 @@ export class CommandService {
 					this.deps.dispatchService.sendSystemChat(ctx.socket, mType.info, afkUser.isAfk ? "you've gone afk" : `welcome back, ${getBaseNick(afkUser.fullnick)}`);
 
 					if(ctx.fullArgs && ctx.fullArgs.trim().length > 0){
-						return this.executeCommand('status', ctx);
+						return await this.executeCommand('status', ctx);
 					}
 				
 					return clearInput;
@@ -395,7 +395,7 @@ export class CommandService {
 		this.commands['status'] = {
 			requiresMod: false,
 			requiresMarkov: false,
-			handler: (ctx) => {
+			handler: (ctx): boolean => {
 				if(!ctx.commandUser){
 					return this.sendRegistrationWarning(ctx.socket, 'facebook post');
 				}
@@ -419,7 +419,7 @@ export class CommandService {
 		this.commands['spoiler'] = {
 			requiresMod: false,
 			requiresMarkov: false,
-			handler: (ctx) => {
+			handler: (ctx): boolean => {
 			if(!ctx.commandUser){
 				return this.sendRegistrationWarning(ctx.socket, 'ruin things for everyone else');
 			}
@@ -430,7 +430,7 @@ export class CommandService {
 		this.commands['markov'] = {
 			requiresMod: false,
 			requiresMarkov: true,
-			handler: async (ctx) => {
+			handler: async (ctx): Promise<boolean> => {
 				if(!ctx.commandUser){
 					return this.sendRegistrationWarning(ctx.socket, 'generate random text');
 				}
@@ -481,11 +481,11 @@ export class CommandService {
 		};
 	}
 
-	private registerModeratorCommands(){
+	private registerModeratorCommands(): void {
 		this.commands['modhelp'] = {
 			requiresMod: true,
 			requiresMarkov: false,
-			handler: (ctx) => {
+			handler: (ctx): boolean => {
 				const config = this.deps.configService.getServerConfig();
 				
 				const helpMessages = [
@@ -515,7 +515,7 @@ export class CommandService {
 		this.commands['announce'] = {
 			requiresMod: true,
 			requiresMarkov: false,
-			handler: (ctx) => {
+			handler: (ctx): boolean => {
 				try{
 					if(!ctx.commandUser){
 						throw new AppError('Undefined user in Mod Command Call', 'bug');
@@ -537,7 +537,7 @@ export class CommandService {
 		this.commands['ban'] = {
 			requiresMod: true,
 			requiresMarkov: false,
-			handler: (ctx) => {		
+			handler: (ctx): boolean => {		
 				
 				try{
 					if(!ctx.args[0]){
@@ -595,7 +595,7 @@ export class CommandService {
 		this.commands['timeout'] = {
 			requiresMod: true,
 			requiresMarkov: false,
-			handler: (ctx) => {
+			handler: (ctx): boolean => {
 				try{
 					if(!ctx.args[0]){
 						throw new AppError("missing target", 'user');
@@ -650,7 +650,7 @@ export class CommandService {
 		this.commands['delete'] = {
 			requiresMod: true,
 			requiresMarkov: false,
-			handler: (ctx) => {
+			handler: (ctx): boolean => {
 				const id = Number(ctx.args[0]);
 
 				if(!ctx.args[0] || !Number.isInteger(id) || id < 0){
@@ -667,8 +667,8 @@ export class CommandService {
 		this.commands['emotes'] = {
 			requiresMod: true,
 			requiresMarkov: false,
-			handler: async (ctx) => {
-				let targetID = ctx.args[0];
+			handler: async (ctx): Promise<boolean> => {
+				const targetID = ctx.args[0];
 
 				if(targetID){
 					this.deps.dispatchService.sendSystemChat(ctx.socket, mType.info, `fetching new emote set ${targetID}...`);
@@ -692,8 +692,8 @@ export class CommandService {
 		this.commands['unemotes'] = {
 			requiresMod: true,
 			requiresMarkov: false,
-			handler: async (ctx) => {
-				let targetID = ctx.args[0];
+			handler: async (ctx): Promise<boolean> => {
+				const targetID = ctx.args[0];
 				this.deps.dispatchService.sendSystemChat(ctx.socket, mType.info, `removing emote set ${targetID}...`);
 				
 				try{
@@ -711,7 +711,7 @@ export class CommandService {
 		this.commands['loadusers'] = {
 			requiresMod: true,
 			requiresMarkov: false,
-			handler: (ctx) => {
+			handler: (ctx): boolean => {
 				try{
 					const size = this.deps.identityService.reloadUsers();
 					this.deps.dispatchService.sendSystemChat(ctx.socket, mType.info, `${size} users reloaded`);
@@ -729,7 +729,7 @@ export class CommandService {
 		this.commands['botstatus'] = {
 			requiresMod: true,
 			requiresMarkov: true,
-			handler: (ctx) => {
+			handler: (ctx): boolean => {
 				try{
 					const markovUser = this.deps.stateService.markovUser;
 					if(!markovUser){
@@ -754,7 +754,7 @@ export class CommandService {
 		this.commands['botsleep'] = {
 			requiresMod: true,
 			requiresMarkov: true,
-			handler: (ctx) => {
+			handler: (ctx): boolean => {
 				const markovUser = this.deps.stateService.markovUser;
 				if(!markovUser){
 					this.deps.dispatchService.sendSystemChat(ctx.socket, mType.error, "system: we couldn't find a markov bot");
@@ -775,11 +775,11 @@ export class CommandService {
 		};
 	}
 	
-	private registerGdprCommands(){
+	private registerGdprCommands(): void {
 		this.commands['gdpr'] = {
 			requiresMod: false,
 			requiresMarkov: false,
-			handler: (ctx) => {
+			handler: (ctx): boolean => {
 				const subComm = ctx.args[0];
 				switch (subComm){
 					case 'info':{
@@ -919,7 +919,7 @@ export class CommandService {
 		};
 	}
 
-	private initializeGameCommands(){
+	private initializeGameCommands(): void {
 		for(const name of this.deps.gameCommandService.getGameCommands()){
 			this.gameCommandNames.add(name);
 		}

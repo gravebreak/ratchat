@@ -8,7 +8,7 @@ export function existsFile(path: string): boolean {
 	return existsSync(path);
 }
 
-export function createJsonFile(path: string, defaultValue: unknown){
+export function createJsonFile(path: string, defaultValue: unknown): void {
 	try {
 		mkdirSync(dirname(path), { recursive: true });
 		writeFileSync(path, JSON.stringify(defaultValue, null, 4), { flag: 'wx' });
@@ -38,7 +38,7 @@ export function readJsonFile(path: string): unknown {
 	}
 }
 
-export async function writeJsonFile(path: string, data: unknown){
+export async function writeJsonFile(path: string, data: unknown): Promise<void> {
 	const tempPath = `${path}.tmp`;
 
 	try{

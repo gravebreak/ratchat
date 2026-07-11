@@ -2,7 +2,7 @@ import { dirname, basename, extname, join } from 'path';
 import { existsFile } from './serialize';
 import { AppError } from './errors';
 
-export function assertSafeStartup(path: string){
+export function assertSafeStartup(path: string): void {
 	if(existsFile(getRepairPath(path))){
 		throw new AppError(`Repair file present at ${path}, aborting`, 'internal', 'error');
 	}

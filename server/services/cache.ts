@@ -10,7 +10,7 @@ const REDIS_RECONNECT_TIMEOUT = 5000;
 export class CacheService{
 	private redisClient: RedisClientType | null = null;
 
-	public async startRedisClient(){
+	public async startRedisClient(): Promise<void> {
 		if(!process.env.REDIS_URL){
 			throw new AppError('startRedisClient called without REDIS_URL set', 'bug');
 		}
@@ -74,7 +74,7 @@ export class CacheService{
 		}
 	}
 
-	public async setRedisValue(key: string, value: unknown){
+	public async setRedisValue(key: string, value: unknown): Promise<void> {
 		if(!this.redisClient){
 			throw new AppError('setRedisValue called while redis is unavailable', 'bug');
 		}
@@ -92,7 +92,7 @@ export class CacheService{
 		}
 	}
 
-	private monitorRedisConnection(client: RedisClientType){
+	private monitorRedisConnection(client: RedisClientType): void {
 		let reconnectTimer: NodeJS.Timeout | null = null;
 
 		client.on('reconnecting', () => {

@@ -30,12 +30,12 @@ export class ModerationService {
 		this.init();
 	}
 
-	private init(){
+	private init(): void {
 		this.initializeProfanityFilter();
 		this.initializeBaseNickFilter();
 	}
 
-	public appendBaseNickFilter(commands: string[]){
+	public appendBaseNickFilter(commands: string[]): void {
 		if(!this.startup){
 			throw new AppError('No longer starting up, illegal appendBaseNickFilter call', 'bug');
 		}
@@ -170,7 +170,7 @@ export class ModerationService {
 		}		
 	}
 		
-	public moderateTime(user: Identity, type: TimeType){
+	public moderateTime(user: Identity, type: TimeType): void {
 		const now = Date.now();
 		const lastMessage = new Date(user.lastMessage).getTime();
 		const lastChanged = new Date(user.lastChanged).getTime();
@@ -195,28 +195,22 @@ export class ModerationService {
 		if(waitTime > 0){
 			throw new AppError(`you're doing that too fast, wait ${Math.ceil(waitTime)} seconds.`, 'user');
 		}
-
-		return;
-
 	}
-	private moderateBaseNick(basenick: string){	
+
+	private moderateBaseNick(basenick: string): void {	
 		const matched = this.basenickFilter.find(regex => regex.test(basenick));
 		if(matched){
 			console.log(`base nick filter "${basenick}" because it matched pattern: ${matched}`);
 			throw new AppError(`can't be named that`, 'user');
 		}
-
-		return;
 	}
 
-	private moderateProfanity(str: string){
+	private moderateProfanity(str: string): void {
 		const matched = this.profFilter.find(regex => regex.test(str));
 		if(matched){
 			console.log(`prof filter "${str}" because it matched pattern: ${matched}`);
 			throw new AppError('watch your profamity', 'user');
 		}
-		
-		return;
 	}
 
 	private toSafeString(str: string): SafeString{
@@ -232,7 +226,7 @@ export class ModerationService {
 		return patterns;
 	}
 
-	private initializeProfanityFilter(){
+	private initializeProfanityFilter(): void {
 		try{
 			const raw = this.fetchFilter(this.deps.profFilterPath);
 			const profPatterns = this.resolveFilter(raw, 'profanity');
@@ -244,7 +238,7 @@ export class ModerationService {
 		}
 	}
 
-	private initializeBaseNickFilter(){
+	private initializeBaseNickFilter(): void {
 		try{
 			const raw = this.fetchFilter(this.deps.basenickFilterPath);
 			const basenickPatterns = this.resolveFilter(raw, 'basenick');

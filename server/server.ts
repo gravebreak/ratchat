@@ -30,7 +30,7 @@ main().catch(error => {
 	process.exit(1);
 });
 
-async function main(){
+async function main(): Promise<void> {
 
 	if(!process.env.IP_PEPPER){
 		throw new Error('FATAL ERROR: IP_PEPPER environment variable is not set.');
@@ -160,7 +160,8 @@ async function main(){
 		configService: configService,
 		dispatchService: dispatchService,
 		gameIdentityService: gameIdentityService,
-		identityService: identityService
+		identityService: identityService,
+		gameStateService: gameStateService
 	});
 
 	const commandService = new CommandService({
@@ -291,7 +292,6 @@ async function main(){
 
 			//Sanitize and broadcast
 			callback(messageService.handleChat(msg, user, socket, false));
-			return;
 		});
 
 		socket.on('requesteventlist', (callback) => {

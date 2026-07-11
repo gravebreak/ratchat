@@ -30,7 +30,7 @@ export class GameIdentityService {
 		this.init();
 	}
 
-	private init(){
+	private init(): void {
 		assertSafeStartup(this.deps.gameUsersPath);
 		this.initializeGameUsers();
 	}
@@ -130,7 +130,7 @@ export class GameIdentityService {
 		return newGameIdentity;
 	}
 
-	public deleteGameUser(playerid: string){
+	public deleteGameUser(playerid: string): void {
 		const user = this.gameUsers.get(playerid);
 		if(!user){
 			throw new AppError('delete game user: no matching game user found to playerid', 'internal', 'error');
@@ -208,12 +208,12 @@ export class GameIdentityService {
 		return resolvedGameUsers;
 	}
 
-	private assignGameUsers(resolvedGameUsers: Map<string, GameIdentity>){
+	private assignGameUsers(resolvedGameUsers: Map<string, GameIdentity>): void {
 		this.gameUsers = resolvedGameUsers;
 		this.gameUserQueue.chain();
 	}
 
-	private async saveGameUsers(){
+	private async saveGameUsers(): Promise<void> {
 		try{
 			await writeJsonFile(this.deps.gameUsersPath, Array.from(this.gameUsers.entries()));
 		} 
@@ -222,7 +222,7 @@ export class GameIdentityService {
 		}
 	}
 
-	private initializeGameUsers(){
+	private initializeGameUsers(): void {
 		try{
 			const raw = this.fetchGameUsers();
 			const [resolvedGameUsers, resolveFailures] = this.resolveGameUsers(raw);
