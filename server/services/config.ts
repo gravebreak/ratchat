@@ -48,7 +48,7 @@ export class ConfigService {
 
 	private initializeServerConfig(): void {
 		try{
-			const raw = this.fetchConfigFile(this.deps.serverConfigPath, defaultServerConfig, 'Server');
+			const raw = this.fetchConfigFile(this.deps.serverConfigPath, defaultServerConfig, aType.sconfig);
 			const resolved = this.resolveConfig(raw, this.deps.serverConfigPath, {label: aType.sconfig, fallback: defaultServerConfig, schema: ServerConfigSchema});
 			if(resolved.gdprcontact === 'admin@email.here'){
 				console.warn('No GDPR contact info set. If hosting publicly please set gdprcontact in config.json');
@@ -67,7 +67,7 @@ export class ConfigService {
 
 	private initializeMarkovConfig(): void {
 		try{
-			const raw = this.fetchConfigFile(this.deps.markovConfigPath, defaultMarkovConfig, 'Markov');
+			const raw = this.fetchConfigFile(this.deps.markovConfigPath, defaultMarkovConfig, aType.mconfig);
 			const resolved = this.resolveConfig(raw, this.deps.markovConfigPath, {label: aType.mconfig, fallback: defaultMarkovConfig, schema: MarkovConfigSchema});
 			this.markovConfig = resolved;
 			Object.freeze(this.markovConfig);
@@ -83,7 +83,7 @@ export class ConfigService {
 
 	private initializeGameConfig(): void {
 		try{
-			const raw = this.fetchConfigFile(this.deps.gameConfigPath, defaultGameConfig, 'Game');
+			const raw = this.fetchConfigFile(this.deps.gameConfigPath, defaultGameConfig, aType.gconfig);
 			const resolved = this.resolveConfig(raw, this.deps.gameConfigPath, {label: aType.gconfig, fallback: defaultGameConfig, schema: GameConfigSchema});
 			this.gameConfig = resolved;
 			Object.freeze(this.gameConfig);
@@ -97,14 +97,14 @@ export class ConfigService {
 		}
 	}
 
-	private fetchConfigFile(path: string, defaultConfig: object, label: string): unknown{
+	private fetchConfigFile(path: string, defaultConfig: Config, label: ConfigParams['label']): unknown{
 		if(!existsFile(path)){
 			try{
 				createJsonFile(path, defaultConfig);
-				console.log(`created default ${label} config json file`);
+				console.log(`created default ${label} json file`);
 			}
 			catch(error: unknown){
-				handleError(error, `Create ${label} Default Config File`);
+				handleError(error, `Create ${label} Default Json File`);
 			}
 			return defaultConfig;
 		}

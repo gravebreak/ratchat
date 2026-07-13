@@ -1,6 +1,6 @@
-import type { RandomCandidateMap, Candidate } from "../defs/def-random";
+import type { RandomCandidateMap, Candidate } from '../defs/def-random';
 
-import { AppError } from "./errors";
+import { AppError } from './errors';
 
 export function pickWeighted(candidates: RandomCandidateMap): Candidate {
 	const firstEntry = candidates.keys().next().value;

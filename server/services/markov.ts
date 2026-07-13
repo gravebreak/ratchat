@@ -1,5 +1,5 @@
 import { existsSync } from 'fs';
-import { DatabaseSync } from "node:sqlite";
+import { DatabaseSync } from 'node:sqlite';
 import { Server } from 'socket.io';
 
 import { mType } from '../defs/def-message';
@@ -93,7 +93,7 @@ export class MarkovService{
 				const candidates = await this.loadStartNeuron();
 
 				if(candidates.length === 0){
-					throw new AppError("no start entries in markov brain", 'internal', 'warn');
+					throw new AppError('no start entries in markov brain', 'internal', 'warn');
 				}
 
 				const weightMap: RandomCandidateMap = new Map(
@@ -121,13 +121,13 @@ export class MarkovService{
 				const chosen = candidates[Number(pickWeighted(weightMap))];
 				const next = chosen.word3;
 
-				if(!next || next === "<END>"){
+				if(!next || next === '<END>'){
 					break;
 				}
 
 				raw.push(next);
 
-				if(raw.join(" ").length > maxLength){
+				if(raw.join(' ').length > maxLength){
 					raw.pop();
 					break;
 				}
@@ -138,12 +138,12 @@ export class MarkovService{
 			}
 
 			try{
-				const safe = this.deps.moderationService.moderateText(raw.join(" "), markovUser, tType.chat);
+				const safe = this.deps.moderationService.moderateText(raw.join(' '), markovUser, tType.chat);
 				return safe;
 			}
 			catch(error: unknown){
 				if(error instanceof AppError){
-					if(error.message === "watch your profamity"){
+					if(error.message === 'watch your profamity'){
 						this.deps.dispatchService.sendSystemChat(io, mType.ann, `${getBaseNick(markovUser.fullnick)} tried to say something naughty`);
 						continue;
 					}
@@ -154,11 +154,11 @@ export class MarkovService{
 				}
 				handleError(error, 'Generate Markov Text');
 				
-				throw new AppError(`failed to generate markov text: unknown error`, 'user');
+				throw new AppError('failed to generate markov text: unknown error', 'user');
 			}
 		}
 
-		throw new AppError("no valid text generated after 5 attempts", 'user');
+		throw new AppError('no valid text generated after 5 attempts', 'user');
 	}
 
 	public async learnMarkovText(str: string): Promise<void> {
@@ -185,7 +185,7 @@ export class MarkovService{
 		const w0 = words[0];
 		const w1 = words[1];
 
-		const startLetter = (w0[0] || "_").toUpperCase().replace(/[^A-Z_]/g, "_");
+		const startLetter = (w0[0] || '_').toUpperCase().replace(/[^A-Z_]/g, '_');
 		entries.push({table: `start_${startLetter}`, word1: w0, word2: w1});
 
 		if(!this.dictionary.has(w0.toLowerCase())){
@@ -193,7 +193,7 @@ export class MarkovService{
 		}
 
 		if(words.length === 2){
-			const letters = (w0[0] + w1[0]).toUpperCase().replace(/[^A-Z_]/g, "_");
+			const letters = (w0[0] + w1[0]).toUpperCase().replace(/[^A-Z_]/g, '_');
 			entries.push({table: `gram_${letters}`, word1: w0, word2: w1, word3: '<END>'});
 			this.queueSaveNeuron(entries);
 			return;
@@ -204,13 +204,13 @@ export class MarkovService{
 			const b = words[i + 1];
 			const c = words[i + 2];
 
-			const letters = (a[0] + b[0]).toUpperCase().replace(/[^A-Z_]/g, "_");
+			const letters = (a[0] + b[0]).toUpperCase().replace(/[^A-Z_]/g, '_');
 			entries.push({table: `gram_${letters}`, word1: a, word2: b, word3: c});
 		}
 
 		const lastA = words[words.length - 2];
 		const lastB = words[words.length - 1];
-		const endLetters = (lastA[0] + lastB[0]).toUpperCase().replace(/[^A-Z_]/g, "_");
+		const endLetters = (lastA[0] + lastB[0]).toUpperCase().replace(/[^A-Z_]/g, '_');
 		entries.push({table: `gram_${endLetters}`, word1: lastA, word2: lastB, word3: '<END>'});
 
 		this.queueSaveNeuron(entries);
@@ -225,14 +225,14 @@ export class MarkovService{
 			return;
 		}
 
-		this.db.exec("BEGIN");
+		this.db.exec('BEGIN');
 
 		try{
 			for(const n of entries){
-				if(n.table.startsWith("start_") && n.table.length === "start_".length + 1){
+				if(n.table.startsWith('start_') && n.table.length === 'start_'.length + 1){
 					this.db.prepare(`INSERT INTO ${n.table} (word1, word2, count) VALUES (?, ?, 1) ON CONFLICT(word1, word2) DO UPDATE SET count = count + 1;`).run(n.word1, n.word2);
 				}
-				else if(n.table.startsWith("gram_") && n.table.length === "gram_".length + 2){
+				else if(n.table.startsWith('gram_') && n.table.length === 'gram_'.length + 2){
 						if(!n.word3){
 							console.warn(`skipping gram entry missing word3: ${n.word1} ${n.word2}`);
 							continue;
@@ -244,10 +244,10 @@ export class MarkovService{
 				}
 			}
 
-			this.db.exec("COMMIT");
+			this.db.exec('COMMIT');
 		}
 		catch(error: unknown){
-			this.db.exec("ROLLBACK");
+			this.db.exec('ROLLBACK');
 			handleError(error, 'Save Neuron');
 		}
 	}
@@ -260,7 +260,7 @@ export class MarkovService{
 		if(!seed){
 			const results: StartNeuron[] = [];
 			const tables = (this.db
-				.prepare(`SELECT name FROM sqlite_master WHERE type='table' AND name LIKE 'start_%'`)
+				.prepare('SELECT name FROM sqlite_master WHERE type=\'table\' AND name LIKE \'start_%\'')
 				.all() as {name: string}[])
 				.map(row => row.name);
 
@@ -271,7 +271,7 @@ export class MarkovService{
 			return results;
 		}
 
-		const letter = seed[0].toUpperCase().replace(/[^A-Z_]/g, "_");
+		const letter = seed[0].toUpperCase().replace(/[^A-Z_]/g, '_');
 		const table = `start_${letter}`;
 		return this.db.prepare(`SELECT word1, word2, count FROM ${table} WHERE LOWER(word1) = LOWER(?)`).all(seed) as StartNeuron[];
 	}
@@ -281,7 +281,7 @@ export class MarkovService{
 			throw new AppError('brain db not initialized', 'internal', 'warn');
 		}
 
-		const letters = (prev[0] + curr[0]).toUpperCase().replace(/[^A-Z_]/g, "_");
+		const letters = (prev[0] + curr[0]).toUpperCase().replace(/[^A-Z_]/g, '_');
 		const table = `gram_${letters}`;
 		return this.db.prepare(`SELECT word1, word2, word3, count FROM ${table} WHERE LOWER(word1) = LOWER(?) AND LOWER(word2) = LOWER(?)`).all(prev, curr) as GramNeuron[];
 	}
@@ -306,29 +306,29 @@ export class MarkovService{
 
 		if(!existsSync(path)){
 			console.log('building markov brain....');
-			const letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ_";
-			const startSchema = `CREATE TABLE IF NOT EXISTS %TABLE% (word1 TEXT, word2 TEXT, count INTEGER, PRIMARY KEY (word1, word2));`;
-			const gramSchema = `CREATE TABLE IF NOT EXISTS %TABLE% (word1 TEXT,	word2 TEXT,	word3 TEXT, count INTEGER, PRIMARY KEY (word1, word2, word3));`;
+			const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ_';
+			const startSchema = 'CREATE TABLE IF NOT EXISTS %TABLE% (word1 TEXT, word2 TEXT, count INTEGER, PRIMARY KEY (word1, word2));';
+			const gramSchema = 'CREATE TABLE IF NOT EXISTS %TABLE% (word1 TEXT,	word2 TEXT,	word3 TEXT, count INTEGER, PRIMARY KEY (word1, word2, word3));';
 
-			this.db.exec("PRAGMA journal_mode = MEMORY;");
-			this.db.exec("BEGIN");
+			this.db.exec('PRAGMA journal_mode = MEMORY;');
+			this.db.exec('BEGIN');
 			for(const L of letters){
 				const table = `start_${L}`;
-				this.db.prepare(startSchema.replace("%TABLE%", table)).run();
+				this.db.prepare(startSchema.replace('%TABLE%', table)).run();
 			}
 
 			for(const A of letters){
 				for(const B of letters){
 					const table = `gram_${A}${B}`;
-					this.db.prepare(gramSchema.replace("%TABLE%", table)).run();
+					this.db.prepare(gramSchema.replace('%TABLE%', table)).run();
 				}
 			}
-			this.db.exec("COMMIT");
-			this.db.exec("PRAGMA journal_mode = DELETE;");
+			this.db.exec('COMMIT');
+			this.db.exec('PRAGMA journal_mode = DELETE;');
 		}
 		const startTables = 
 			(this.db
-				.prepare(`SELECT name	FROM sqlite_master WHERE type='table' AND name LIKE 'start%';`)
+				.prepare('SELECT name	FROM sqlite_master WHERE type=\'table\' AND name LIKE \'start%\';')
 				.all() as {name: string}[]
 			)
 			.map(row => row.name);
@@ -339,7 +339,7 @@ export class MarkovService{
 		const results: string[] = [];
 		for(const table of tables){
 			if(!/^[A-Za-z0-9_]+$/.test(table)){
-				console.log("sus table:", table);
+				console.log('sus table:', table);
 				continue;
 			}
 			else{
@@ -358,7 +358,7 @@ export class MarkovService{
 			try{
 				const rows = this.db.prepare(`SELECT word1 FROM ${table}`).all();
 				for(const row of rows){
-					if(row.word1 && typeof row.word1 === "string"){
+					if(row.word1 && typeof row.word1 === 'string'){
 						this.dictionary.add(row.word1.toLowerCase());
 					}
 				}

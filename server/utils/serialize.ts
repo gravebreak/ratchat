@@ -1,8 +1,8 @@
-import { readFileSync, writeFileSync, existsSync, mkdirSync } from "fs";
-import { mkdir, writeFile, rename } from "fs/promises";
-import { dirname } from "path";
+import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs';
+import { mkdir, writeFile, rename } from 'fs/promises';
+import { dirname } from 'path';
 
-import { AppError } from "./errors";
+import { AppError } from './errors';
 
 export function existsFile(path: string): boolean {
 	return existsSync(path);

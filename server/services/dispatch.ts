@@ -16,7 +16,7 @@ type Target = { emit: Server['emit'] };
 type TextPayload = typeof mType.chat | typeof mType.ann | typeof mType.error | typeof mType.info | typeof mType.welcome | typeof mType.markov;
 type EmotePayload = Record<string, string>;
 type EventPayload = GameEventType[];
-type ChatHistory = Map<number, ChatMessage>;
+type ChatHistory = Map<ChatMessage['id'], ChatMessage>;
 type MessagePayloadMap = {
 	[MType in MessageType]:
 		MType extends typeof mType.game ? GameEvent :
@@ -24,13 +24,13 @@ type MessagePayloadMap = {
 		MType extends typeof mType.ulist ? UserSum[] :
 		MType extends typeof mType.elist ? EventPayload :
 		MType extends typeof mType.emotelist ? EmotePayload :
-		MType extends typeof mType.delmsg ? number[] :
-		MType extends typeof mType.clrlocal ? string :
+		MType extends typeof mType.delmsg ? ChatMessage['id'][] :
+		MType extends typeof mType.clrlocal ? Identity['guid'] :
 		ChatMessage;
 };
 
-const REDIS_HISTORY_KEY = 'ratchat:chatHistory';
-const REDIS_COUNTER_KEY = 'ratchat:messageCounter';
+const REDIS_HISTORY_KEY = CacheService.createRedisKey('messageHistory');
+const REDIS_COUNTER_KEY = CacheService.createRedisKey('messageCounter');
 const MAX_INT = 4294967295;
 
 export interface DispatchServiceDependencies {
@@ -39,7 +39,7 @@ export interface DispatchServiceDependencies {
 }
 
 export class DispatchService{
-	private messageCounter = 0; 
+	private messageCounter: ChatMessage['id'] = 0; 
 	private chatHistory : ChatHistory = new Map();
 	private historyQueue = createSaveQueue(() => this.saveChatHistory());
 	private counterQueue = createSaveQueue(() => this.saveMessageCounter());
@@ -54,12 +54,13 @@ export class DispatchService{
 		this.startExpireMessageTimer();
 	}
 
-	public sendChat(to: Target, author: Identity, content:string, msgArrayLen: number, spoiler: boolean): void {
+	public sendChat(to: Target, author: Identity, content:string, spoiler: boolean): void {
 		const msg = this.createMessage(false, author, content, mType.chat, spoiler);
 		this.sendPayload(to, mType.chat, msg);
+		const msgArrayLen = this.deps.configService.getServerConfig().msgArrayLen;
 		if(msgArrayLen > 0){
 			this.chatHistory.set(msg.id, msg);
-			this.trimChatHistory(msgArrayLen);
+			this.trimChatHistory();
 		}
 	}
 
@@ -103,7 +104,7 @@ export class DispatchService{
 		this.sendPayload(to, mType.elist, Object.values(eType));
 	}
 
-	public sendClearLocalData(to: Target, guid: string): void {
+	public sendClearLocalData(to: Target, guid: Identity['guid']): void {
 		this.sendPayload(to, mType.clrlocal, guid);
 	}
 
@@ -113,12 +114,12 @@ export class DispatchService{
 			this.sendSystemChat(to, mType.error, `system: ${response}`);
 		} 
 		else{
-			this.sendSystemChat(to, mType.error, `system: unknown error. try again`);
+			this.sendSystemChat(to, mType.error, 'system: unknown error. try again');
 		}
 	}
 
-	public deleteMessage(io: Server, msgArray: number[]): void {
-		const deleted: number[] = [];
+	public deleteMessage(io: Server, msgArray: ChatMessage['id'][]): void {
+		const deleted: ChatMessage['id'][] = [];
 
 		this.sendPayload(io, mType.delmsg, msgArray);
 
@@ -166,7 +167,7 @@ export class DispatchService{
 			const validMessages = parseArray(historyLoad, ChatMessageSchema);
 			const fresh = validMessages.filter(msg => msg.timestamp + expireTime > now);
 			const trimmed = fresh.slice(-config.msgArrayLen);
-			const trimmedMap = trimmed.map((msg): [number, ChatMessage] => [msg.id, msg]);
+			const trimmedMap = trimmed.map((msg): [ChatMessage['id'], ChatMessage] => [msg.id, msg]);
 			this.chatHistory = new Map(trimmedMap);
 			console.log(`Restored ${this.chatHistory.size} chat history messages from Redis`);
 		}
@@ -218,7 +219,7 @@ export class DispatchService{
 		};
 	}
 
-	private generateMessageId(): number {
+	private generateMessageId(): ChatMessage['id'] {
 		if(this.messageCounter >= MAX_INT || this.messageCounter < 0){
 			this.messageCounter = 0;
 		}
@@ -227,7 +228,8 @@ export class DispatchService{
 		return id;
 	}
 
-	private trimChatHistory(msgArrayLen: number): void {
+	private trimChatHistory(): void {
+		const msgArrayLen = this.deps.configService.getServerConfig().msgArrayLen;
 		while (this.chatHistory.size > msgArrayLen){
 			const oldestMessage = this.chatHistory.keys().next().value;
 			if(oldestMessage !== undefined){

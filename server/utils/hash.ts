@@ -1,8 +1,9 @@
 import crypto from 'crypto';
+import type { Socket } from 'socket.io';
 
 import { AppError } from './errors';
 
-export function hashIP(ip: string): string{
+export function hashIP(ip: Socket['handshake']['address']): string{
 	if(!process.env.IP_PEPPER){
 		throw new AppError('No IP_PEPPER set, hash failed', 'internal', 'error');
 	}

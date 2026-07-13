@@ -1,4 +1,4 @@
-import { handleError } from "./errors";
+import { handleError } from './errors';
 
 type SaveQueue = {
 	chain(): void;

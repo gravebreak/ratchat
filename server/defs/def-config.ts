@@ -2,7 +2,7 @@ import{ z } from 'zod';
 
 import { aType } from './def-parse';
 
-import { isValid7TVID, isValidHexColor } from "../utils/validate";
+import { isValid7TVID, isValidHexColor } from '../utils/validate';
 
 export type Config = ServerConfig | MarkovConfig | GameConfig;
 export type ConfigSchema = typeof ServerConfigSchema | typeof MarkovConfigSchema | typeof GameConfigSchema;
@@ -55,7 +55,7 @@ export const MarkovConfigSchema = z.object({
 	enabled: z.boolean(),
 	learning: z.boolean(),
 	basenick: z.string().min(2).max(64).regex(/^\S+$/),
-	color: z.string().refine(isValidHexColor, { message: "must be a valid hex color, e.g. #A1B2C3" }),
+	color: z.string().refine(isValidHexColor, { message: 'must be a valid hex color, e.g. #A1B2C3' }),
 	status: z.string().min(1).max(128),
 	cooldown: z.number().int().min(5).max(86400),
 	timer: z.number().int().min(60).max(86400)

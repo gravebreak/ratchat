@@ -1,6 +1,6 @@
-import { z } from "zod";
+import { z } from 'zod';
 
-import { GameIdentitySchema, IdentitySchema } from "./def-identity";
+import { GameIdentitySchema, IdentitySchema } from './def-identity';
 
 export type Leaderboard = PrivateLeaderboard | PublicLeaderboard;
 

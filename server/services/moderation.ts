@@ -8,7 +8,7 @@ import { sanitizeText } from '../utils/sanitize';
 import { existsFile, readJsonFile } from '../utils/serialize';
 import { isValidHexColor } from '../utils/validate';
 
-export type SafeString = string & {__brand: 'SafeString'};
+export type SafeString = string & {readonly __brand: 'SafeString'};
 
 export interface ModerationServiceDependencies{
 	configService: ConfigService;
@@ -46,7 +46,6 @@ export class ModerationService {
 		
 	public moderateText(raw: string, user: Identity, type: TextType): SafeString{
 		const clean = sanitizeText(raw).trim();
-		let safe = this.toSafeString('');
 		switch(type){
 			case 'chat':{
 				if(clean.length > this.deps.configService.getServerConfig().maxMsgLen){
@@ -65,9 +64,9 @@ export class ModerationService {
 					}
 					handleError(error, 'Moderate Text - Chat');
 					
-					throw new AppError(`failed to validate your message: unknown error`, 'user');
+					throw new AppError('failed to validate your message: unknown error', 'user');
 				}
-				safe = this.toSafeString(clean);
+				const safe = this.createSafeString(clean);
 				return safe;
 			}
 
@@ -85,9 +84,9 @@ export class ModerationService {
 					}
 					handleError(error, 'Moderate Text - Status');
 					
-					throw new AppError(`failed to validate your message: unknown error`, 'user');
+					throw new AppError('failed to validate your message: unknown error', 'user');
 				}
-				safe = this.toSafeString(clean);
+				const safe = this.createSafeString(clean);
 				return safe;
 			}
 
@@ -109,9 +108,9 @@ export class ModerationService {
 					}
 					handleError(error, 'Moderate Text - Nick');
 					
-					throw new AppError(`failed to validate your message: unknown error`, 'user');
+					throw new AppError('failed to validate your message: unknown error', 'user');
 				}
-				safe = this.toSafeString(clean);
+				const safe = this.createSafeString(clean);
 				return safe;
 			}
 
@@ -129,9 +128,9 @@ export class ModerationService {
 					}
 					handleError(error, 'Moderate Text - Color');
 					
-					throw new AppError(`failed to validate your message: unknown error`, 'user');
+					throw new AppError('failed to validate your message: unknown error', 'user');
 				}
-				safe = this.toSafeString(clean);
+				const safe = this.createSafeString(clean);
 				return safe;
 			}
 
@@ -160,9 +159,9 @@ export class ModerationService {
 					}
 					handleError(error, 'Moderate New User Base Nick');
 					
-					throw new AppError(`failed to validate your nickname: unknown error`, 'user');
+					throw new AppError('failed to validate your nickname: unknown error', 'user');
 				}
-			const safe = this.toSafeString(clean);
+			const safe = this.createSafeString(clean);
 			return safe;
 		}
 		else{
@@ -201,7 +200,7 @@ export class ModerationService {
 		const matched = this.basenickFilter.find(regex => regex.test(basenick));
 		if(matched){
 			console.log(`base nick filter "${basenick}" because it matched pattern: ${matched}`);
-			throw new AppError(`can't be named that`, 'user');
+			throw new AppError('can\'t be named that', 'user');
 		}
 	}
 
@@ -213,7 +212,7 @@ export class ModerationService {
 		}
 	}
 
-	private toSafeString(str: string): SafeString{
+	private createSafeString(str: string): SafeString{
 		return str as SafeString;
 	}
 

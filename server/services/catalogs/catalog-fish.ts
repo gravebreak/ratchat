@@ -1,4 +1,4 @@
-import type { FishCatalogEntry } from "../../defs/def-record";
+import type { FishCatalogEntry } from '../../defs/def-record';
 
 export const defaultFishCatalog: FishCatalogEntry[] = [
 	{fishName: 'Anchovy', baseline: 2.5},

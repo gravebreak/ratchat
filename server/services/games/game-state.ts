@@ -6,12 +6,12 @@ import type { PublicLeaderboard, PublicOverallLeaderboard, PublicBlackjackLeader
 import type { KeyedParseFailureRecord, ParseFailureRecord } from '../../defs/def-parse';
 import type { PrivateHorseRecordList, PrivateFishRecordList, DefaultFishRecordEntry, DefaultHorseRecordEntry } from '../../defs/def-record';
 
-import { CacheService } from "../cache";
-import { DispatchService } from "../dispatch";
-import { GameIdentityService } from "./game-identity";
-import { IdentityService } from "../identity";
+import { CacheService } from '../cache';
+import { DispatchService } from '../dispatch';
+import { GameIdentityService } from './game-identity';
+import { IdentityService } from '../identity';
 
-import { handleError, AppError } from "../../utils/errors";
+import { handleError, AppError } from '../../utils/errors';
 import { mergeRecordDefaults } from '../../utils/parse';
 import { createSaveQueue } from '../../utils/queue';
 import { assertSafeStartup, getRepairPath } from '../../utils/repair';
@@ -112,7 +112,7 @@ export class GameStateService {
 	}
 
 	private joinFishingStatsToArray(entries: StageOne[]): StageTwo[] {
-		const recordCounts = new Map<string, number>();
+		const recordCounts = new Map<GameIdentity['playerid'], number>();
 
 		for(const record of this.fishRecords){
 			if(record.playerid === null){

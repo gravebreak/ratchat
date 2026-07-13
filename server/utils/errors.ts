@@ -72,7 +72,7 @@ export function handleError(error: unknown, context?: string): string | null {
 		return null;
 	}
 	else{
-		console.error(prefix, "Unexpected non-error thrown:", error);
+		console.error(prefix, 'Unexpected non-error thrown:', error);
 		return null;
 	}
 }

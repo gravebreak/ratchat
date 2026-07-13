@@ -21,7 +21,7 @@ export interface GameIdentityServiceDependencies{
 }
 
 export class GameIdentityService {
-	private gameUsers: Map<string, GameIdentity> = new Map();
+	private gameUsers: Map<GameIdentity['playerid'], GameIdentity> = new Map();
 	private gameUserQueue = createSaveQueue(() => this.saveGameUsers());
 
 	private deps: GameIdentityServiceDependencies;
@@ -35,7 +35,7 @@ export class GameIdentityService {
 		this.initializeGameUsers();
 	}
 
-	public setLastGame(playerid: string, gamedate: number): GameIdentity {
+	public setLastGame(playerid: GameIdentity['playerid'], gamedate: number): GameIdentity {
 		if(!this.deps.configService.getGameConfig().enabled){
 			throw new AppError('setLastGame call with minigames disabled', 'bug');
 		}
@@ -51,7 +51,7 @@ export class GameIdentityService {
 		return user;
 	}
 
-	public setGamePoints(playerid:string, rawnumber: number): GameIdentity{
+	public setGamePoints(playerid: GameIdentity['playerid'], rawnumber: number): GameIdentity{
 		if(!this.deps.configService.getGameConfig().enabled){
 			throw new AppError('setGamePoints call with minigames disabled', 'bug');
 		}
@@ -76,7 +76,7 @@ export class GameIdentityService {
 		return gameId;
 	}
 
-	public setGamePointsDefault(playerid:string): GameIdentity{
+	public setGamePointsDefault(playerid: GameIdentity['playerid']): GameIdentity{
 		if(!this.deps.configService.getGameConfig().enabled){
 			throw new AppError('setGamePointsDefault call with minigames disabled', 'bug');
 		}
@@ -91,7 +91,7 @@ export class GameIdentityService {
 		return gameId;
 	}
 
-	public existsGameUser(playerid: string): boolean{
+	public existsGameUser(playerid: GameIdentity['playerid']): boolean{
 		const user = this.gameUsers.get(playerid);
 		if(user){
 			return true;
@@ -99,8 +99,8 @@ export class GameIdentityService {
 		return false;
 	}
 	
-	public getGameUsersMap(): Map<string, GameIdentity> {
-		const copy = new Map<string, GameIdentity>();
+	public getGameUsersMap(): Map<GameIdentity['playerid'], GameIdentity> {
+		const copy = new Map<GameIdentity['playerid'], GameIdentity>();
 
 		for(const [playerid, gameIdentity] of this.gameUsers){
 			copy.set(playerid, structuredClone(gameIdentity));
@@ -109,7 +109,7 @@ export class GameIdentityService {
 		return copy;
 	}
 
-	public getGameUser(playerid: string): GameIdentity {
+	public getGameUser(playerid: GameIdentity['playerid']): GameIdentity {
 		const user = this.gameUsers.get(playerid);
 		if(!user){
 			throw new AppError('get game user: no matching game user found to playerid', 'internal', 'warn');
@@ -117,20 +117,20 @@ export class GameIdentityService {
 		return user;
 	}
 
-	public createGameUser(inputPlayer: string): GameIdentity{
-		if(this.gameUsers.has(inputPlayer)){
+	public createGameUser(newplayerid: GameIdentity['playerid']): GameIdentity{
+		if(this.gameUsers.has(newplayerid)){
 			throw new AppError('create game user: game user already exists for playerid', 'internal', 'warn');
 		}
 		const newGameIdentity : GameIdentity = {
-			playerid: inputPlayer,
+			playerid: newplayerid,
 			...this.buildDefaultGameIdentity()
 		};
-		this.gameUsers.set(inputPlayer, newGameIdentity);
+		this.gameUsers.set(newplayerid, newGameIdentity);
 		this.gameUserQueue.chain();
 		return newGameIdentity;
 	}
 
-	public deleteGameUser(playerid: string): void {
+	public deleteGameUser(playerid: GameIdentity['playerid']): void {
 		const user = this.gameUsers.get(playerid);
 		if(!user){
 			throw new AppError('delete game user: no matching game user found to playerid', 'internal', 'error');
@@ -153,7 +153,7 @@ export class GameIdentityService {
 
 			handleError(error, 'Reload Game Users');
 
-			throw new AppError(`failed to reload game users: unknown error`, 'user');
+			throw new AppError('failed to reload game users: unknown error', 'user');
 		}
 	}
 
@@ -182,12 +182,12 @@ export class GameIdentityService {
 		return readJsonFile(this.deps.gameUsersPath);
 	}
 
-	private resolveGameUsersStrict(input: unknown): Map<string, GameIdentity>{
+	private resolveGameUsersStrict(input: unknown): Map<GameIdentity['playerid'], GameIdentity>{
 		if(!Array.isArray(input)){
 			throw new AppError('game user data was not an array, refusing to reload', 'internal', 'warn');
 		}
 
-		const resolvedGameUsers = new Map<string, GameIdentity>();
+		const resolvedGameUsers = new Map<GameIdentity['playerid'], GameIdentity>();
 		const defaultGameId = this.buildDefaultGameIdentity();
 
 		for(const entry of input){
@@ -208,7 +208,7 @@ export class GameIdentityService {
 		return resolvedGameUsers;
 	}
 
-	private assignGameUsers(resolvedGameUsers: Map<string, GameIdentity>): void {
+	private assignGameUsers(resolvedGameUsers: Map<GameIdentity['playerid'], GameIdentity>): void {
 		this.gameUsers = resolvedGameUsers;
 		this.gameUserQueue.chain();
 	}
@@ -242,7 +242,7 @@ export class GameIdentityService {
 	}
 
 	private fetchGameUsers(): unknown{
-		const gameUsers: [string, unknown][] = [];
+		const gameUsers: unknown[] = [];
 		try{
 			if(!existsFile(this.deps.gameUsersPath)){
 				createJsonFile(this.deps.gameUsersPath, gameUsers);
@@ -256,8 +256,8 @@ export class GameIdentityService {
 		}
 	}
 
-	private resolveGameUsers(input: unknown): [Map<string, GameIdentity>, KeyedParseFailureRecord[]]{
-		const resolvedGameUsers = new Map<string, GameIdentity>();
+	private resolveGameUsers(input: unknown): [Map<GameIdentity['playerid'], GameIdentity>, KeyedParseFailureRecord[]]{
+		const resolvedGameUsers = new Map<GameIdentity['playerid'], GameIdentity>();
 		const failures: KeyedParseFailureRecord[] = [];
 
 		if(!Array.isArray(input)){

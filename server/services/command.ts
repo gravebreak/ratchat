@@ -42,7 +42,7 @@ export interface CommandServiceDependencies {
 
 export class CommandService {
 	private commands: Record<string, CommandEntry> = {};
-	private activeCommands: Map<string, boolean> = new Map();
+	private activeCommands: Map<Socket['id'], boolean> = new Map();
 	private gameCommandNames: Set<string> = new Set();
 	private markovBaseNick: string = 'markov';
 	
@@ -71,7 +71,7 @@ export class CommandService {
 				return await this.deps.gameCommandService.handleGameCommand(msg, socket, io, caller);
 			}
 			else{
-				return this.sendRegistrationWarning(socket, "game, gamer");
+				return this.sendRegistrationWarning(socket, 'game, gamer');
 			}
 		}
 
@@ -127,7 +127,7 @@ export class CommandService {
 			return this.sendNotCommand(ctx.socket);
 		}
 		if(entry.requiresMod && notMod){
-			this.deps.dispatchService.sendSystemChat(ctx.socket, mType.error, "naughty naughty");
+			this.deps.dispatchService.sendSystemChat(ctx.socket, mType.error, 'naughty naughty');
 			return clearInput;
 		}
 
@@ -208,7 +208,7 @@ export class CommandService {
 					}
 					else{
 						helpMessages.push(
-							`/markov <seed> : generate random markov chain, optionally starting with <seed>.`
+							'/markov <seed> : generate random markov chain, optionally starting with <seed>.'
 						);
 					}
 				}
@@ -273,7 +273,7 @@ export class CommandService {
 				else{
 					try{
 						const safe = this.deps.moderationService.moderateNewUserBaseNick(newBaseNick, 'base');
-						this.deps.dispatchService.sendSystemChat(ctx.socket, mType.info, `creating user...`);
+						this.deps.dispatchService.sendSystemChat(ctx.socket, mType.info, 'creating user...');
 						const batch = await this.deps.stateService.queueSignup(ctx.socket, safe);
 						if(batch){
 							const user = this.deps.identityService.createNewUser(safe);
@@ -327,7 +327,7 @@ export class CommandService {
 				if(!ctx.commandUser){
 					return this.sendRegistrationWarning(ctx.socket, 'set a colour');
 				}
-				this.deps.dispatchService.sendSystemChat(ctx.socket, mType.error, "system: lern to speak american");
+				this.deps.dispatchService.sendSystemChat(ctx.socket, mType.error, 'system: lern to speak american');
 				return keepInput;
 			}
 		};
@@ -541,7 +541,7 @@ export class CommandService {
 				
 				try{
 					if(!ctx.args[0]){
-						throw new AppError("missing target", 'user');
+						throw new AppError('missing target', 'user');
 					}
 
 					const targetBaseNick = ctx.args[0];
@@ -598,7 +598,7 @@ export class CommandService {
 			handler: (ctx): boolean => {
 				try{
 					if(!ctx.args[0]){
-						throw new AppError("missing target", 'user');
+						throw new AppError('missing target', 'user');
 					}
 					const targetBaseNick = ctx.args[0];
 
@@ -654,7 +654,7 @@ export class CommandService {
 				const id = Number(ctx.args[0]);
 
 				if(!ctx.args[0] || !Number.isInteger(id) || id < 0){
-					this.deps.dispatchService.sendSystemChat(ctx.socket, mType.error, "system: please provide a valid message id");
+					this.deps.dispatchService.sendSystemChat(ctx.socket, mType.error, 'system: please provide a valid message id');
 					return keepInput;
 				}
 
@@ -850,7 +850,7 @@ export class CommandService {
 					
 					case 'export':{
 						if(!ctx.commandUser){
-							this.deps.dispatchService.sendSystemChat(ctx.socket, mType.error, "system: no server stored data");
+							this.deps.dispatchService.sendSystemChat(ctx.socket, mType.error, 'system: no server stored data');
 							return clearInput;
 						}
 						try{
@@ -869,7 +869,7 @@ export class CommandService {
 
 					case 'delete':{
 						if(!ctx.commandUser){
-							this.deps.dispatchService.sendSystemChat(ctx.socket, mType.error, "system: no server stored data");
+							this.deps.dispatchService.sendSystemChat(ctx.socket, mType.error, 'system: no server stored data');
 							return clearInput;
 						}
 						if(ctx.args[1] !== 'confirm'){

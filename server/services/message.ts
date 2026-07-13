@@ -31,10 +31,21 @@ export class MessageService {
 	}
 
 	public handleChat(msg: string, user: Identity, socket: Socket, spoiler: boolean): boolean{
-		let safe = '';
 		try{
-			safe = this.deps.moderationService.moderateText(msg, user, 'chat');
-			this.deps.dispatchService.sendChat(this.deps.io, user, safe, this.deps.configService.getServerConfig().msgArrayLen, spoiler);			
+			const safe = this.deps.moderationService.moderateText(msg, user, 'chat');
+			this.deps.dispatchService.sendChat(this.deps.io, user, safe, spoiler);
+
+			if(this.deps.markovService && this.deps.configService.getMarkovConfig().learning){
+				const markov = this.deps.markovService;
+				queueMicrotask(async () => {
+					try{
+						await markov.learnMarkovText(safe);
+					}
+					catch(error: unknown){
+						handleError(error, 'handleChat Learn Markov');
+					}	
+				});
+			}		
 		}
 		catch(error: unknown){
 			const response = handleError(error, 'handleChat text check');
@@ -42,7 +53,7 @@ export class MessageService {
 				this.deps.dispatchService.sendSystemChat(socket, mType.error, `system: ${response}`);
 			} 
 			else{
-				this.deps.dispatchService.sendSystemChat(socket, mType.error, `system: unknown error. try again`);
+				this.deps.dispatchService.sendSystemChat(socket, mType.error, 'system: unknown error. try again');
 			}
 			return keepInput;
 		}
@@ -55,19 +66,6 @@ export class MessageService {
 		} 
 		catch(error: unknown){
 			handleError(error, 'handleChat Last Message');
-		}
-		if(this.deps.markovService && this.deps.configService.getMarkovConfig().learning){
-			const markov = this.deps.markovService;
-			queueMicrotask(async () => {
-				try{
-					if(safe){
-						await markov.learnMarkovText(safe);
-					}
-				}
-				catch(error: unknown){
-					handleError(error, 'handleChat Learn Markov');
-				}	
-			});
 		}
 		return clearInput;
 	}

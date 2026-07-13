@@ -1,8 +1,8 @@
 import { z } from 'zod';
 
 export type Identity = z.infer<typeof IdentitySchema>;
-export type DefaultIdentity = Omit<Identity, "guid" | "playerid" | "fullnick">;
-export type UserSum = Pick<Identity, "fullnick" | "status" | "isMod" | "isAfk">;
+export type DefaultIdentity = Omit<Identity, 'guid' | 'playerid' | 'fullnick'>;
+export type UserSum = Pick<Identity, 'fullnick' | 'status' | 'isMod' | 'isAfk'>;
 export const IdentitySchema = z.object({
 	guid: z.string(),
 	playerid: z.string(),
@@ -15,7 +15,7 @@ export const IdentitySchema = z.object({
 });
 
 export type GameIdentity = z.infer<typeof GameIdentitySchema>;
-export type DefaultGameIdentity = Omit<GameIdentity, "playerid">;
+export type DefaultGameIdentity = Omit<GameIdentity, 'playerid'>;
 export const GameIdentitySchema = z.object({
 	playerid: z.string(),
 	gamePoints: z.number().int().min(0),

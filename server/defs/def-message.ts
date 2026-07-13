@@ -20,34 +20,34 @@ export type Command = {
 
 export type MessageType = typeof mType[keyof typeof mType];
 export const mType = {
-	chat: "toClientChat",
-	info: "toClientInfo",
-	error: "toClientError",
-	ann: "toClientAnnouncement",
-	welcome: "toClientWelcome",
-	markov: "toClientMarkov",
-	game: "toClientGame",
-	identity: "identity",
-	ulist: "userlist",
-	elist: "eventlist",
-	emotelist: "emotelist",
-	delmsg: "deleteMsg",
-	clrlocal: "clearLocalData"
+	chat: 'toClientChat',
+	info: 'toClientInfo',
+	error: 'toClientError',
+	ann: 'toClientAnnouncement',
+	welcome: 'toClientWelcome',
+	markov: 'toClientMarkov',
+	game: 'toClientGame',
+	identity: 'identity',
+	ulist: 'userlist',
+	elist: 'eventlist',
+	emotelist: 'emotelist',
+	delmsg: 'deleteMsg',
+	clrlocal: 'clearLocalData'
 } as const;
 
 export type ServerRequest = typeof sType[keyof typeof sType];
 export const sType = {
-	schat: "toServerChat",
-	elist: "requesteventlist"
+	schat: 'toServerChat',
+	elist: 'requesteventlist'
 } as const;
 
 export type GameEventType = typeof eType[keyof typeof eType];
 export const eType = {
-	duel: "duel",
-	fishing: "fishing",
-	horse: "horse",
-	blackjack: "blackjack",
-	leaderboard: "leaderboard"
+	duel: 'duel',
+	fishing: 'fishing',
+	horse: 'horse',
+	blackjack: 'blackjack',
+	leaderboard: 'leaderboard'
 } as const;
 
 export type ChatMessage = z.infer<typeof ChatMessageSchema>;

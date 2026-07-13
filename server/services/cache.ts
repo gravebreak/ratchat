@@ -3,12 +3,18 @@ import type { RedisClientType } from 'redis';
 
 import { handleError, AppError } from '../utils/errors'; 
 
+export type RedisKey = string & {readonly __brand: 'RedisKey'};
+
 const REDIS_TTL = 604800;
 const REDIS_STARTUP_TIMEOUT = 3000;
 const REDIS_RECONNECT_TIMEOUT = 5000;
 
 export class CacheService{
 	private redisClient: RedisClientType | null = null;
+
+	public static createRedisKey(str:string): RedisKey{
+		return `ratchat:${str}` as RedisKey;
+	}
 
 	public async startRedisClient(): Promise<void> {
 		if(!process.env.REDIS_URL){
@@ -51,7 +57,7 @@ export class CacheService{
 		return false;
 	}
 	
-	public async getRedisValue(key: string): Promise<unknown>{
+	public async getRedisValue(key: RedisKey): Promise<unknown>{
 		if(!this.redisClient){
 			throw new AppError('getRedisValue called while redis is unavailable', 'bug');
 		}
@@ -74,7 +80,7 @@ export class CacheService{
 		}
 	}
 
-	public async setRedisValue(key: string, value: unknown): Promise<void> {
+	public async setRedisValue(key: RedisKey, value: unknown): Promise<void> {
 		if(!this.redisClient){
 			throw new AppError('setRedisValue called while redis is unavailable', 'bug');
 		}

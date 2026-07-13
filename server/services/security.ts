@@ -24,8 +24,8 @@ export interface SecurityServiceDependencies{
 }
 
 export class SecurityService{
-	private bans: Map<BanEntry["hash"], BanEntry> = new Map();
-	private bansTimers: Map<BanEntry["hash"], BanTimerEntry> = new Map();
+	private bans: Map<BanEntry['hash'], BanEntry> = new Map();
+	private bansTimers: Map<BanEntry['hash'], BanTimerEntry> = new Map();
 	private banQueue = createSaveQueue(() => this.saveBans());
 	
 	private deps: SecurityServiceDependencies;
@@ -39,9 +39,9 @@ export class SecurityService{
 		this.startBanSweepTimer();
 	}
 	
-	public existsBan(unhashed: string): boolean {
+	public existsBan(address: Socket['handshake']['address']): boolean {
 		try{
-			const hash = hashIP(unhashed);
+			const hash = hashIP(address);
 			if(this.bans.has(hash)){
 				return true;
 			}
@@ -55,7 +55,7 @@ export class SecurityService{
 			}
 			handleError(error, 'Check Ban');
 			
-			throw new AppError(`failed to check ban: unknown error`, 'user');
+			throw new AppError('failed to check ban: unknown error', 'user');
 		}
 	}
 
@@ -113,8 +113,8 @@ export class SecurityService{
 		this.assignBans(validbans);
 	}
 
-	private fetchBans(): unknown{
-		const bans: BanEntry[] = [];
+	private fetchBans(): unknown {
+		const bans: unknown[] = [];
 		try{
 			if(!existsFile(this.deps.bansPath)){
 				createJsonFile(this.deps.bansPath, bans);
@@ -144,12 +144,12 @@ export class SecurityService{
 				continue;
 			}
 
-			if(typeof entry[1] !== 'object' || entry[1] === null){
+			if(typeof entry[1] !== 'object' || entry[1] === null || !('date' in entry[1])){
 				invalidEntries++;
 				continue;
 			}
 
-			const date = new Date((entry[1] as BanEntry).date);
+			const date = new Date((entry[1]).date);
 			if(isNaN(date.getTime())){
 				invalidEntries++;
 				continue;
@@ -168,7 +168,7 @@ export class SecurityService{
 	}
 
 	private assignBans(entries: BanEntry[]): void {
-		const bans = new Map<BanEntry["hash"], BanEntry>();
+		const bans = new Map<BanEntry['hash'], BanEntry>();
 
 		for(const entry of entries){
 			bans.set(entry.hash, entry);

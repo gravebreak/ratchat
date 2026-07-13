@@ -28,7 +28,7 @@ export interface GameCommandServiceDependencies {
 
 export class GameCommandService {
 	private gameCommands: Record<string, GameCommandEntry> = {};
-	private activeGameCommands: Map<string, boolean> = new Map();
+	private activeGameCommands: Map<Socket['id'], boolean> = new Map();
 	
 	private deps: GameCommandServiceDependencies;
 	constructor(dependencies: GameCommandServiceDependencies){

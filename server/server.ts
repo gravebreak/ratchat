@@ -38,7 +38,7 @@ async function main(): Promise<void> {
 
 	const app = express();
 	const httpserver = createServer(app);
-	const io = new Server(httpserver, {path:"/ratchat/socket.io/", connectionStateRecovery:{}});
+	const io = new Server(httpserver, {path:'/ratchat/socket.io/', connectionStateRecovery:{}});
 	
 	const serverConfigPath = join(__dirname, 'config.json');
 	const markovConfigPath = join(__dirname, 'markov.json');
@@ -257,11 +257,11 @@ async function main(): Promise<void> {
 			}
 		} 
 		else {
-			dispatchService.sendSystemChat(socket,mType.error,"system: please use the /nick <nickname> to set a nickname or /import <GUID> to import one");
+			dispatchService.sendSystemChat(socket,mType.error,'system: please use the /nick <nickname> to set a nickname or /import <GUID> to import one');
 			//GDPR warning
 			dispatchService.sendSystemChat(socket,mType.error,"system: be aware either command will store data regarding your session. type '/gdpr info' for more info");
-			dispatchService.sendSystemChat(socket,mType.info,"system: feel free to use /help or /h to see all available commands. some commands will not be available until you set your nickname!");
-			dispatchService.sendSystemChat(socket,mType.info,"we recommend increasing the zoom of your browser to 200% for the best viewing experience :)");
+			dispatchService.sendSystemChat(socket,mType.info,'system: feel free to use /help or /h to see all available commands. some commands will not be available until you set your nickname!');
+			dispatchService.sendSystemChat(socket,mType.info,'we recommend increasing the zoom of your browser to 200% for the best viewing experience :)');
 			
 			//force broadcastUsers for lurkers check
 			stateService.broadcastUsers(io);
@@ -287,7 +287,7 @@ async function main(): Promise<void> {
 
 			//Prevent users from chatting without an identity
 			if(!user){
-				dispatchService.sendSystemChat(socket, mType.error, "system: please set your nickname with /chrat <nickname> before chatting");
+				dispatchService.sendSystemChat(socket, mType.error, 'system: please set your nickname with /chrat <nickname> before chatting');
 				callback(clearInput);
 				return;
 			}

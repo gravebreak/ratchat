@@ -24,9 +24,9 @@ export interface IdentityServiceDependencies{
 }
 
 export class IdentityService {
-	private users: Map<string, Identity> = new Map();
-	private basenickIndex: Map<string, string> = new Map();
-	private playeridIndex: Map<string, string> = new Map();
+	private users: Map<Identity['guid'], Identity> = new Map();
+	private basenickIndex: Map<string, Identity['guid']> = new Map();
+	private playeridIndex: Map<Identity['playerid'], Identity['guid']> = new Map();
 	private userQueue = createSaveQueue(() => this.saveUsers());
 
 	private deps: IdentityServiceDependencies;
@@ -79,7 +79,7 @@ export class IdentityService {
 		return newIdentity;
 	}
 
-	public setBaseNick(guid: string, basenick: SafeString): Identity{
+	public setBaseNick(guid: Identity['guid'], basenick: SafeString): Identity{
 		const user = this.users.get(guid);
 		if(!user){
 			throw new AppError('set base nick: no matching user found to GUID', 'internal', 'warn');
@@ -106,7 +106,7 @@ export class IdentityService {
 		return user;
 	}
 
-	public setColor(guid: string, color: SafeString): Identity{
+	public setColor(guid: Identity['guid'], color: SafeString): Identity{
 		const user = this.users.get(guid);
 		if(!user){
 			throw new AppError('set color: no matching user found to GUID', 'internal', 'warn');
@@ -117,7 +117,7 @@ export class IdentityService {
 		return user;
 	}
 
-	public toggleAfk(guid: string): Identity {
+	public toggleAfk(guid: Identity['guid']): Identity {
 		const user = this.users.get(guid);
 		if(!user){
 			throw new AppError('toggle afk: no matching user found to GUID', 'internal', 'warn');
@@ -133,7 +133,7 @@ export class IdentityService {
 		return user;
 	}
 
-	public setAfk(guid: string): Identity{
+	public setAfk(guid: Identity['guid']): Identity{
 		const user = this.users.get(guid);
 		if(!user){
 			throw new AppError('set afk: no matching user found to GUID', 'internal', 'warn');
@@ -145,7 +145,7 @@ export class IdentityService {
 		return user;
 	}
 
-	public setStatus(guid: string, status: SafeString): Identity {
+	public setStatus(guid: Identity['guid'], status: SafeString): Identity {
 		const user = this.users.get(guid);
 
 		if(!user){
@@ -162,12 +162,12 @@ export class IdentityService {
 		return user;
 	}
 
-	public setLastMessage(guid: string, msgdate: number, clearAfk = true): Identity {
+	public setLastMessage(guid: Identity['guid'], msgdate: number, clearAfk = true): Identity {
 		const user = this.users.get(guid);
-		const newDate = msgdate;
 		if(!user){
 			throw new AppError('set last message: no matching user found to GUID', 'internal', 'warn');
 		}
+		const newDate = msgdate;
 		user.lastMessage = new Date(newDate);
 		if(clearAfk && user.isAfk){
 			user.isAfk = false;
@@ -176,7 +176,7 @@ export class IdentityService {
 		return user;
 	}
 
-	public existsUser(guid: string): boolean{
+	public existsUser(guid: Identity['guid']): boolean{
 		const user = this.users.get(guid);
 		if(user){
 			return true;
@@ -184,7 +184,7 @@ export class IdentityService {
 		return false;
 	}
 
-	public getUser(guid: string): Identity {
+	public getUser(guid: Identity['guid']): Identity {
 		const user = this.users.get(guid);
 		if(!user){
 			throw new AppError('get user: no matching user found to GUID', 'internal', 'warn');
@@ -192,7 +192,7 @@ export class IdentityService {
 		return user;
 	}
 
-	public deleteUser(guid: string): void {
+	public deleteUser(guid: Identity['guid']): void {
 		const user = this.users.get(guid);
 		if(!user){
 			throw new AppError('delete user: no matching user found to GUID', 'internal', 'error');
@@ -246,7 +246,7 @@ export class IdentityService {
 		this.deleteUser(guid);
 	}
 
-	public getFullNickByPlayerId(playerid: string): string{
+	public getFullNickByPlayerId(playerid: Identity['playerid']): Identity['fullnick']{
 		const guid = this.playeridIndex.get(playerid);
 		if(!guid){
 			throw new AppError('get full nick by player id: no matching user found to playerid', 'internal', 'warn');
@@ -274,7 +274,7 @@ export class IdentityService {
 
 			handleError(error, 'Reload Users');
 
-			throw new AppError(`failed to reload users: unknown error`, 'user');
+			throw new AppError('failed to reload users: unknown error', 'user');
 		}
 	}
 
@@ -295,12 +295,12 @@ export class IdentityService {
 		return readJsonFile(this.deps.usersPath);
 	}
 
-	private resolveUsersStrict(input: unknown): Map<string, Identity>{
+	private resolveUsersStrict(input: unknown): Map<Identity['guid'], Identity>{
 		if(!Array.isArray(input)){
 			throw new AppError('user data was not an array, refusing to reload', 'internal', 'warn');
 		}
 
-		const resolvedUsers = new Map<string, Identity>();
+		const resolvedUsers = new Map<Identity['guid'], Identity>();
 		const defaultId = this.buildDefaultIdentity();
 
 		for(const entry of input){
@@ -312,7 +312,7 @@ export class IdentityService {
 			const [identity, failures] = mergeIdentityDefaults(raw, aType.id, defaultId, IdentitySchema);
 
 			if(failures.length > 0 || identity === null || identity.guid !== guid){
-				throw new AppError(`user record failed validation, refusing to reload`, 'internal', 'warn');
+				throw new AppError('user record failed validation, refusing to reload', 'internal', 'warn');
 			}
 
 			resolvedUsers.set(identity.guid, identity);
@@ -321,9 +321,9 @@ export class IdentityService {
 		return resolvedUsers;
 	}
 
-	private assignUsers(resolvedUsers: Map<string, Identity>): void {
-		const basenickIndex = new Map<string, string>();
-		const playeridIndex = new Map<string, string>();
+	private assignUsers(resolvedUsers: Map<Identity['guid'], Identity>): void {
+		const basenickIndex = new Map<string, Identity['guid']>();
+		const playeridIndex = new Map<Identity['playerid'], Identity['guid']>();
 
 		for(const [guid, identity] of resolvedUsers){
 			const baseNick = getBaseNick(identity.fullnick);
@@ -370,7 +370,7 @@ export class IdentityService {
 	}
 
 	private fetchUsers(): unknown{
-		const users: [string, unknown][] = [];
+		const users: unknown[] = [];
 		try{
 			if(!existsFile(this.deps.usersPath)){
 				createJsonFile(this.deps.usersPath, users);
@@ -384,8 +384,8 @@ export class IdentityService {
 		}
 	}
 
-	private resolveUsers(input: unknown): [Map<string, Identity>, KeyedParseFailureRecord[]]{
-		const resolvedUsers = new Map<string, Identity>();
+	private resolveUsers(input: unknown): [Map<Identity['guid'], Identity>, KeyedParseFailureRecord[]]{
+		const resolvedUsers = new Map<Identity['guid'], Identity>();
 		const failures: KeyedParseFailureRecord[] = [];
 
 		if(!Array.isArray(input)){
@@ -440,7 +440,7 @@ export class IdentityService {
 		return [resolvedUsers, failures];
 	}
 
-	private auditUsers(users: Map<string, Identity>): KeyedParseFailureRecord[] {
+	private auditUsers(users: Map<Identity['guid'], Identity>): KeyedParseFailureRecord[] {
 		const failures: KeyedParseFailureRecord[] = [];
 		const gameUsers = this.deps.gameIdentityService.getGameUsersMap();
 
@@ -457,7 +457,7 @@ export class IdentityService {
 			}
 		}
 
-		const validPlayerids = new Set<string>();
+		const validPlayerids = new Set<Identity['playerid']>();
 		for(const [, identity] of users){
 			validPlayerids.add(identity.playerid);
 		}
@@ -474,7 +474,7 @@ export class IdentityService {
 			}
 		}
 
-		const playeridToGuids = new Map<string, string[]>();
+		const playeridToGuids = new Map<Identity['playerid'], Identity['guid'][]>();
 		for(const [guid, identity] of users){
 			const existing = playeridToGuids.get(identity.playerid);
 			if(existing){
@@ -497,7 +497,7 @@ export class IdentityService {
 			}
 		}
 
-		const baseNickToGuids = new Map<string, string[]>();
+		const baseNickToGuids = new Map<string, Identity['guid'][]>();
 		for(const [guid, identity] of users){
 			const baseNick = getBaseNick(identity.fullnick).toLowerCase();
 			const existing = baseNickToGuids.get(baseNick);

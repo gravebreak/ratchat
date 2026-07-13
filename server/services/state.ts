@@ -24,8 +24,8 @@ type EmoteEntry = {
   	};
 };
 
-const REDIS_ANNOUNCEMENT_KEY = 'ratchat:announcement';
-const REDIS_MARKOVSLEEP_KEY = 'ratchat:markovsleep';
+const REDIS_ANNOUNCEMENT_KEY = CacheService.createRedisKey('announcement');
+const REDIS_MARKOVSLEEP_KEY = CacheService.createRedisKey('markovsleep');
 
 export interface StateServiceDependencies{
 	cacheService: CacheService;
@@ -40,7 +40,7 @@ export class StateService {
 	public markovUser: Identity | null = null;
 	public markovSleep: boolean = false;
 	
-	private socketUsers = new Map<string, Identity>();
+	private socketUsers = new Map<Socket['id'], Identity>();
 	private emotes = new Map<string, string>();
 
 	private announcement: string = '';
@@ -107,7 +107,7 @@ export class StateService {
 			}
 			handleError(error, 'Update Emotes');
 			
-			throw new AppError(`failed to fetch emotes: unknown error`, 'user');
+			throw new AppError('failed to fetch emotes: unknown error', 'user');
 		}
 	}
 
@@ -150,12 +150,12 @@ export class StateService {
 			}
 			handleError(error, 'Remove Emotes');
 			
-			throw new AppError(`failed to fetch emotes: unknown error`, 'user');
+			throw new AppError('failed to fetch emotes: unknown error', 'user');
 		}
 	}
 
-	public getSocketUsersMap(): Map<string, Identity>{
-		const copy = new Map<string, Identity>();
+	public getSocketUsersMap(): Map<Socket['id'], Identity>{
+		const copy = new Map<Socket['id'], Identity>();
 
 		for(const [socketID, identity] of this.socketUsers){
 			copy.set(socketID, structuredClone(identity));
@@ -164,7 +164,7 @@ export class StateService {
 		return copy;
 	}
 	
-	public getSocketUser(socketID: string): Identity | null {
+	public getSocketUser(socketID: Socket['id']): Identity | null {
 		const user = this.socketUsers.get(socketID);
 		if(!user){
 			return null;
@@ -172,7 +172,7 @@ export class StateService {
 		return structuredClone(user);
 	}
 	
-	public updateSocketUser(io: Server, socketID: string, identity: Identity): void {
+	public updateSocketUser(io: Server, socketID: Socket['id'], identity: Identity): void {
 		this.socketUsers.set(socketID, identity);
 
 		for (const [sId, user] of this.socketUsers.entries()){
@@ -184,7 +184,7 @@ export class StateService {
 		this.broadcastUsers(io);
 	}
 
-	public deleteSocketUser(io: Server, socketID: string): void {
+	public deleteSocketUser(io: Server, socketID: Socket['id']): void {
 		this.socketUsers.delete(socketID);
 		this.broadcastUsers(io);
 	}
@@ -422,7 +422,7 @@ export class StateService {
 		setInterval(() =>{
 			const now = Date.now();
 			const afkTime = this.deps.configService.getServerConfig().afkDef * 1000;
-			const updates: Array<{ id: string; user: Identity }> = [];
+			const updates: Array<{ id: Socket['id']; user: Identity }> = [];
 
 			for(const [id, user] of this.socketUsers.entries()){
 				const lastMessage = new Date(user.lastMessage).getTime();
