@@ -31,7 +31,6 @@ main().catch(error => {
 });
 
 async function main(): Promise<void> {
-	//TODO: remove this line
 
 	if(!process.env.IP_PEPPER){
 		throw new Error('FATAL ERROR: IP_PEPPER environment variable is not set.');

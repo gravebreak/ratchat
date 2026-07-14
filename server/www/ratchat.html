@@ -598,7 +598,7 @@
 	<script>
 		let localGUID = localStorage.getItem('ratGUID');
 		const socket = io({
-			path: "/ratchat/socket.io/",
+			path: '/ratchat/socket.io/',
 			auth: {
 			token: localGUID
 			}
@@ -617,7 +617,7 @@
 		let mutedUsers = [];
 		let mutedEvents = [];
 
-		let sentHistory = [];
+		const sentHistory = [];
 		let historyIndex = -1;
 		let draftMessage = '';
 
@@ -708,7 +708,7 @@
 
 			consolidate.forEach(user => {
 				const li = document.createElement('li');
-				li.style.marginBottom = "0.125rem";
+				li.style.marginBottom = '0.125rem';
 				
 				const userColor = user.fullnick.substring(0, 7);
 				const userBaseNick = user.fullnick.substring(7);
@@ -732,7 +732,7 @@
 				else{
 					status = `<div class="user-status"><span class="status-scroll">${status}</span></div>`;
 				}
-				const modBadge = user.isMod ? `<span class="mod-badge" style="font-size:1rem" title="Mod"><b>&#9929;</b></span>`: '';
+				const modBadge = user.isMod ? '<span class="mod-badge" style="font-size:1rem" title="Mod"><b>&#9929;</b></span>': '';
 
 				const fontSize = userBaseNick.length > 11 ? .8 : 1;
 				const dirty = (`
@@ -749,7 +749,7 @@
 				}
 				else{
 					li.textContent = `${userBaseNick}${user.status ? ` (${user.status})` : ''}`;
-					li.style.color = userColor	
+					li.style.color = userColor;
 				}
 				
 				userListElement.appendChild(li);
@@ -786,7 +786,7 @@
 			Object.keys(emotes).forEach(name => {
 				const img = document.createElement('img');
 				img.src = emotes[name];
-				img.crossOrigin = "anonymous";
+				img.crossOrigin = 'anonymous';
 				img.title = name;
 				img.alt = name;
 				img.dataset.name = name.toLowerCase();
@@ -888,11 +888,11 @@
 					try{
 						localStorage.setItem('ratBG', imageData);
 					} 
-					catch(e){
+					catch{
 						displayClientMessage("system: oh fuk it's too big", 'e-li');
-						console.warn("image too large for localStorage");
+						console.warn('image too large for localStorage');
 					}
-				}
+				};
 
 				reader.readAsDataURL(file);
 			}
@@ -960,7 +960,7 @@
 							return;
 						}
 						displayClientMessage(`Your GUID is: ${GUID}`, 'i-li');
-						displayClientMessage(`don't share it, save it! you can use this with /import to reload your identity if necessary.`, 'i-li');
+						displayClientMessage('don\'t share it, save it! you can use this with /import to reload your identity if necessary.', 'i-li');
 						input.value = '';
 						return;
 					}
@@ -975,7 +975,7 @@
 					case 'background':
 					case 'bg':{
 						document.getElementById('bg-upload').click();
-						displayClientMessage("pick a file", 'i-li');
+						displayClientMessage('pick a file', 'i-li');
 						input.value = '';
 						return;
 					}
@@ -985,7 +985,7 @@
 							localStorage.removeItem('ratBG');
 							document.getElementById('messages-container').style.backgroundImage = '';
 							document.getElementById('messages-container').classList.remove('has-bg');
-							displayClientMessage("background reset", 'i-li');
+							displayClientMessage('background reset', 'i-li');
 							input.value = '';
 							return;
 						}
@@ -999,11 +999,11 @@
 						if(document.documentElement.hasAttribute('data-theme')){
 							document.documentElement.removeAttribute('data-theme');
 							localStorage.setItem('ratMode', 'light');
-							displayClientMessage("system: think fast chucklenuts", 'i-li');
+							displayClientMessage('system: think fast chucklenuts', 'i-li');
 						} else {
 							document.documentElement.setAttribute('data-theme', 'dark');
 							localStorage.setItem('ratMode', 'dark');
-							displayClientMessage("system: bravo 6, going dark", 'i-li');
+							displayClientMessage('system: bravo 6, going dark', 'i-li');
 						}
 						input.value = '';
 						return;
@@ -1049,7 +1049,7 @@
 							return;
 						}
 						else if(fullArgs === 'all'){
-							displayClientMessage("system: Hahahahahahahaha How The Fuck Is Cyber Bullying Real Hahahaha Just Walk Away From The Screen Like Close Your Eyes Haha", 'e-li');
+							displayClientMessage('system: Hahahahahahahaha How The Fuck Is Cyber Bullying Real Hahahaha Just Walk Away From The Screen Like Close Your Eyes Haha', 'e-li');
 							input.value = '';
 							return;
 						}
@@ -1112,7 +1112,7 @@
 							return;
 						}
 						else if(fullArgs === 'system'){
-							displayClientMessage("system: wow, thanks. it was getting really stuffy in that data center.", 'i-li');
+							displayClientMessage('system: wow, thanks. it was getting really stuffy in that data center.', 'i-li');
 							input.value = '';
 							return;
 						}
@@ -1139,7 +1139,7 @@
 						else if(fullArgs === 'allevents'){
 							mutedEvents = [];
 							localStorage.setItem('ratMutedEvents', JSON.stringify(mutedEvents));
-							displayClientMessage(`unmuted all events`, 'i-li');
+							displayClientMessage('unmuted all events', 'i-li');
 							input.value = '';
 							return;
 						}
@@ -1188,8 +1188,6 @@
 					input.value = '';
 				}
 			});
-
-			return;
 		});
 
 		//FUNCTIONS//
@@ -1228,7 +1226,7 @@
 					wrapper = hideMessage(li, '[a muted user sent a spoiler. click to reveal]', '[MUTED][SPOILER]', msg.id, msg.timestamp);
 				}
 				else{
-					wrapper = hideMessage(li, `[a muted user said something. click to reveal]`, '[MUTED]', msg.id, msg.timestamp);
+					wrapper = hideMessage(li, '[a muted user said something. click to reveal]', '[MUTED]', msg.id, msg.timestamp);
 				}
 				if(wrapper){
 					renderMessage(wrapper);
@@ -1259,7 +1257,7 @@
 				const dateStr = date.toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'});
 				const timeSpan = document.createElement('span');
 					timeSpan.textContent = dateStr;
-					timeSpan.style = "color:grey; font-size:small; margin-right:0.5rem";
+					timeSpan.style = 'color:grey; font-size:small; margin-right:0.5rem';
 				li.appendChild(timeSpan);
 			}
 
@@ -1420,8 +1418,6 @@
 				if(wrapper){
 					li.replaceWith(wrapper);
 				}
-
-				return;
 			});
 		}
 
