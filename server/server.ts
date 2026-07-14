@@ -1,4 +1,4 @@
-import {default as express} from 'express';
+import { default as express } from 'express';
 import { createServer } from 'http';
 import { join } from 'node:path';
 import { Server } from 'socket.io';

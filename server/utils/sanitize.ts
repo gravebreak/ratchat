@@ -1,11 +1,13 @@
+import { default as sanitizeHtml } from 'sanitize-html'; 
+
 import { handleError } from './errors';
 
-export function sanitizeText(str: string): string{
+export function sanitizeText(str: string): string {
 	try{
 		let s = str;
 
 		s = s.normalize('NFKC');
-		s = s.replace(/<[^>]*>/g, '');
+		s = sanitizeHtml(s, {allowedTags: [], allowedAttributes: {}});
 		s = s.replace(/[^\x20-\x7E]/g, '');
 		
 		return s;
