@@ -599,9 +599,7 @@
 		let localGUID = localStorage.getItem('ratGUID');
 		const socket = io({
 			path: '/ratchat/socket.io/',
-			auth: {
-			token: localGUID
-			}
+			auth: {token: localGUID}
 		});
 		const form = document.getElementById('form');
 		const input = document.getElementById('input');
@@ -709,7 +707,7 @@
 			consolidate.forEach(user => {
 				const li = document.createElement('li');
 				li.style.marginBottom = '0.125rem';
-				
+		
 				const userColor = user.fullnick.substring(0, 7);
 				const userBaseNick = user.fullnick.substring(7);
 
@@ -724,7 +722,7 @@
 				else if(user.count > 1){
 					displayCount = `${user.count}`;
 				}
-				
+		
 				let status = emotify(user.status);
 				if(!status || user.status === 'online'){
 					status = '';
@@ -751,9 +749,9 @@
 					li.textContent = `${userBaseNick}${user.status ? ` (${user.status})` : ''}`;
 					li.style.color = userColor;
 				}
-				
+		
 				userListElement.appendChild(li);
-				
+		
 				requestAnimationFrame(() => {
 					if(
 						li.querySelector('.status-scroll') &&
@@ -775,7 +773,7 @@
 		socket.on('toClientEmoteList', (payload) =>{
 			emotes = payload;
 			const container = document.getElementById('emotes-grid-wrapper');
-			
+		
 			container.replaceChildren();
 
 			const grid = document.createElement('div');
@@ -878,16 +876,16 @@
 			const file = event.target.files[0];
 			if(file){
 				const reader = new FileReader();
-				
+		
 				reader.onload = function(event){
 					const imageData = event.target.result;
 					document.getElementById('messages-container').style.backgroundImage = `url('${imageData}')`;
 					document.getElementById('messages-container').classList.add('has-bg');
-					
+		
 					//local storage
 					try{
 						localStorage.setItem('ratBG', imageData);
-					} 
+					}
 					catch{
 						displayClientMessage("system: oh fuk it's too big", 'e-li');
 						console.warn('image too large for localStorage');
@@ -933,7 +931,6 @@
 				}
 			}
 		});
-
 
 		//Client submission
 		form.addEventListener('submit', async (submitEvent) => {
@@ -1171,7 +1168,7 @@
 							}
 						}
 					}
-					
+		
 					default:{
 						socket.emit('toServerChat', val, (clearInput) => {
 							if(clearInput){
@@ -1202,7 +1199,7 @@
 			if(mutedEvents.includes(msg.event.toLowerCase())){
 				return;
 			}
-			
+		
 			displayClientMessage(msg.content, 'g-li');
 		}
 
@@ -1233,7 +1230,7 @@
 				}
 				return;
 			}
-			
+		
 			if(msg.author && msg.spoiler){
 				const wrapper = hideMessage(li, `[${msg.author.substring(7)} sent a spoiler — click to reveal]`, '[SPOILER]', msg.id, msg.timestamp);
 				renderMessage(wrapper);
@@ -1256,8 +1253,10 @@
 				const date = new Date(msg.timestamp);
 				const dateStr = date.toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'});
 				const timeSpan = document.createElement('span');
-					timeSpan.textContent = dateStr;
-					timeSpan.style = 'color:grey; font-size:small; margin-right:0.5rem';
+
+				timeSpan.textContent = dateStr;
+				timeSpan.style = 'color:grey; font-size:small; margin-right:0.5rem';
+		
 				li.appendChild(timeSpan);
 			}
 
@@ -1275,7 +1274,7 @@
 					const gen = parts[0];
 					const seed = parts[1];
 					li.setAttribute('title', seed ? `Msg ID: ${msg.id} by: ${gen} with seed: ${seed}` : `Msg ID: ${msg.id} by: ${gen}`);
-				} 
+				}
 				else{
 					li.setAttribute('title', `Msg ID: ${msg.id}`);
 				}
@@ -1402,7 +1401,7 @@
 					if(!target){
 						return;
 					}
-				} 
+				}
 				else{
 					target = li;
 				}
@@ -1444,7 +1443,7 @@
 				if(inner.dataset.spoiler === 'true'){
 					const userName = inner.querySelector('.user-name')?.textContent.trimEnd().slice(0, -1) || 'someone';
 					wrapper.replaceWith(hideMessage(inner, `[${userName} sent a spoiler — click to reveal]`, '[SPOILER]', inner.dataset.id, inner.dataset.timestamp));
-				} 
+				}
 				else{
 					wrapper.replaceWith(inner);
 				}
@@ -1488,7 +1487,7 @@
 			container.onscroll = function (){
 				const scrollPos = container.scrollTop;
 				const maxScroll = container.scrollHeight - container.clientHeight;
-				
+		
 				const clampedScroll = Math.max(0, Math.min(scrollPos, maxScroll));
 
 				const trackSpace = track.clientHeight - thumb.clientHeight;
@@ -1541,7 +1540,6 @@
 				e.preventDefault();
 			});
 		}
-
 	</script>
 	</body>
 </html>

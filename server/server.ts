@@ -40,14 +40,14 @@ async function main(): Promise<void> {
 	const app = express();
 	const httpserver = createServer(app);
 	const io: RatServer = new Server(httpserver, {path:'/ratchat/socket.io/', connectionStateRecovery:{}});
-	
+
 	const serverConfigPath = join(__dirname, 'config.json');
 	const markovConfigPath = join(__dirname, 'markov.json');
 	const gameConfigPath = join(__dirname, 'minigames.json');
-	
+
 	const basenickFilterPath = join(__dirname, 'services/filters', 'filter-basenick.json');
 	const profFilterPath = join(__dirname, 'services/filters','filter-profanity.json');
-	
+
 	const usersPath = join(__dirname, 'data', 'users.json');
 	const gameUsersPath = join(__dirname, 'data', 'game-users.json');
 	const bansPath = join(__dirname, 'data', 'bans.json');
@@ -71,14 +71,14 @@ async function main(): Promise<void> {
 		markovConfigPath: markovConfigPath,
 		gameConfigPath: gameConfigPath
 	});
-	
+
 	const dispatchService = new DispatchService({
 		cacheService: cacheService,
 		configService: configService
 	});
 
 	const moderationService = new ModerationService({
-		configService: configService, 
+		configService: configService,
 
 		basenickFilterPath: basenickFilterPath,
 		profFilterPath: profFilterPath,
@@ -123,7 +123,7 @@ async function main(): Promise<void> {
 
 		io: io
 	});
-			
+
 	//Redis history load
 	if(cacheService.existsRedisClient()){
 		await dispatchService.restoreChatHistory();
@@ -190,10 +190,10 @@ async function main(): Promise<void> {
 	catch(error: unknown){
 		handleError(error, 'Startup Emote Load');
 	}
-	
+
 	//Socket.IO listener
 	io.on('connection', (socket) => {
-		
+
 		try{
 			if(securityService.existsBan(socket.handshake.address)){
 				dispatchService.sendSystemChatPayload(socket, cType.error, 'You are banned.');
@@ -209,7 +209,7 @@ async function main(): Promise<void> {
 		const welcomeMsg = configService.getServerConfig().welcomeMsg;
 		const announcement = stateService.getAnnouncement();
 		const emotes = stateService.getEmotes();
-		
+
 		if(emotes.size > 0){
 			const emotePayload = Object.fromEntries(emotes);
 			dispatchService.sendEmoteListPayload(socket, emotePayload);
@@ -227,7 +227,7 @@ async function main(): Promise<void> {
 		//Identity Service
 		const clientGUID = socket.handshake.auth.token;
 		let returningUser: Identity | null = null;
-		
+
 		if(identityService.existsUser(clientGUID)){
 			returningUser = identityService.getUser(clientGUID);
 		}
@@ -256,14 +256,14 @@ async function main(): Promise<void> {
 					handleError(error, 'Main Function Reconnect');
 				}
 			}
-		} 
+		}
 		else {
 			dispatchService.sendSystemChatPayload(socket,cType.error,'system: please use the /nick <nickname> to set a nickname or /import <GUID> to import one');
 			//GDPR warning
 			dispatchService.sendSystemChatPayload(socket,cType.error,"system: be aware either command will store data regarding your session. type '/gdpr info' for more info");
 			dispatchService.sendSystemChatPayload(socket,cType.info,'system: feel free to use /help or /h to see all available commands. some commands will not be available until you set your nickname!');
 			dispatchService.sendSystemChatPayload(socket,cType.info,'we recommend increasing the zoom of your browser to 200% for the best viewing experience :)');
-			
+
 			//force broadcastUsers for lurkers check
 			stateService.broadcastUsers(io);
 		}
@@ -334,7 +334,7 @@ async function main(): Promise<void> {
 			}
 		});
 	});
-		
+
 	//Client Deployment
 	app.get('/ratchat', (req, res) => {
 		res.setHeader('X-Robots-Tag', 'noindex, nofollow');

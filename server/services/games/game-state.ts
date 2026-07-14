@@ -33,7 +33,7 @@ export interface GameStateServiceDependencies{
 	gameIdentityService: GameIdentityService;
 	identityService: IdentityService;
 
-	fishingRecordsPath: string; 
+	fishingRecordsPath: string;
 	horseRecordsPath: string
 }
 
@@ -128,7 +128,7 @@ export class GameStateService {
 			fishingRecords: recordCounts.get(entry.playerid) ?? 0,
 		}));
 	}
-		
+
 	private buildPublicLeaderboard(entries: FullLeaderboard): PublicOverallLeaderboard;
 	private buildPublicLeaderboard(entries: FullLeaderboard, label: 'blackjack'): PublicBlackjackLeaderboard;
 	private buildPublicLeaderboard(entries: FullLeaderboard, label: 'dueling'): PublicDuelingLeaderboard;

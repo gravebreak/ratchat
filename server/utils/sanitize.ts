@@ -1,4 +1,4 @@
-import { default as sanitizeHtml } from 'sanitize-html'; 
+import { default as sanitizeHtml } from 'sanitize-html';
 
 import { handleError } from './errors';
 
@@ -9,7 +9,7 @@ export function sanitizeText(str: string): string {
 		s = s.normalize('NFKC');
 		s = sanitizeHtml(s, {allowedTags: [], allowedAttributes: {}});
 		s = s.replace(/[^\x20-\x7E]/g, '');
-		
+
 		return s;
 	}
 	catch(error: unknown){

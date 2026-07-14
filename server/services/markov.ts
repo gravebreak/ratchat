@@ -1,7 +1,6 @@
 import { existsSync } from 'fs';
 import { DatabaseSync } from 'node:sqlite';
 
-
 import { cType } from '../defs/def-events';
 import { tType } from '../defs/def-moderation';
 import type { RatServer } from '../defs/def-events';
@@ -52,9 +51,9 @@ export class MarkovService{
 	private deps: MarkovServiceDependencies;
 	constructor(dependencies: MarkovServiceDependencies){
 		this.deps = dependencies;
-		this.init();		
+		this.init();
 	}
-	
+
 	private init(): void {
 		this.initializeMarkovBrain();
 		this.startMarkovTimer();
@@ -92,7 +91,7 @@ export class MarkovService{
 				);
 
 				const chosenStart = startCandidates[Number(pickWeighted(weightMap))];
-				
+
 				generatedWords.push(chosenStart.word1, chosenStart.word2);
 			}
 			else{
@@ -159,7 +158,7 @@ export class MarkovService{
 					}
 				}
 				handleError(error, 'Generate Markov Text');
-				
+
 				throw new AppError('failed to generate markov text: unknown error', 'user');
 			}
 		}
@@ -181,7 +180,7 @@ export class MarkovService{
 			.filter(word => !this.deps.identityService.existsUserByBaseNick(word))
 			.map(word => word.trim())
 			.filter(Boolean);
-		
+
 		if(words.length < 2){
 			return;
 		}
@@ -244,10 +243,10 @@ export class MarkovService{
 					this.db.prepare(`INSERT INTO ${entry.table} (word1, word2, count) VALUES (?, ?, 1) ON CONFLICT(word1, word2) DO UPDATE SET count = count + 1;`).run(entry.word1, entry.word2);
 				}
 				else if(entry.table.startsWith('gram_') && entry.table.length === 'gram_'.length + 2){
-						if(!entry.word3){
-							console.warn(`skipping gram entry missing word3: ${entry.word1} ${entry.word2}`);
-							continue;
-						}
+					if(!entry.word3){
+						console.warn(`skipping gram entry missing word3: ${entry.word1} ${entry.word2}`);
+						continue;
+					}
 					this.db.prepare(`INSERT INTO ${entry.table} (word1, word2, word3, count) VALUES (?, ?, ?, 1) ON CONFLICT(word1, word2, word3) DO UPDATE SET count = count + 1;`).run(entry.word1, entry.word2, entry.word3);
 				}
 				else{
@@ -315,7 +314,7 @@ export class MarkovService{
 		const rows: unknown[] = (db
 			.prepare(`SELECT word1, word2, word3, count FROM ${table} WHERE LOWER(word1) = LOWER(?) AND LOWER(word2) = LOWER(?)`)
 			.all(prevWord, currWord));
-		
+
 		const results: GramNeuron[] = [];
 		let drops = 0;
 
@@ -349,7 +348,7 @@ export class MarkovService{
 		}
 		return true;
 	}
-	
+
 	private isValidGramNeuron(input: unknown): input is GramNeuron {
 		if(typeof input !== 'object' || input === null){
 			return false;
@@ -374,7 +373,7 @@ export class MarkovService{
 			this.db = new DatabaseSync(this.deps.brainPath);
 			const tableNames = this.fetchBrain(this.deps.brainPath);
 			const validTableNames = this.resolveBrain(tableNames);
-			this.startTables = validTableNames; 
+			this.startTables = validTableNames;
 			this.assignDictionary();
 			console.log(`Loaded ${this.dictionary.size} start entries`);
 		}

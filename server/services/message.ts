@@ -43,15 +43,15 @@ export class MessageService {
 					}
 					catch(error: unknown){
 						handleError(error, 'handleChat Learn Markov');
-					}	
+					}
 				});
-			}		
+			}
 		}
 		catch(error: unknown){
 			const response = handleError(error, 'handleChat text check');
 			if(response){
 				this.deps.dispatchService.sendSystemChatPayload(socket, cType.error, `system: ${response}`);
-			} 
+			}
 			else{
 				this.deps.dispatchService.sendSystemChatPayload(socket, cType.error, 'system: unknown error. try again');
 			}
@@ -63,7 +63,7 @@ export class MessageService {
 			if(wasAfk){
 				this.deps.stateService.broadcastUsers(this.deps.io);
 			}
-		} 
+		}
 		catch(error: unknown){
 			handleError(error, 'handleChat Last Message');
 		}

@@ -6,7 +6,6 @@ import type { RatServer, RatSocket } from '../defs/def-events';
 import type { Identity } from '../defs/def-identity';
 import type { InputStatus } from '../defs/def-input';
 
-
 import { ConfigService } from './config';
 import { DispatchService } from './dispatch';
 import { ModerationService } from './moderation';
@@ -46,7 +45,7 @@ export class CommandService {
 	private activeCommands: Map<RatSocket['id'], boolean> = new Map();
 	private gameCommandNames: Set<string> = new Set();
 	private markovBaseNick: string = 'markov';
-	
+
 	private deps: CommandServiceDependencies;
 	constructor(dependencies: CommandServiceDependencies){
 		this.deps = dependencies;
@@ -81,7 +80,7 @@ export class CommandService {
 		}
 
 		this.activeCommands.set(socket.id, true);
-		
+
 		try{
 			const result = await this.executeCommand(commandName, {
 				socket,
@@ -89,8 +88,8 @@ export class CommandService {
 				args,
 				fullArgs: args.join(' '),
 				commandUser: caller
-				});
-			
+			});
+
 			return result;
 		}
 		catch(error: unknown){
@@ -105,7 +104,7 @@ export class CommandService {
 	public getCommands(): string[]{
 		return Object.keys(this.commands);
 	}
-	
+
 	private sendRegistrationWarning(socket: RatSocket, action: string = 'do that'): InputStatus {
 		this.deps.dispatchService.sendSystemChatPayload(socket, cType.error, `system: please use /chrat <nickname> before trying to ${action}`);
 		return clearInput;
@@ -136,7 +135,7 @@ export class CommandService {
 	}
 
 	private initializeMarkovCommand(): void {
-		if(this.deps.configService.getMarkovConfig().enabled  && this.deps.stateService.markovUser){
+		if(this.deps.configService.getMarkovConfig().enabled && this.deps.stateService.markovUser){
 			this.markovBaseNick = getBaseNick(this.deps.stateService.markovUser.fullnick);
 		}
 		else{
@@ -172,7 +171,7 @@ export class CommandService {
 					'/mutehelp : information on how to use the /mute and /unmute features.'
 				];
 
-				if(ctx.commandUser?.isMod){				
+				if(ctx.commandUser?.isMod){
 					helpMessages.push(
 						'/modhelp : see available moderator commands'
 					);
@@ -225,7 +224,7 @@ export class CommandService {
 				return clearInput;
 			}
 		};
-		
+
 		this.commands['mutehelp'] = {
 			requiresMod: false,
 			requiresMarkov: false,
@@ -243,7 +242,7 @@ export class CommandService {
 					'/unmute all : unmutes all muted names and events.',
 					'/unmute allevents : unmutes all events. users remain muted',
 				];
-				
+
 				const formatTable = helpMessages.join('\n');
 				this.deps.dispatchService.sendSystemChatPayload(ctx.socket, cType.info, formatTable);
 				return clearInput;
@@ -265,7 +264,7 @@ export class CommandService {
 						this.deps.dispatchService.sendIdentityPayload(ctx.socket, user);
 						this.deps.dispatchService.sendSystemChatPayload(ctx.io, cType.ann, `${oldBaseNick} changed their username to ${getBaseNick(user.fullnick)}`);
 						return clearInput;
-					} 
+					}
 					catch(error: unknown){
 						this.deps.dispatchService.sendUserErrorMessage(ctx.socket, error, 'Nick Command');
 						return keepInput;
@@ -298,7 +297,7 @@ export class CommandService {
 
 		this.commands['color'] = {
 			requiresMod: false,
-			requiresMarkov: false,		
+			requiresMarkov: false,
 			handler: (ctx): InputStatus => {
 				if(!ctx.commandUser){
 					return this.sendRegistrationWarning(ctx.socket, 'set a color');
@@ -338,7 +337,7 @@ export class CommandService {
 			requiresMarkov: false,
 			handler: (ctx): InputStatus => {
 				try{
-					const newGUID = ctx.args[0];	
+					const newGUID = ctx.args[0];
 					if(!isValidGUID(newGUID)){
 						throw new AppError('not a valid GUID', 'user');
 					}
@@ -347,16 +346,16 @@ export class CommandService {
 					this.deps.stateService.updateSocketUser(ctx.io, ctx.socket.id, updatedUser);
 					this.deps.dispatchService.sendIdentityPayload(ctx.socket, updatedUser);
 					this.deps.dispatchService.sendSystemChatPayload(ctx.socket, cType.info, `system: identity changed to ${getBaseNick(updatedUser.fullnick)}`);
-					
+
 					//if existing user show them disconnecting
 					if(ctx.commandUser){
 						this.deps.dispatchService.sendSystemChatPayload(ctx.io, cType.ann, `${getBaseNick(ctx.commandUser.fullnick)} disconnected`);
 					}
 
 					this.deps.dispatchService.sendSystemChatPayload(ctx.io, cType.ann, `${getBaseNick(updatedUser.fullnick)} connected`);
-					
+
 					return clearInput;
-				} 
+				}
 				catch(error: unknown){
 					this.deps.dispatchService.sendUserErrorMessage(ctx.socket, error, 'GUID Import Command');
 					return keepInput;
@@ -370,12 +369,11 @@ export class CommandService {
 			handler: async (ctx): Promise<InputStatus> => {
 				if(!ctx.commandUser){
 					return this.sendRegistrationWarning(ctx.socket, 'go afk lmao');
-				} 
-				
+				}
+
 				try{
 					this.deps.moderationService.moderateTime(ctx.commandUser, tType.other);
 					const afkUser = this.deps.identityService.toggleAfk(ctx.commandUser.guid);
-					
 
 					this.deps.stateService.updateSocketUser(ctx.io, ctx.socket.id, afkUser);
 					this.deps.dispatchService.sendSystemChatPayload(ctx.socket, cType.info, afkUser.isAfk ? "you've gone afk" : `welcome back, ${getBaseNick(afkUser.fullnick)}`);
@@ -383,9 +381,9 @@ export class CommandService {
 					if(ctx.fullArgs && ctx.fullArgs.trim().length > 0){
 						return await this.executeCommand('status', ctx);
 					}
-				
+
 					return clearInput;
-				} 
+				}
 				catch(error: unknown){
 					this.deps.dispatchService.sendUserErrorMessage(ctx.socket, error, 'AFK Command');
 					return keepInput;
@@ -406,7 +404,7 @@ export class CommandService {
 
 					this.deps.stateService.updateSocketUser(ctx.io, ctx.socket.id, user);
 					this.deps.dispatchService.sendSystemChatPayload(ctx.socket, cType.info, `your status is now: ${user.status}`);
-					
+
 					return clearInput;
 
 				}
@@ -421,10 +419,10 @@ export class CommandService {
 			requiresMod: false,
 			requiresMarkov: false,
 			handler: (ctx): InputStatus => {
-			if(!ctx.commandUser){
-				return this.sendRegistrationWarning(ctx.socket, 'ruin things for everyone else');
-			}
-			return this.deps.messageService.handleChat(ctx.fullArgs, ctx.commandUser, ctx.socket, true);
+				if(!ctx.commandUser){
+					return this.sendRegistrationWarning(ctx.socket, 'ruin things for everyone else');
+				}
+				return this.deps.messageService.handleChat(ctx.fullArgs, ctx.commandUser, ctx.socket, true);
 			}
 		};
 
@@ -451,7 +449,7 @@ export class CommandService {
 					if(!ctx.commandUser.isMod){
 						if(markovUser.isAfk){
 							throw new AppError(`${this.markovBaseNick} needs a cooldown`, 'user');
-						}		
+						}
 					}
 
 					let seed = '';
@@ -488,17 +486,17 @@ export class CommandService {
 			requiresMarkov: false,
 			handler: (ctx): InputStatus => {
 				const config = this.deps.configService.getServerConfig();
-				
+
 				const helpMessages = [
-						'--- Moderator Commands ---',
-						'/modhelp : view mod commands. this list. right here.',
-						'/announce or /announcement <text> : Send an announcement to all users.',
-						`/ban <user> : IP bans a user with nickname "user" for ${config.banLength} days - only the server admin can reverse it so no joke bans`,
-						`/timeout or /to <user> <#> : Mutes nickname "user" for # seconds. defaults to ${config.timeoutDef} seconds if blank`,
-						"/delete <msgID (#)> : Delete the most recent message with ID <msgID>. If it's not the most recent, fire it off again.",
-						'/emotes <emotesetID> : adds an emote set from 7tv. leave blank to reload from config',
-						'/unemotes <emotesetID> : remove all emotes whose names match an emote set from 7tv. consider using /emotes after to reload baseline emotes',
-						'/loadusers : reload users from disk. locks server thread while doing it, so only call if you know what you are doing'
+					'--- Moderator Commands ---',
+					'/modhelp : view mod commands. this list. right here.',
+					'/announce or /announcement <text> : Send an announcement to all users.',
+					`/ban <user> : IP bans a user with nickname "user" for ${config.banLength} days - only the server admin can reverse it so no joke bans`,
+					`/timeout or /to <user> <#> : Mutes nickname "user" for # seconds. defaults to ${config.timeoutDef} seconds if blank`,
+					"/delete <msgID (#)> : Delete the most recent message with ID <msgID>. If it's not the most recent, fire it off again.",
+					'/emotes <emotesetID> : adds an emote set from 7tv. leave blank to reload from config',
+					'/unemotes <emotesetID> : remove all emotes whose names match an emote set from 7tv. consider using /emotes after to reload baseline emotes',
+					'/loadusers : reload users from disk. locks server thread while doing it, so only call if you know what you are doing'
 				];
 				if(this.deps.markovService){
 					helpMessages.push(
@@ -506,7 +504,7 @@ export class CommandService {
 						'/botsleep : puts the markov bot to sleep, disabling calls, or wakes him up if asleep'
 					);
 				}
-				
+
 				const formatTable = helpMessages.join('\n');
 				this.deps.dispatchService.sendSystemChatPayload(ctx.socket, cType.info, formatTable);
 				return clearInput;
@@ -538,8 +536,8 @@ export class CommandService {
 		this.commands['ban'] = {
 			requiresMod: true,
 			requiresMarkov: false,
-			handler: (ctx): InputStatus => {		
-				
+			handler: (ctx): InputStatus => {
+
 				try{
 					if(!ctx.args[0]){
 						throw new AppError('missing target', 'user');
@@ -580,7 +578,7 @@ export class CommandService {
 							}
 						}
 					}
-					
+
 					this.deps.identityService.deleteUserByBaseNick(targetBaseNick);
 
 					this.deps.dispatchService.sendSystemChatPayload(ctx.io, cType.info, `${targetBaseNick} has been banned.`);
@@ -608,7 +606,7 @@ export class CommandService {
 					}
 
 					const config = this.deps.configService.getServerConfig();
-					
+
 					//set duration in seconds
 					const durationInput = parseInt(ctx.args[1], 10);
 					const duration = isNaN(durationInput) || durationInput <0 ? config.timeoutDef : durationInput;
@@ -640,7 +638,7 @@ export class CommandService {
 
 					this.deps.dispatchService.sendSystemChatPayload(ctx.io, cType.info, `${targetBaseNick} has been timed out.`);
 					return clearInput;
-				} 
+				}
 				catch(error: unknown){
 					this.deps.dispatchService.sendUserErrorMessage(ctx.socket, error, 'Timeout Command');
 					return keepInput;
@@ -682,7 +680,7 @@ export class CommandService {
 					const size = await this.deps.stateService.updateEmotes(ctx.io, targetID);
 					this.deps.dispatchService.sendSystemChatPayload(ctx.socket, cType.info, `${size} emotes loaded`);
 					return clearInput;
-				} 
+				}
 				catch(error: unknown){
 					this.deps.dispatchService.sendUserErrorMessage(ctx.socket, error, 'Emotes Command');
 					return keepInput;
@@ -696,12 +694,12 @@ export class CommandService {
 			handler: async (ctx): Promise<InputStatus> => {
 				const targetID = ctx.args[0];
 				this.deps.dispatchService.sendSystemChatPayload(ctx.socket, cType.info, `removing emote set ${targetID}...`);
-				
+
 				try{
 					const size = await this.deps.stateService.deleteEmotes(ctx.io, targetID);
 					this.deps.dispatchService.sendSystemChatPayload(ctx.socket, cType.info, `${size} emotes removed`);
 					return clearInput;
-				} 
+				}
 				catch(error: unknown){
 					this.deps.dispatchService.sendUserErrorMessage(ctx.socket, error, 'Unemotes Command');
 					return keepInput;
@@ -719,7 +717,7 @@ export class CommandService {
 					const gameSize = this.deps.gameIdentityService.reloadGameUsers();
 					this.deps.dispatchService.sendSystemChatPayload(ctx.socket, cType.info, `${gameSize} game users reloaded`);
 					return clearInput;
-				} 
+				}
 				catch(error: unknown){
 					this.deps.dispatchService.sendUserErrorMessage(ctx.socket, error, 'Load Users Command');
 					return keepInput;
@@ -744,14 +742,14 @@ export class CommandService {
 					this.deps.stateService.broadcastUsers(ctx.io);
 					this.deps.dispatchService.sendSystemChatPayload(ctx.socket, cType.info, `${this.markovBaseNick} status is now: ${markovUser.status}`);
 					return clearInput;
-				} 
+				}
 				catch(error: unknown){
 					this.deps.dispatchService.sendUserErrorMessage(ctx.socket, error, 'Bot Status Command');
 					return keepInput;
 				}
 			}
 		};
-		
+
 		this.commands['botsleep'] = {
 			requiresMod: true,
 			requiresMarkov: true,
@@ -775,7 +773,7 @@ export class CommandService {
 			}
 		};
 	}
-	
+
 	private registerGdprCommands(): void {
 		this.commands['gdpr'] = {
 			requiresMod: false,
@@ -819,13 +817,13 @@ export class CommandService {
 						}
 
 						infoMsgs.push(
-						'---------------------------------------------------------------------------------------------',
-						'Use /gdpr info to see this message again',
-						'Use /gdpr ip to see specific information on how and why we use IP addresses',
-						'Use /gdpr export to see a copy of your data stored on the server, if any.',
-						'Use /gdpr delete to permanently remove your data from the server. this will prevent you from utilizing the application.',
-						'---------------------------------------------------------------------------------------------',
-						`If you have questions or concerns, please email ${config.gdprcontact}`
+							'---------------------------------------------------------------------------------------------',
+							'Use /gdpr info to see this message again',
+							'Use /gdpr ip to see specific information on how and why we use IP addresses',
+							'Use /gdpr export to see a copy of your data stored on the server, if any.',
+							'Use /gdpr delete to permanently remove your data from the server. this will prevent you from utilizing the application.',
+							'---------------------------------------------------------------------------------------------',
+							`If you have questions or concerns, please email ${config.gdprcontact}`
 						);
 
 						const formatTable = infoMsgs.join('\n');
@@ -848,7 +846,7 @@ export class CommandService {
 						this.deps.dispatchService.sendSystemChatPayload(ctx.socket, cType.info, formatIpTable);
 						return clearInput;
 					}
-					
+
 					case 'export':{
 						if(!ctx.commandUser){
 							this.deps.dispatchService.sendSystemChatPayload(ctx.socket, cType.error, 'system: no server stored data');
@@ -904,13 +902,13 @@ export class CommandService {
 							this.deps.dispatchService.sendSystemChatPayload(ctx.io, cType.ann, `${getBaseNick(targetFullNick)} disconnected`);
 							return clearInput;
 
-						} 
+						}
 						catch(error: unknown){
 							this.deps.dispatchService.sendUserErrorMessage(ctx.socket, error, 'GDPR Delete Command');
 							return keepInput;
 						}
 					}
-					
+
 					default:{
 						this.deps.dispatchService.sendSystemChatPayload(ctx.socket, cType.error, "system: please use with 'info', 'ip', 'export' or 'delete' after /gdpr");
 						return keepInput;

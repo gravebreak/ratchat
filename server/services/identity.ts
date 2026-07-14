@@ -336,11 +336,11 @@ export class IdentityService {
 		this.playeridIndex = playeridIndex;
 		this.userQueue.chain();
 	}
-	
+
 	private async saveUsers(): Promise<void> {
 		try{
 			await writeJsonFile(this.deps.usersPath, Array.from(this.users.entries()));
-		} 
+		}
 		catch(error: unknown){
 			handleError(error, 'Save Users');
 		}
@@ -394,7 +394,7 @@ export class IdentityService {
 		}
 
 		const defaultId = this.buildDefaultIdentity();
-		
+
 		for(const entry of input){
 			if(!isUnknownArray(entry) || entry.length !== 2 || typeof entry[0] !== 'string'){
 				console.warn('Skipping malformed user record entry');

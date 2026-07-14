@@ -56,7 +56,7 @@ export class ConfigService {
 			this.serverConfig = resolved;
 			Object.freeze(this.serverConfig);
 			console.log('LOADED SERVER CONFIG:', this.serverConfig);
-		} 
+		}
 		catch(error: unknown){
 			handleError(error, 'Server Config Merge');
 			this.serverConfig = defaultServerConfig;
@@ -72,7 +72,7 @@ export class ConfigService {
 			this.markovConfig = resolved;
 			Object.freeze(this.markovConfig);
 			console.log('LOADED MARKOV CONFIG:', this.markovConfig);
-		} 
+		}
 		catch(error: unknown){
 			handleError(error, 'Markov Config Merge');
 			this.markovConfig = defaultMarkovConfig;
@@ -88,7 +88,7 @@ export class ConfigService {
 			this.gameConfig = resolved;
 			Object.freeze(this.gameConfig);
 			console.log('LOADED GAME CONFIG:', this.gameConfig);
-		} 
+		}
 		catch(error: unknown){
 			handleError(error, 'Game Config Merge');
 			this.gameConfig = defaultGameConfig;

@@ -16,8 +16,8 @@ export function isUnknownArray(input: unknown): input is unknown[]{
 	return Array.isArray(input);
 }
 
-export function mergeIdentityDefaults(input: unknown, label: typeof aType.id, fallback: DefaultIdentity,  schema: typeof IdentitySchema): [Identity | null, ParseFailureRecord[]];
-export function mergeIdentityDefaults(input: unknown, label: typeof aType.gid, fallback: DefaultGameIdentity,  schema: typeof GameIdentitySchema): [GameIdentity | null, ParseFailureRecord[]];
+export function mergeIdentityDefaults(input: unknown, label: typeof aType.id, fallback: DefaultIdentity, schema: typeof IdentitySchema): [Identity | null, ParseFailureRecord[]];
+export function mergeIdentityDefaults(input: unknown, label: typeof aType.gid, fallback: DefaultGameIdentity, schema: typeof GameIdentitySchema): [GameIdentity | null, ParseFailureRecord[]];
 export function mergeIdentityDefaults(input: unknown, label: SchemaType, fallback: DefaultIdentity | DefaultGameIdentity, schema: typeof IdentitySchema | typeof GameIdentitySchema): [Identity | GameIdentity | null, ParseFailureRecord[]] {
 	const [merged, failures] = mergeDefaults(input, label, fallback, schema);
 	const result = schema.safeParse(merged);

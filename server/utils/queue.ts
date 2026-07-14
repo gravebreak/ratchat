@@ -10,9 +10,9 @@ export function createSaveQueue(save: () => Promise<void>): SaveQueue {
 	return {
 		chain(): void {
 			pending = pending.then(save)
-			.catch((error: unknown) => {
-				handleError(error, `Save Queue: ${save.name}`);
-			});
+				.catch((error: unknown) => {
+					handleError(error, `Save Queue: ${save.name}`);
+				});
 		},
 	};
 }

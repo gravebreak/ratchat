@@ -45,7 +45,7 @@ export class ModerationService {
 		this.basenickFilter.push(...added);
 		this.startup = false;
 	}
-		
+
 	public moderateText(raw: string, user: Identity, type: TextType): SafeString{
 		const clean = sanitizeText(raw).trim();
 		switch(type){
@@ -65,7 +65,7 @@ export class ModerationService {
 						throw error;
 					}
 					handleError(error, 'Moderate Text - Chat');
-					
+
 					throw new AppError('failed to validate your message: unknown error', 'user');
 				}
 				const safe = this.createSafeString(clean);
@@ -85,7 +85,7 @@ export class ModerationService {
 						throw error;
 					}
 					handleError(error, 'Moderate Text - Status');
-					
+
 					throw new AppError('failed to validate your message: unknown error', 'user');
 				}
 				const safe = this.createSafeString(clean);
@@ -109,7 +109,7 @@ export class ModerationService {
 						throw error;
 					}
 					handleError(error, 'Moderate Text - Nick');
-					
+
 					throw new AppError('failed to validate your message: unknown error', 'user');
 				}
 				const safe = this.createSafeString(clean);
@@ -129,7 +129,7 @@ export class ModerationService {
 						throw error;
 					}
 					handleError(error, 'Moderate Text - Color');
-					
+
 					throw new AppError('failed to validate your message: unknown error', 'user');
 				}
 				const safe = this.createSafeString(clean);
@@ -155,22 +155,22 @@ export class ModerationService {
 			try{
 				this.moderateBaseNick(clean);
 			}
-				catch(error: unknown){
-					if(error instanceof AppError){
-						throw error;
-					}
-					handleError(error, 'Moderate New User Base Nick');
-					
-					throw new AppError('failed to validate your nickname: unknown error', 'user');
+			catch(error: unknown){
+				if(error instanceof AppError){
+					throw error;
 				}
+				handleError(error, 'Moderate New User Base Nick');
+
+				throw new AppError('failed to validate your nickname: unknown error', 'user');
+			}
 			const safe = this.createSafeString(clean);
 			return safe;
 		}
 		else{
 			throw new AppError('moderateNewUserBaseNick text type missing', 'bug');
-		}		
+		}
 	}
-		
+
 	public moderateTime(user: Identity, type: TimeType): void {
 		const now = Date.now();
 		const lastMessage = new Date(user.lastMessage).getTime();
@@ -179,7 +179,7 @@ export class ModerationService {
 		if(lastMessage > now){
 			throw new AppError ('ur in timeout rn', 'user');
 		}
-		
+
 		const serverConfig = this.deps.configService.getServerConfig();
 		const gameConfig = this.deps.configService.getGameConfig();
 		const limits: Record<TimeType, number> = {
@@ -198,7 +198,7 @@ export class ModerationService {
 		}
 	}
 
-	private moderateBaseNick(basenick: string): void {	
+	private moderateBaseNick(basenick: string): void {
 		const matched = this.basenickFilter.find(regex => regex.test(basenick));
 		if(matched){
 			console.log(`base nick filter "${basenick}" because it matched pattern: ${matched}`);
@@ -247,7 +247,7 @@ export class ModerationService {
 			const clientCommandPatterns = this.buildPattern(this.deps.clientCommands, '^', '$');
 			const clientSubCommandPatterns = this.buildPattern(this.deps.clientSubCommands, '^', '$');
 			const configPatterns = this.buildPattern(this.deps.configService.getServerConfig().baseNickRes, '^', '$');
-			
+
 			let markovPatterns: RegExp[] = [];
 			if(this.deps.configService.getMarkovConfig().enabled){
 				const markovBaseNick = this.deps.configService.getMarkovConfig().basenick;

@@ -32,14 +32,14 @@ export const LeaderboardEntrySchema = LeaderboardIdentityEntrySchema.extend({
 export type BlackjackEntry = z.infer<typeof BlackjackEntrySchema>;
 export type PublicBlackjackEntry = Omit<BlackjackEntry, 'playerid'>;
 export const BlackjackEntrySchema = LeaderboardIdentityEntrySchema.extend({
-	blackjackWinnings: GameIdentitySchema.shape.blackjackWinnings, 
+	blackjackWinnings: GameIdentitySchema.shape.blackjackWinnings,
 	blackjackBlackjacks: GameIdentitySchema.shape.blackjackBlackjacks
 });
 
 export type DuelingEntry = z.infer<typeof DuelingEntrySchema>;
 export type PublicDuelingEntry = Omit<DuelingEntry, 'playerid'>;
 export const DuelingEntrySchema = LeaderboardIdentityEntrySchema.extend({
-	duelingWins: GameIdentitySchema.shape.duelingWins, 
+	duelingWins: GameIdentitySchema.shape.duelingWins,
 	duelingHonor: GameIdentitySchema.shape.duelingHonor
 });
 

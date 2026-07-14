@@ -17,11 +17,11 @@ import { isValid7TVID } from '../utils/validate';
 
 type EmoteEntry = {
 	name: string;
-  	data:{
-		host:{ 
+	data:{
+		host:{
 			url: string;
 		};
-  	};
+	};
 };
 
 const REDIS_ANNOUNCEMENT_KEY = CacheService.createRedisKey('announcement');
@@ -39,7 +39,7 @@ export interface StateServiceDependencies{
 export class StateService {
 	public markovUser: Identity | null = null;
 	public markovSleep: boolean = false;
-	
+
 	private socketUsers = new Map<RatSocket['id'], Identity>();
 	private emotes = new Map<string, string>();
 
@@ -73,16 +73,16 @@ export class StateService {
 		if(!targetID){
 			throw new AppError('no emote url in config, please provide one', 'user');
 		}
-				
+
 		if(!isValid7TVID(targetID)){
 			throw new AppError("doesn't look like a 7tv emote set ID", 'user');
 		}
-		
+
 		try{
 			const response = await fetch(`https://api.7tv.app/v3/emote-sets/${targetID}`);
-			if(!response.ok){ 
-				throw new AppError(`7tv returned HTTP ${response.status}, try again`, 'user'); 
-			} 
+			if(!response.ok){
+				throw new AppError(`7tv returned HTTP ${response.status}, try again`, 'user');
+			}
 
 			const data: unknown = await response.json();
 			if(typeof data !== 'object' || data === null || !('emotes' in data)){
@@ -92,7 +92,7 @@ export class StateService {
 			if(!isUnknownArray(data.emotes)){
 				throw new AppError('invalid 7tv response structure', 'internal', 'warn');
 			}
-			
+
 			let size: number = 0;
 			let drops: number = 0;
 			data.emotes.forEach(emote => {
@@ -111,13 +111,13 @@ export class StateService {
 			const emotePayload = Object.fromEntries(this.emotes);
 			this.deps.dispatchService.sendEmoteListPayload(io, emotePayload);
 			return size;
-		} 
+		}
 		catch(error: unknown){
 			if(error instanceof AppError){
 				throw error;
 			}
 			handleError(error, 'Update Emotes');
-			
+
 			throw new AppError('failed to fetch emotes: unknown error', 'user');
 		}
 	}
@@ -133,8 +133,8 @@ export class StateService {
 
 		try{
 			const response = await fetch(`https://api.7tv.app/v3/emote-sets/${setID}`);
-			if(!response.ok){ 
-				throw new AppError(`7tv returned HTTP ${response.status}, try again`, 'user'); 
+			if(!response.ok){
+				throw new AppError(`7tv returned HTTP ${response.status}, try again`, 'user');
 			}
 
 			const data: unknown = await response.json();
@@ -145,7 +145,7 @@ export class StateService {
 			if(!isUnknownArray(data.emotes)){
 				throw new AppError('invalid 7tv response structure', 'internal', 'warn');
 			}
-			
+
 			let deleteCount: number = 0;
 			let drops : number = 0;
 			data.emotes.forEach((emote) => {
@@ -166,13 +166,13 @@ export class StateService {
 			const emotePayload = Object.fromEntries(this.emotes);
 			this.deps.dispatchService.sendEmoteListPayload(io, emotePayload);
 			return deleteCount;
-		} 
+		}
 		catch(error: unknown){
 			if(error instanceof AppError){
-				throw error; 
+				throw error;
 			}
 			handleError(error, 'Delete Emotes');
-			
+
 			throw new AppError('failed to fetch emotes: unknown error', 'user');
 		}
 	}
@@ -186,7 +186,7 @@ export class StateService {
 
 		return copy;
 	}
-	
+
 	public getSocketUser(socketID: RatSocket['id']): Identity | null {
 		const user = this.socketUsers.get(socketID);
 		if(!user){
@@ -194,13 +194,13 @@ export class StateService {
 		}
 		return structuredClone(user);
 	}
-	
+
 	public updateSocketUser(io: RatServer, socketID: RatSocket['id'], identity: Identity): void {
 		this.socketUsers.set(socketID, identity);
 
 		for (const [sId, user] of this.socketUsers.entries()){
 			if(user.guid === identity.guid && sId !== socketID){
-				this.socketUsers.set(sId, identity); 
+				this.socketUsers.set(sId, identity);
 			}
 		}
 
@@ -212,7 +212,7 @@ export class StateService {
 		this.broadcastUsers(io);
 	}
 
-	public broadcastUsers(io: RatServer): void {		
+	public broadcastUsers(io: RatServer): void {
 		const userList: UserSum[] = Array.from(this.socketUsers.values())
 			.map(({ fullnick, status, isMod, isAfk }) => ({ fullnick, status, isMod, isAfk }))
 			.sort((a,b) =>{
@@ -222,26 +222,26 @@ export class StateService {
 				if(a.isMod !== b.isMod){
 					return a.isMod ? -1 : 1;
 				}
-					return getBaseNick(a.fullnick).localeCompare(getBaseNick(b.fullnick), 'en', {sensitivity: 'base'});
+				return getBaseNick(a.fullnick).localeCompare(getBaseNick(b.fullnick), 'en', {sensitivity: 'base'});
 			});
-		
+
 		const lurkers = io.sockets.sockets.size - this.socketUsers.size;
 
 		if(this.markovUser){
 			if(this.markovSleep){
 				userList.push({
-				fullnick: this.markovUser.fullnick,
-				status: this.markovUser.status,
-				isMod: false,
-				isAfk: true,
+					fullnick: this.markovUser.fullnick,
+					status: this.markovUser.status,
+					isMod: false,
+					isAfk: true,
 				});
 			}
 			else{
-			userList.push({
-				fullnick: this.markovUser.fullnick,
-				status: this.markovUser.status,
-				isMod: false,
-				isAfk: this.markovUser.isAfk,
+				userList.push({
+					fullnick: this.markovUser.fullnick,
+					status: this.markovUser.status,
+					isMod: false,
+					isAfk: this.markovUser.isAfk,
 				});
 			}
 		}
@@ -264,13 +264,13 @@ export class StateService {
 		this.broadcastUsers(io);
 
 		setTimeout(() => {
-			if(this.markovUser){ 
+			if(this.markovUser){
 				this.markovUser.isAfk = false;
-				this.broadcastUsers(io); 
+				this.broadcastUsers(io);
 			}
 		}, this.deps.configService.getMarkovConfig().cooldown * 1000);
 
-		return this.markovUser; 
+		return this.markovUser;
 	}
 
 	public toggleMarkovSleep(io: RatServer): boolean {
@@ -290,7 +290,7 @@ export class StateService {
 			console.log('markov bot disabled skipping markov toggle restore');
 			return;
 		}
-		
+
 		if(!this.deps.cacheService.existsRedisClient()){
 			return;
 		}
@@ -326,9 +326,9 @@ export class StateService {
 		}
 
 		this.announcement = str;
-		
+
 		if(str){
-		  	this.deps.dispatchService.sendSystemChatPayload(io, cType.ann,`announcement: ${str}`);
+			this.deps.dispatchService.sendSystemChatPayload(io, cType.ann,`announcement: ${str}`);
 		}
 
 		this.announcementQueue.chain();
@@ -418,11 +418,12 @@ export class StateService {
 
 	private async saveAnnouncement(): Promise<void> {
 		if(!this.deps.cacheService.existsRedisClient()){
-				return;
+			return;
 		}
+
 		try {
 			await this.deps.cacheService.setRedisValue(REDIS_ANNOUNCEMENT_KEY, this.announcement);
-		} 
+		}
 		catch(error: unknown){
 			handleError(error, 'Redis Announcement Save');
 		}
@@ -430,11 +431,12 @@ export class StateService {
 
 	private async saveMarkovSleep(): Promise<void> {
 		if(!this.deps.cacheService.existsRedisClient()){
-				return;
+			return;
 		}
+
 		try {
 			await this.deps.cacheService.setRedisValue(REDIS_MARKOVSLEEP_KEY, this.markovSleep);
-		} 
+		}
 		catch(error: unknown){
 			handleError(error, 'Redis Markov Sleep Save');
 		}
@@ -456,7 +458,7 @@ export class StateService {
 		}
 		else{
 			this.markovUser = null;
-		}	
+		}
 	}
 
 	private startAfkTimer(): void {
@@ -482,7 +484,7 @@ export class StateService {
 					this.socketUsers.set(id, user);
 				});
 
-			this.broadcastUsers(this.deps.io);
+				this.broadcastUsers(this.deps.io);
 			}
 		}, 60000);
 	}

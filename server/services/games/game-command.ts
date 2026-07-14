@@ -7,7 +7,6 @@ import type { RatServer, RatSocket } from '../../defs/def-events';
 import type { Identity } from '../../defs/def-identity';
 import type { InputStatus } from '../../defs/def-input';
 
-
 import { ConfigService } from '../config';
 import { DispatchService } from '../dispatch';
 import { GameIdentityService } from './game-identity';
@@ -30,7 +29,7 @@ export interface GameCommandServiceDependencies {
 export class GameCommandService {
 	private gameCommands: Record<string, GameCommandEntry> = {};
 	private activeGameCommands: Map<RatSocket['id'], boolean> = new Map();
-	
+
 	private deps: GameCommandServiceDependencies;
 	constructor(dependencies: GameCommandServiceDependencies){
 		this.deps = dependencies;
@@ -48,13 +47,13 @@ export class GameCommandService {
 		if(!this.deps.configService.getGameConfig().enabled){
 			return this.sendNotCommand(socket);
 		}
-		
+
 		if(this.activeGameCommands.get(socket.id)){
 			return keepInput;
 		}
 
 		this.activeGameCommands.set(socket.id, true);
-		
+
 		try{
 			const result = await this.executeGameCommand(commandName, {
 				socket,
@@ -62,8 +61,8 @@ export class GameCommandService {
 				args,
 				fullArgs: args.join(' '),
 				commandUser: caller
-				});
-			
+			});
+
 			return result;
 		}
 		catch(error: unknown){
@@ -101,14 +100,14 @@ export class GameCommandService {
 	private registerGameCommands(): void {
 		this.gameCommands['gamehelp'] = {
 			enabledFor: allGames,
-				handler: (ctx): InputStatus => {
+			handler: (ctx): InputStatus => {
 				const config = this.deps.configService.getGameConfig();
 				const helpMessages = [
 					'/gamehelp  : View this list.',
 				];
 				if(config.fishing){
 					helpMessages.push(
-					'/fish to fish'
+						'/fish to fish'
 					);
 				}
 

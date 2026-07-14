@@ -21,7 +21,7 @@ export function handleError(error: unknown, context?: string): string | null {
 	if(error instanceof AppError){
 		switch(error.mode){
 			case 'user':{
-				//for user display messages, all other cases cannot be displayed to the user	
+				//for user display messages, all other cases cannot be displayed to the user
 				return error.message;
 			}
 
@@ -51,7 +51,7 @@ export function handleError(error: unknown, context?: string): string | null {
 						return null;
 					}
 				}
-			}	
+			}
 
 			case 'silent':{
 				return null;

@@ -41,7 +41,7 @@ export const defaultServerConfig: ServerConfig = {
 	maxBaseNickLen: 16,
 	maxStatusLen: 32,
 	msgArrayLen: 25,
-	msgArrayTimeout: 86400, 
+	msgArrayTimeout: 86400,
 	banLength: 365,
 	stvurl: undefined,
 	baseNickRes: [],
@@ -81,12 +81,12 @@ const GameTypeConfigSchema = {
 	fishing: z.boolean(),
 } as const;
 export const GameConfigSchema = z.object({
-  enabled: z.boolean(),
-  pointStartAmt: z.number().int().min(0).max(65536),
-  pointName: z.string().min(1).max(64),
-  gameSlow: z.number().int().min(0).max(86400),
-  raceFrequency: z.number().int().min(60).max(86400),
-  ...GameTypeConfigSchema,
+	enabled: z.boolean(),
+	pointStartAmt: z.number().int().min(0).max(65536),
+	pointName: z.string().min(1).max(64),
+	gameSlow: z.number().int().min(0).max(86400),
+	raceFrequency: z.number().int().min(60).max(86400),
+	...GameTypeConfigSchema,
 });
 
 export const defaultGameConfig: GameConfig = {

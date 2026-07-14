@@ -13,6 +13,6 @@ export function hashIP(ip: RatSocket['handshake']['address']): string{
 	const hash = crypto.createHash('sha256');
 
 	hash.update(ip + pepper);
-	
+
 	return hash.digest('hex');
 }

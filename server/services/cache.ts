@@ -1,7 +1,7 @@
 import { createClient } from 'redis';
 import type { RedisClientType } from 'redis';
 
-import { handleError, AppError } from '../utils/errors'; 
+import { handleError, AppError } from '../utils/errors';
 
 export type RedisKey = string & {readonly __brand: 'RedisKey'};
 
@@ -38,7 +38,6 @@ export class CacheService{
 				new Promise((_, reject) => setTimeout(() => reject(new Error('Redis startup timeout')), REDIS_STARTUP_TIMEOUT)),
 			]);
 
-			
 			client.removeAllListeners('error');
 			client.removeAllListeners('reconnecting');
 			this.monitorRedisConnection(client);
@@ -49,14 +48,14 @@ export class CacheService{
 			handleError(error, 'Redis Startup');
 		}
 	}
-	
+
 	public existsRedisClient(): boolean{
 		if(this.redisClient){
 			return true;
 		}
 		return false;
 	}
-	
+
 	public async getRedisValue(key: RedisKey): Promise<unknown>{
 		if(!this.redisClient){
 			throw new AppError('getRedisValue called while redis is unavailable', 'bug');

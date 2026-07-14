@@ -28,7 +28,7 @@ export class SecurityService{
 	private bans: Map<BanEntry['hash'], BanEntry> = new Map();
 	private bansTimers: Map<BanEntry['hash'], BanTimerEntry> = new Map();
 	private banQueue = createSaveQueue(() => this.saveBans());
-	
+
 	private deps: SecurityServiceDependencies;
 	constructor(dependencies: SecurityServiceDependencies){
 		this.deps = dependencies;
@@ -39,7 +39,7 @@ export class SecurityService{
 		this.initializeBans();
 		this.startBanSweepTimer();
 	}
-	
+
 	public existsBan(address: RatSocket['handshake']['address']): boolean {
 		try{
 			const hash = hashIP(address);
@@ -55,7 +55,7 @@ export class SecurityService{
 				throw error;
 			}
 			handleError(error, 'Check Ban');
-			
+
 			throw new AppError('failed to check ban: unknown error', 'user');
 		}
 	}
@@ -85,7 +85,6 @@ export class SecurityService{
 			clearTimeout(existing.timer);
 			this.bansTimers.delete(ban.hash);
 		}
-
 
 		const banLengthMs = this.deps.configService.getServerConfig().banLength * 24 * 60 * 60 * 1000;
 		const armThresholdMs = 14 * 24 * 60 * 60 * 1000;

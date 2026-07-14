@@ -15,7 +15,6 @@ type Target = { emit: RatServer['emit'] };
 type TextPayload = typeof cType.chat | typeof cType.ann | typeof cType.error | typeof cType.info | typeof cType.welcome | typeof cType.markov;
 type ChatHistory = Map<ChatPayload['id'], ChatPayload>;
 
-
 const REDIS_HISTORY_KEY = CacheService.createRedisKey('messageHistory');
 const REDIS_COUNTER_KEY = CacheService.createRedisKey('messageCounter');
 const MAX_INT = 4294967295;
@@ -26,15 +25,15 @@ export interface DispatchServiceDependencies {
 }
 
 export class DispatchService{
-	private messageCounter: ChatPayload['id'] = 0; 
+	private messageCounter: ChatPayload['id'] = 0;
 	private chatHistory : ChatHistory = new Map();
 	private historyQueue = createSaveQueue(() => this.saveChatHistory());
 	private counterQueue = createSaveQueue(() => this.saveMessageCounter());
 
 	private deps: DispatchServiceDependencies;
 	constructor(dependencies: DispatchServiceDependencies){
-		  this.deps = dependencies;
-		  this.init();
+		this.deps = dependencies;
+		this.init();
 	}
 
 	private init(): void {
@@ -102,7 +101,7 @@ export class DispatchService{
 		const response = handleError(error, prefix);
 		if(response){
 			this.sendSystemChatPayload(to, cType.error, `system: ${response}`);
-		} 
+		}
 		else{
 			this.sendSystemChatPayload(to, cType.error, 'system: unknown error. try again');
 		}
@@ -113,7 +112,7 @@ export class DispatchService{
 
 		this.sendPayload(io, cType.delmsg, msgIdArray);
 
-		msgIdArray.forEach(id => { 
+		msgIdArray.forEach(id => {
 			if(this.chatHistory.delete(id)){
 				deleted.push(id);
 			}
@@ -134,7 +133,7 @@ export class DispatchService{
 			console.log('msgArrayLen is 0, skipping chat history restore');
 			return;
 		}
-		
+
 		if(!this.deps.cacheService.existsRedisClient()){
 			return;
 		}
@@ -165,7 +164,7 @@ export class DispatchService{
 			handleError(error, 'Redis Message History Load');
 		}
 	}
-	
+
 	public async restoreMessageCounter(): Promise<void> {
 		if(!this.deps.cacheService.existsRedisClient()){
 			return;
@@ -231,11 +230,12 @@ export class DispatchService{
 
 	private async saveChatHistory(): Promise<void> {
 		if(!this.deps.cacheService.existsRedisClient()){
-				return;
+			return;
 		}
+
 		try {
 			await this.deps.cacheService.setRedisValue(REDIS_HISTORY_KEY, [...this.chatHistory.values()]);
-		} 
+		}
 		catch(error: unknown){
 			handleError(error, 'Redis Message History Save');
 		}
@@ -243,11 +243,12 @@ export class DispatchService{
 
 	private async saveMessageCounter(): Promise<void> {
 		if(!this.deps.cacheService.existsRedisClient()){
-				return;
+			return;
 		}
+
 		try{
 			await this.deps.cacheService.setRedisValue(REDIS_COUNTER_KEY, this.messageCounter);
-		} 
+		}
 		catch(error: unknown){
 			handleError(error, 'Redis Message ID Counter Save');
 		}
@@ -270,7 +271,7 @@ export class DispatchService{
 			if(changed){
 				this.historyQueue.chain();
 			}
-		}, 60000);	
+		}, 60000);
 
 	}
 }

@@ -11,7 +11,6 @@ import { createSaveQueue } from '../../utils/queue';
 import { assertSafeStartup, getRepairPath } from '../../utils/repair';
 import { existsFile, createJsonFile, readJsonFile, writeJsonFile } from '../../utils/serialize';
 
-
 const MAX_INT = 4294967295;
 
 export interface GameIdentityServiceDependencies{
@@ -55,7 +54,7 @@ export class GameIdentityService {
 		if(!this.deps.configService.getGameConfig().enabled){
 			throw new AppError('setGamePoints call with minigames disabled', 'bug');
 		}
-		
+
 		const gameId = this.gameUsers.get(playerid);
 		const amount = Math.round(rawnumber);
 		if(!gameId){
@@ -98,7 +97,7 @@ export class GameIdentityService {
 		}
 		return false;
 	}
-	
+
 	public getGameUsersMap(): Map<GameIdentity['playerid'], GameIdentity> {
 		const copy = new Map<GameIdentity['playerid'], GameIdentity>();
 
@@ -216,7 +215,7 @@ export class GameIdentityService {
 	private async saveGameUsers(): Promise<void> {
 		try{
 			await writeJsonFile(this.deps.gameUsersPath, Array.from(this.gameUsers.entries()));
-		} 
+		}
 		catch(error: unknown){
 			handleError(error, 'Save Game Users');
 		}
