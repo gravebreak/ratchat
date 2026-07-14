@@ -17,6 +17,9 @@ import { getBaseNick } from '../utils/format';
 import { isUnknownArray } from '../utils/parse';
 import { pickWeighted } from '../utils/random';
 
+const MAX_RETRY_ATTEMPTS = 5;
+const MIN_WORD_COUNT = 4;
+
 type Neuron = {
 	table: string;
 	word1: string;
@@ -40,8 +43,8 @@ export interface MarkovServiceDependencies {
 }
 
 export class MarkovService{
-	private startTables: string[] = [];
-	private dictionary: Set<string> = new Set();
+	private startTables: Neuron['table'][] = [];
+	private dictionary: Set<StartNeuron['word1']> = new Set();
 	private db: DatabaseSync | null = null;
 	private markovQ = Promise.resolve();
 
@@ -62,85 +65,85 @@ export class MarkovService{
 		}
 
 		const markovUser = this.deps.stateService.markovUser;
-		const maxLength = this.deps.configService.getServerConfig().maxMsgLen;
+		const maxMsgLen = this.deps.configService.getServerConfig().maxMsgLen;
 		if(!markovUser){
 			throw new AppError('generateMarkovText call with markov disabled', 'bug');
 		}
 
-		for(let attempt = 0; attempt < 5; attempt++){
-			const raw: string[] = [];
+		for(let attempt = 0; attempt < MAX_RETRY_ATTEMPTS; attempt++){
+			const generatedWords: string[] = [];
 
 			if(seed){
-				const seedLow = seed.toLowerCase();
+				const seedLowercase = seed.toLowerCase();
 
-				if(!this.dictionary.has(seedLow)){
+				if(!this.dictionary.has(seedLowercase)){
 					throw new AppError(`${getBaseNick(markovUser.fullnick)} don't know nothin about '${seed}'`, 'user');
 				}
 
-				const candidates = await this.loadStartNeuron(seedLow);
+				const startCandidates = await this.loadStartNeuron(seedLowercase);
 
-				if(candidates.length === 0){
+				if(startCandidates.length === 0){
 					throw new AppError(`${getBaseNick(markovUser.fullnick)} don't know nothin about '${seed}'`, 'user');
 				}
 
 				const weightMap: RandomCandidateMap = new Map(
-					candidates.map((candidate, candidateIndex) => [String(candidateIndex), candidate.count])
+					startCandidates.map((candidate, candidateIndex) => [String(candidateIndex), candidate.count])
 				);
 
-				const chosen = candidates[Number(pickWeighted(weightMap))];
+				const chosenStart = startCandidates[Number(pickWeighted(weightMap))];
 				
-				raw.push(chosen.word1, chosen.word2);
+				generatedWords.push(chosenStart.word1, chosenStart.word2);
 			}
 			else{
-				const candidates = await this.loadStartNeuron();
+				const startCandidates = await this.loadStartNeuron();
 
-				if(candidates.length === 0){
+				if(startCandidates.length === 0){
 					throw new AppError('no start entries in markov brain', 'internal', 'warn');
 				}
 
 				const weightMap: RandomCandidateMap = new Map(
-					candidates.map((candidate, candidateIndex) => [String(candidateIndex), candidate.count])
+					startCandidates.map((candidate, candidateIndex) => [String(candidateIndex), candidate.count])
 				);
 
-				const chosen = candidates[Number(pickWeighted(weightMap))];
+				const chosenStart = startCandidates[Number(pickWeighted(weightMap))];
 
-				raw.push(chosen.word1, chosen.word2);
+				generatedWords.push(chosenStart.word1, chosenStart.word2);
 			}
 
 			while(true){
-				const prev = raw[raw.length - 2];
-				const curr = raw[raw.length - 1];
+				const prevWord = generatedWords[generatedWords.length - 2];
+				const currWord = generatedWords[generatedWords.length - 1];
 
-				const candidates = await this.loadGramNeuron(prev, curr);
+				const gramCandidates = await this.loadGramNeuron(prevWord, currWord);
 
-				if(candidates.length === 0){
+				if(gramCandidates.length === 0){
 					break;
 				}
 				const weightMap: RandomCandidateMap = new Map(
-					candidates.map((candidate, candidateIndex) => [String(candidateIndex), candidate.count])
+					gramCandidates.map((candidate, candidateIndex) => [String(candidateIndex), candidate.count])
 				);
 
-				const chosen = candidates[Number(pickWeighted(weightMap))];
-				const next = chosen.word3;
+				const chosenGram = gramCandidates[Number(pickWeighted(weightMap))];
+				const nextWord = chosenGram.word3;
 
-				if(!next || next === '<END>'){
+				if(!nextWord || nextWord === '<END>'){
 					break;
 				}
 
-				raw.push(next);
+				generatedWords.push(nextWord);
 
-				if(raw.join(' ').length > maxLength){
-					raw.pop();
+				if(generatedWords.join(' ').length > maxMsgLen){
+					generatedWords.pop();
 					break;
 				}
 			}
 
-			if(raw.length < 4){
+			if(generatedWords.length < MIN_WORD_COUNT){
 				continue;
 			}
 
 			try{
-				const safe = this.deps.moderationService.moderateText(raw.join(' '), markovUser, tType.chat);
+				const safe = this.deps.moderationService.moderateText(generatedWords.join(' '), markovUser, tType.chat);
 				return safe;
 			}
 			catch(error: unknown){
@@ -160,10 +163,10 @@ export class MarkovService{
 			}
 		}
 
-		throw new AppError('no valid text generated after 5 attempts', 'user');
+		throw new AppError(`no valid text generated after ${MAX_RETRY_ATTEMPTS} attempts`, 'user');
 	}
 
-	public async learnMarkovText(str: string): Promise<void> {
+	public async learnMarkovText(message: string): Promise<void> {
 		if(!this.deps.configService.getMarkovConfig().learning){
 			return;
 		}
@@ -172,10 +175,10 @@ export class MarkovService{
 			throw new AppError('brain db not initialized', 'internal', 'warn');
 		}
 
-		const words = str
+		const words = message
 			.split(/\s+/)
-			.filter(w => !this.deps.identityService.existsUserByBaseNick(w))
-			.map(w => w.trim())
+			.filter(word => !this.deps.identityService.existsUserByBaseNick(word))
+			.map(word => word.trim())
 			.filter(Boolean);
 		
 		if(words.length < 2){
@@ -184,36 +187,41 @@ export class MarkovService{
 
 		const entries: InsertNeuron[] = [];
 
-		const w0 = words[0];
-		const w1 = words[1];
+		const word1 = words[0];
+		const word2 = words[1];
+		const end = '<END>';
+		const startLetter = (word1[0] || '_').toUpperCase().replace(/[^A-Z_]/g, '_');
 
-		const startLetter = (w0[0] || '_').toUpperCase().replace(/[^A-Z_]/g, '_');
-		entries.push({table: `start_${startLetter}`, word1: w0, word2: w1});
+		const startEntry: InsertNeuron = {table: `start_${startLetter}`, word1: word1, word2: word2};
+		entries.push(startEntry);
 
-		if(!this.dictionary.has(w0.toLowerCase())){
-			this.dictionary.add(w0.toLowerCase());
+		const dictionaryWord = startEntry.word1.toLowerCase();
+		if(!this.dictionary.has(dictionaryWord)){
+			this.dictionary.add(dictionaryWord);
 		}
 
 		if(words.length === 2){
-			const letters = (w0[0] + w1[0]).toUpperCase().replace(/[^A-Z_]/g, '_');
-			entries.push({table: `gram_${letters}`, word1: w0, word2: w1, word3: '<END>'});
+			const gramLetters = (word1[0] + word2[0]).toUpperCase().replace(/[^A-Z_]/g, '_');
+			const gramEntry: InsertNeuron = {table: `gram_${gramLetters}`, word1: word1, word2: word2, word3: end};
+			entries.push(gramEntry);
 			this.queueSaveNeuron(entries);
 			return;
 		}
 
 		for(let i = 0; i < words.length - 2; i++){
-			const a = words[i];
-			const b = words[i + 1];
-			const c = words[i + 2];
-
-			const letters = (a[0] + b[0]).toUpperCase().replace(/[^A-Z_]/g, '_');
-			entries.push({table: `gram_${letters}`, word1: a, word2: b, word3: c});
+			const prevWord = words[i];
+			const currWord = words[i + 1];
+			const nextWord = words[i + 2];
+			const gramLetters = (prevWord[0] + currWord[0]).toUpperCase().replace(/[^A-Z_]/g, '_');
+			const gramEntry: InsertNeuron = {table: `gram_${gramLetters}`, word1: prevWord, word2: currWord, word3: nextWord};
+			entries.push(gramEntry);
 		}
 
-		const lastA = words[words.length - 2];
-		const lastB = words[words.length - 1];
-		const endLetters = (lastA[0] + lastB[0]).toUpperCase().replace(/[^A-Z_]/g, '_');
-		entries.push({table: `gram_${endLetters}`, word1: lastA, word2: lastB, word3: '<END>'});
+		const penultimateWord = words[words.length - 2];
+		const lastWord = words[words.length - 1];
+		const gramLetters = (penultimateWord[0] + lastWord[0]).toUpperCase().replace(/[^A-Z_]/g, '_');
+		const gramEntry: InsertNeuron = {table: `gram_${gramLetters}`, word1: penultimateWord, word2: lastWord, word3: end};
+		entries.push(gramEntry);
 
 		this.queueSaveNeuron(entries);
 	}
@@ -230,16 +238,16 @@ export class MarkovService{
 		this.db.exec('BEGIN');
 
 		try{
-			for(const n of entries){
-				if(n.table.startsWith('start_') && n.table.length === 'start_'.length + 1){
-					this.db.prepare(`INSERT INTO ${n.table} (word1, word2, count) VALUES (?, ?, 1) ON CONFLICT(word1, word2) DO UPDATE SET count = count + 1;`).run(n.word1, n.word2);
+			for(const entry of entries){
+				if(entry.table.startsWith('start_') && entry.table.length === 'start_'.length + 1){
+					this.db.prepare(`INSERT INTO ${entry.table} (word1, word2, count) VALUES (?, ?, 1) ON CONFLICT(word1, word2) DO UPDATE SET count = count + 1;`).run(entry.word1, entry.word2);
 				}
-				else if(n.table.startsWith('gram_') && n.table.length === 'gram_'.length + 2){
-						if(!n.word3){
-							console.warn(`skipping gram entry missing word3: ${n.word1} ${n.word2}`);
+				else if(entry.table.startsWith('gram_') && entry.table.length === 'gram_'.length + 2){
+						if(!entry.word3){
+							console.warn(`skipping gram entry missing word3: ${entry.word1} ${entry.word2}`);
 							continue;
 						}
-					this.db.prepare(`INSERT INTO ${n.table} (word1, word2, word3, count) VALUES (?, ?, ?, 1) ON CONFLICT(word1, word2, word3) DO UPDATE SET count = count + 1;`).run(n.word1, n.word2, n.word3);
+					this.db.prepare(`INSERT INTO ${entry.table} (word1, word2, word3, count) VALUES (?, ?, ?, 1) ON CONFLICT(word1, word2, word3) DO UPDATE SET count = count + 1;`).run(entry.word1, entry.word2, entry.word3);
 				}
 				else{
 					continue;
@@ -254,7 +262,7 @@ export class MarkovService{
 		}
 	}
 
-	private async loadStartNeuron(seed?: string): Promise<StartNeuron[]> {
+	private async loadStartNeuron(seed?: StartNeuron['word1']): Promise<StartNeuron[]> {
 		if(!this.db){
 			throw new AppError('brain db not initialized', 'internal', 'warn');
 		}
@@ -263,8 +271,8 @@ export class MarkovService{
 
 		if(seed){
 			const db = this.db;
-			const letter = seed[0].toUpperCase().replace(/[^A-Z_]/g, '_');
-			const table = `start_${letter}`;
+			const startLetter = seed[0].toUpperCase().replace(/[^A-Z_]/g, '_');
+			const table = `start_${startLetter}`;
 			rows = (db
 				.prepare(`SELECT word1, word2, count FROM ${table} WHERE LOWER(word1) = LOWER(?)`)
 				.all(seed));
@@ -295,17 +303,17 @@ export class MarkovService{
 		return results;
 	}
 
-	private async loadGramNeuron(prev: string, curr: string): Promise<GramNeuron[]> {
+	private async loadGramNeuron(prevWord: Neuron['word1'], currWord: Neuron['word2']): Promise<GramNeuron[]> {
 		const db = this.db;
 		if(!db){
 			throw new AppError('brain db not initialized', 'internal', 'warn');
 		}
 
-		const letters = (prev[0] + curr[0]).toUpperCase().replace(/[^A-Z_]/g, '_');
-		const table = `gram_${letters}`;
+		const gramLetters = (prevWord[0] + currWord[0]).toUpperCase().replace(/[^A-Z_]/g, '_');
+		const table = `gram_${gramLetters}`;
 		const rows: unknown[] = (db
 			.prepare(`SELECT word1, word2, word3, count FROM ${table} WHERE LOWER(word1) = LOWER(?) AND LOWER(word2) = LOWER(?)`)
-			.all(prev, curr));
+			.all(prevWord, currWord));
 		
 		const results: GramNeuron[] = [];
 		let drops = 0;
@@ -366,8 +374,8 @@ export class MarkovService{
 			const tableNames = this.fetchBrain(this.deps.brainPath);
 			const validTableNames = this.resolveBrain(tableNames);
 			this.startTables = validTableNames; 
-			const entries = this.assignDictionary();
-			console.log(`Loaded ${entries} start entries`);
+			this.assignDictionary();
+			console.log(`Loaded ${this.dictionary.size} start entries`);
 		}
 		catch(error: unknown){
 			handleError(error, 'Load Markov Brain (Startup)');
@@ -381,20 +389,20 @@ export class MarkovService{
 
 		if(!existsSync(path)){
 			console.log('building markov brain....');
-			const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ_';
+			const allLetters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ_';
 			const startSchema = 'CREATE TABLE IF NOT EXISTS %TABLE% (word1 TEXT, word2 TEXT, count INTEGER, PRIMARY KEY (word1, word2));';
 			const gramSchema = 'CREATE TABLE IF NOT EXISTS %TABLE% (word1 TEXT,	word2 TEXT,	word3 TEXT, count INTEGER, PRIMARY KEY (word1, word2, word3));';
 
 			this.db.exec('PRAGMA journal_mode = MEMORY;');
 			this.db.exec('BEGIN');
-			for(const L of letters){
-				const table = `start_${L}`;
+			for(const startLetter of allLetters){
+				const table = `start_${startLetter}`;
 				this.db.prepare(startSchema.replace('%TABLE%', table)).run();
 			}
 
-			for(const A of letters){
-				for(const B of letters){
-					const table = `gram_${A}${B}`;
+			for(const gramLetter1 of allLetters){
+				for(const gramLetter2 of allLetters){
+					const table = `gram_${gramLetter1}${gramLetter2}`;
 					this.db.prepare(gramSchema.replace('%TABLE%', table)).run();
 				}
 			}
@@ -406,8 +414,8 @@ export class MarkovService{
 		return startTablesNames.all();
 	}
 
-	private resolveBrain(input: unknown[]): string[]{
-		const results: string[] = [];
+	private resolveBrain(input: unknown[]): Neuron['table'][]{
+		const results: Neuron['table'][] = [];
 		let drops = 0;
 
 		for(const row of input){
@@ -431,12 +439,11 @@ export class MarkovService{
 		return results;
 	}
 
-	private assignDictionary(): number{
+	private assignDictionary(): void {
 		if(!this.db){
 			throw new AppError('Connection failed before dictionary assignment', 'internal', 'error');
 		}
 
-		let dictentries = 0;
 		let drops = 0;
 		const tables = this.startTables;
 		for(const table of tables){
@@ -449,7 +456,6 @@ export class MarkovService{
 					}
 
 					this.dictionary.add(row.word1.toLowerCase());
-					dictentries++;
 				}
 			}
 			catch(error: unknown){
@@ -460,8 +466,6 @@ export class MarkovService{
 		if(drops > 0){
 			console.warn(`${drops} dropped dictionary row(s) on assignDictionary, check brain db integrity`);
 		}
-
-		return dictentries;
 	}
 
 	private startMarkovTimer(io: Server): void {
@@ -470,9 +474,9 @@ export class MarkovService{
 				return;
 			}
 			try{
-				const gentext = await this.generateMarkovText(io);
+				const generatedText = await this.generateMarkovText(io);
 				if(this.deps.stateService.markovUser){
-					this.deps.dispatchService.sendMarkovChat(io, gentext, this.deps.stateService.markovUser, this.deps.stateService.markovUser, '');
+					this.deps.dispatchService.sendMarkovChat(io, generatedText, this.deps.stateService.markovUser, this.deps.stateService.markovUser, '');
 				}
 			}
 			catch(error: unknown){
