@@ -1,9 +1,11 @@
+import { ProfanityFilterEntrySchema } from '../defs/def-moderation';
 import type { Identity } from '../defs/def-identity';
 import type { TimeType, TextType } from '../defs/def-moderation';
 
 import { ConfigService } from './config';
 
 import { handleError, AppError } from '../utils/errors';
+import { isUnknownArray, parseArray } from '../utils/parse';
 import { sanitizeText } from '../utils/sanitize';
 import { existsFile, readJsonFile } from '../utils/serialize';
 import { isValidHexColor } from '../utils/validate';
@@ -282,7 +284,7 @@ export class ModerationService {
 	}
 
 	private resolveFilter(input: unknown, type: 'profanity' | 'basenick'): RegExp[]{
-		if(!Array.isArray(input)){
+		if(!isUnknownArray(input)){
 			console.warn(`${type} filter data was not an array, starting fresh`);
 			return [];
 		}
@@ -291,9 +293,10 @@ export class ModerationService {
 
 		switch(type){
 			case 'profanity':{
-				const escaped = input
-					.filter(item => item.tags?.includes('racial') && item.severity > 2)
-					.map(item => item.match.split('*').map((seg: string) => seg.replace(/([a-zA-Z0-9.])(?=[a-zA-Z0-9.])/g, '$1[\\s\\-_.]*')).join('[^a-zA-Z0-9]*'));
+				const validEntries = parseArray(input, ProfanityFilterEntrySchema);
+				const escaped = validEntries
+					.filter(item => item.tags.includes('racial') && item.severity > 2)
+					.map(item => item.match.split('*').map((seg) => seg.replace(/([a-zA-Z0-9.])(?=[a-zA-Z0-9.])/g, '$1[\\s\\-_.]*')).join('[^a-zA-Z0-9]*'));
 				compiledFilter = this.buildPattern(escaped, '\\b', '\\b');
 				break;
 			}

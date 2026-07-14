@@ -12,6 +12,7 @@ import type { SafeString } from './moderation';
 import { handleError, AppError } from '../utils/errors';
 import { getBaseNick } from '../utils/format';
 import { hashIP } from '../utils/hash';
+import { isUnknownArray } from '../utils/parse';
 import { createSaveQueue } from '../utils/queue';
 import { isValid7TVID } from '../utils/validate';
 
@@ -84,18 +85,29 @@ export class StateService {
 				throw new AppError(`7tv returned HTTP ${response.status}, try again`, 'user'); 
 			} 
 
-			const data = await response.json();
-			if(!data.emotes || !Array.isArray(data.emotes)){ 
-				throw new AppError('invalid 7tv response structure', 'internal', 'warn'); 
+			const data: unknown = await response.json();
+			if(typeof data !== 'object' || data === null || !('emotes' in data)){
+				throw new AppError('invalid 7tv response structure', 'internal', 'warn');
+			}
+
+			if(!isUnknownArray(data.emotes)){
+				throw new AppError('invalid 7tv response structure', 'internal', 'warn');
 			}
 			
 			let size: number = 0;
-			data.emotes.forEach((emote: EmoteEntry) => {
-				const name = emote.name;
-				const hostUrl = emote.data.host.url; 
-				this.emotes.set(name, `https:${hostUrl}/1x.webp`);
+			let drops: number = 0;
+			data.emotes.forEach(emote => {
+				if(!this.isValidEmoteEntry(emote)){
+					drops++;
+					return;
+				}
+				this.emotes.set(emote.name, `https:${emote.data.host.url}/1x.webp`);
 				size++;
 			});
+
+			if(drops > 0){
+				console.warn(`${drops} dropped emote entry(s) on updateEmotes, check 7TV API response structure`);
+			}
 
 			const emotePayload = Object.fromEntries(this.emotes);
 			this.deps.dispatchService.sendEmoteList(io, emotePayload);
@@ -111,7 +123,7 @@ export class StateService {
 		}
 	}
 
-	public async removeEmotes(io: Server, setID: string): Promise<number>{
+	public async deleteEmotes(io: Server, setID: string): Promise<number>{
 		if(setID.length < 1){
 			throw new AppError('please provide a target emote setID to remove', 'user');
 		}
@@ -126,19 +138,31 @@ export class StateService {
 				throw new AppError(`7tv returned HTTP ${response.status}, try again`, 'user'); 
 			}
 
-			const data = await response.json();
-			if(!data.emotes || !Array.isArray(data.emotes)){ 
-				throw new AppError('invalid 7tv response structure', 'internal', 'warn'); 
+			const data: unknown = await response.json();
+			if(typeof data !== 'object' || data === null || !('emotes' in data)){
+				throw new AppError('invalid 7tv response structure', 'internal', 'warn');
 			}
 
+			if(!isUnknownArray(data.emotes)){
+				throw new AppError('invalid 7tv response structure', 'internal', 'warn');
+			}
+			
 			let deleteCount: number = 0;
-			data.emotes.forEach((emote: EmoteEntry) => {
-				const name = emote.name;
-				const del = this.emotes.delete(name);
+			let drops : number = 0;
+			data.emotes.forEach((emote) => {
+				if(!this.isValidEmoteEntry(emote)){
+					drops++;
+					return;
+				}
+				const del = this.emotes.delete(emote.name);
 				if(del){
 					deleteCount++;
 				}
 			});
+
+			if(drops > 0){
+				console.warn(`${drops} dropped emote entry(s) on deleteEmotes, check 7TV API response structure`);
+			}
 
 			const emotePayload = Object.fromEntries(this.emotes);
 			this.deps.dispatchService.sendEmoteList(io, emotePayload);
@@ -148,7 +172,7 @@ export class StateService {
 			if(error instanceof AppError){
 				throw error; 
 			}
-			handleError(error, 'Remove Emotes');
+			handleError(error, 'Delete Emotes');
 			
 			throw new AppError('failed to fetch emotes: unknown error', 'user');
 		}
@@ -373,6 +397,24 @@ export class StateService {
 		this.signupBuffer.clear();
 		this.signupPromise.clear();
 		this.signupTimer = null;
+	}
+	private isValidEmoteEntry(input: unknown): input is EmoteEntry {
+		if(typeof input !== 'object' || input === null){
+			return false;
+		}
+		if(!('name' in input) || typeof input.name !== 'string'){
+			return false;
+		}
+		if(!('data' in input) || typeof input.data !== 'object' || input.data === null){
+			return false;
+		}
+		if(!('host' in input.data) || typeof input.data.host !== 'object' || input.data.host === null){
+			return false;
+		}
+		if(!('url' in input.data.host) || typeof input.data.host.url !== 'string'){
+			return false;
+		}
+		return true;
 	}
 
 	private async saveAnnouncement(): Promise<void> {

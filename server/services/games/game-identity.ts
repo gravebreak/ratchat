@@ -6,7 +6,7 @@ import type { KeyedParseFailureRecord } from '../../defs/def-parse';
 import { ConfigService } from '../config';
 
 import { AppError, handleError } from '../../utils/errors';
-import { mergeIdentityDefaults } from '../../utils/parse';
+import { mergeIdentityDefaults, isUnknownArray } from '../../utils/parse';
 import { createSaveQueue } from '../../utils/queue';
 import { assertSafeStartup, getRepairPath } from '../../utils/repair';
 import { existsFile, createJsonFile, readJsonFile, writeJsonFile } from '../../utils/serialize';
@@ -183,7 +183,7 @@ export class GameIdentityService {
 	}
 
 	private resolveGameUsersStrict(input: unknown): Map<GameIdentity['playerid'], GameIdentity>{
-		if(!Array.isArray(input)){
+		if(!isUnknownArray(input)){
 			throw new AppError('game user data was not an array, refusing to reload', 'internal', 'warn');
 		}
 
@@ -191,7 +191,7 @@ export class GameIdentityService {
 		const defaultGameId = this.buildDefaultGameIdentity();
 
 		for(const entry of input){
-			if(!Array.isArray(entry) || entry.length !== 2 || typeof entry[0] !== 'string'){
+			if(!isUnknownArray(entry) || entry.length !== 2 || typeof entry[0] !== 'string'){
 				throw new AppError('malformed game user record found, refusing to reload', 'internal', 'warn');
 			}
 
@@ -260,7 +260,7 @@ export class GameIdentityService {
 		const resolvedGameUsers = new Map<GameIdentity['playerid'], GameIdentity>();
 		const failures: KeyedParseFailureRecord[] = [];
 
-		if(!Array.isArray(input)){
+		if(!isUnknownArray(input)){
 			console.warn('Game user data was not an array, starting fresh');
 			return [resolvedGameUsers, failures];
 		}
@@ -268,7 +268,7 @@ export class GameIdentityService {
 		const defaultGameId = this.buildDefaultGameIdentity();
 
 		for(const entry of input){
-			if(!Array.isArray(entry) || entry.length !== 2 || typeof entry[0] !== 'string'){
+			if(!isUnknownArray(entry) || entry.length !== 2 || typeof entry[0] !== 'string'){
 				console.warn('Skipping malformed game user record entry');
 				continue;
 			}

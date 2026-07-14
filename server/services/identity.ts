@@ -11,7 +11,7 @@ import type { SafeString } from './moderation';
 
 import { handleError, AppError } from '../utils/errors';
 import { getBaseNick, getNickColor } from '../utils/format';
-import { mergeIdentityDefaults } from '../utils/parse';
+import { isUnknownArray, mergeIdentityDefaults } from '../utils/parse';
 import { createSaveQueue } from '../utils/queue';
 import { assertSafeStartup, getRepairPath } from '../utils/repair';
 import { existsFile, createJsonFile, readJsonFile, writeJsonFile } from '../utils/serialize';
@@ -296,7 +296,7 @@ export class IdentityService {
 	}
 
 	private resolveUsersStrict(input: unknown): Map<Identity['guid'], Identity>{
-		if(!Array.isArray(input)){
+		if(!isUnknownArray(input)){
 			throw new AppError('user data was not an array, refusing to reload', 'internal', 'warn');
 		}
 
@@ -304,7 +304,7 @@ export class IdentityService {
 		const defaultId = this.buildDefaultIdentity();
 
 		for(const entry of input){
-			if(!Array.isArray(entry) || entry.length !== 2 || typeof entry[0] !== 'string'){
+			if(!isUnknownArray(entry) || entry.length !== 2 || typeof entry[0] !== 'string'){
 				throw new AppError('malformed user record found, refusing to reload', 'internal', 'warn');
 			}
 
@@ -388,7 +388,7 @@ export class IdentityService {
 		const resolvedUsers = new Map<Identity['guid'], Identity>();
 		const failures: KeyedParseFailureRecord[] = [];
 
-		if(!Array.isArray(input)){
+		if(!isUnknownArray(input)){
 			console.warn('User data was not an array, starting fresh');
 			return [resolvedUsers, failures];
 		}
@@ -396,7 +396,7 @@ export class IdentityService {
 		const defaultId = this.buildDefaultIdentity();
 		
 		for(const entry of input){
-			if(!Array.isArray(entry) || entry.length !== 2 || typeof entry[0] !== 'string'){
+			if(!isUnknownArray(entry) || entry.length !== 2 || typeof entry[0] !== 'string'){
 				console.warn('Skipping malformed user record entry');
 				continue;
 			}

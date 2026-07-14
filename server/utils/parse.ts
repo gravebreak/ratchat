@@ -12,6 +12,10 @@ export function parseArray<T>(parsed: unknown[], schema: z.ZodType<T>): T[]{
 	return parsed.filter((entry): entry is T => schema.safeParse(entry).success);
 }
 
+export function isUnknownArray(input: unknown): input is unknown[]{
+	return Array.isArray(input);
+}
+
 export function mergeIdentityDefaults(input: unknown, label: typeof aType.id, fallback: DefaultIdentity,  schema: typeof IdentitySchema): [Identity | null, ParseFailureRecord[]];
 export function mergeIdentityDefaults(input: unknown, label: typeof aType.gid, fallback: DefaultGameIdentity,  schema: typeof GameIdentitySchema): [GameIdentity | null, ParseFailureRecord[]];
 export function mergeIdentityDefaults(input: unknown, label: SchemaType, fallback: DefaultIdentity | DefaultGameIdentity, schema: typeof IdentitySchema | typeof GameIdentitySchema): [Identity | GameIdentity | null, ParseFailureRecord[]] {
@@ -58,8 +62,8 @@ function mergeDefaults(input: unknown, label: SchemaType, fallback: Record<strin
 	for(const key of Object.keys(shape)){
 		const fieldSchema = shape[key] as z.ZodTypeAny;
 		const val = (input as Record<string, unknown>)?.[key];
-		const def = fallback[key];
 		const parsed = fieldSchema.safeParse(val);
+		const def = fallback[key];
 
 		if(parsed.success){
 			merged[key] = parsed.data;

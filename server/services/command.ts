@@ -697,7 +697,7 @@ export class CommandService {
 				this.deps.dispatchService.sendSystemChat(ctx.socket, mType.info, `removing emote set ${targetID}...`);
 				
 				try{
-					const size = await this.deps.stateService.removeEmotes(ctx.io, targetID);
+					const size = await this.deps.stateService.deleteEmotes(ctx.io, targetID);
 					this.deps.dispatchService.sendSystemChat(ctx.socket, mType.info, `${size} emotes removed`);
 					return clearInput;
 				} 

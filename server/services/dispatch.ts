@@ -9,7 +9,7 @@ import { ConfigService } from './config';
 
 import { handleError } from '../utils/errors';
 import { getBaseNick } from '../utils/format';
-import { parseArray } from '../utils/parse';
+import { parseArray, isUnknownArray } from '../utils/parse';
 import { createSaveQueue } from '../utils/queue';
 
 type Target = { emit: Server['emit'] };
@@ -157,7 +157,7 @@ export class DispatchService{
 				return;
 			}
 
-			if(!Array.isArray(historyLoad)){
+			if(!isUnknownArray(historyLoad)){
 				console.warn('Redis chat history value was not an array, starting fresh');
 				return;
 			}

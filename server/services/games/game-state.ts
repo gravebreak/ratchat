@@ -12,7 +12,7 @@ import { GameIdentityService } from './game-identity';
 import { IdentityService } from '../identity';
 
 import { handleError, AppError } from '../../utils/errors';
-import { mergeRecordDefaults } from '../../utils/parse';
+import { mergeRecordDefaults, isUnknownArray } from '../../utils/parse';
 import { createSaveQueue } from '../../utils/queue';
 import { assertSafeStartup, getRepairPath } from '../../utils/repair';
 import { createJsonFile, existsFile, readJsonFile, writeJsonFile } from '../../utils/serialize';
@@ -302,7 +302,7 @@ export class GameStateService {
 	}
 
 	private genericResolveRecords<RecordEntry>(input: unknown, label: string, resolveEntry: (entry: unknown) => [RecordEntry | null, ParseFailureRecord[]]): [RecordEntry[], KeyedParseFailureRecord[]]{
-		if(!Array.isArray(input)){
+		if(!isUnknownArray(input)){
 			throw new AppError(`${label} record file did not contain an array`, 'internal', 'warn');
 		}
 

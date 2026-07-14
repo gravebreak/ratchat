@@ -4,6 +4,7 @@ import { ConfigService } from './config';
 
 import { handleError, AppError } from '../utils/errors';
 import { hashIP } from '../utils/hash';
+import { isUnknownArray } from '../utils/parse';
 import { createSaveQueue } from '../utils/queue';
 import { existsFile, createJsonFile, readJsonFile, writeJsonFile } from '../utils/serialize';
 
@@ -130,7 +131,7 @@ export class SecurityService{
 	}
 
 	private resolveBans(input: unknown): BanEntry[]{
-		if(!Array.isArray(input)){
+		if(!isUnknownArray(input)){
 			console.error('Ban data was not an array, starting fresh');
 			return [];
 		}
@@ -139,7 +140,7 @@ export class SecurityService{
 		let invalidEntries = 0;
 		let expiredEntries = 0;
 		for(const entry of input){
-			if(!Array.isArray(entry) || entry.length !== 2 || typeof entry[0] !== 'string'){
+			if(!isUnknownArray(entry) || entry.length !== 2 || typeof entry[0] !== 'string'){
 				invalidEntries++;
 				continue;
 			}
@@ -149,7 +150,12 @@ export class SecurityService{
 				continue;
 			}
 
-			const date = new Date((entry[1]).date);
+			if(typeof entry[1].date !== 'string' && typeof entry[1].date !== 'number'){
+				invalidEntries++;
+				continue;
+			}
+
+			const date = new Date(entry[1].date);
 			if(isNaN(date.getTime())){
 				invalidEntries++;
 				continue;
