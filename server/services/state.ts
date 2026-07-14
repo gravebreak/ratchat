@@ -1,6 +1,5 @@
-import type { Socket, Server } from 'socket.io';
-
-import { mType } from '../defs/def-message';
+import { cType } from '../defs/def-events';
+import type { RatServer, RatSocket } from '../defs/def-events';
 import type { Identity, UserSum } from '../defs/def-identity';
 
 import { CacheService } from './cache';
@@ -34,21 +33,21 @@ export interface StateServiceDependencies{
 	dispatchService: DispatchService;
 	identityService: IdentityService;
 
-	io: Server;
+	io: RatServer;
 }
 
 export class StateService {
 	public markovUser: Identity | null = null;
 	public markovSleep: boolean = false;
 	
-	private socketUsers = new Map<Socket['id'], Identity>();
+	private socketUsers = new Map<RatSocket['id'], Identity>();
 	private emotes = new Map<string, string>();
 
 	private announcement: string = '';
 
-	private signupBuffer: Map<string, {socket: Socket; basenick: SafeString}> = new Map();
+	private signupBuffer: Map<string, {socket: RatSocket; basenick: SafeString}> = new Map();
 	private signupTimer: NodeJS.Timeout | null = null;
-	private signupPromise: Map<Socket, (value: boolean)=> void> = new Map();
+	private signupPromise: Map<RatSocket, (value: boolean)=> void> = new Map();
 
 	private announcementQueue = createSaveQueue(() => this.saveAnnouncement());
 	private markovSleepQueue = createSaveQueue(() => this.saveMarkovSleep());
@@ -68,7 +67,7 @@ export class StateService {
 		return this.emotes;
 	}
 
-	public async updateEmotes(io: Server, setID?: string): Promise<number>{
+	public async updateEmotes(io: RatServer, setID?: string): Promise<number>{
 
 		const targetID = setID ?? this.deps.configService.getServerConfig().stvurl;
 		if(!targetID){
@@ -110,7 +109,7 @@ export class StateService {
 			}
 
 			const emotePayload = Object.fromEntries(this.emotes);
-			this.deps.dispatchService.sendEmoteList(io, emotePayload);
+			this.deps.dispatchService.sendEmoteListPayload(io, emotePayload);
 			return size;
 		} 
 		catch(error: unknown){
@@ -123,7 +122,7 @@ export class StateService {
 		}
 	}
 
-	public async deleteEmotes(io: Server, setID: string): Promise<number>{
+	public async deleteEmotes(io: RatServer, setID: string): Promise<number>{
 		if(setID.length < 1){
 			throw new AppError('please provide a target emote setID to remove', 'user');
 		}
@@ -165,7 +164,7 @@ export class StateService {
 			}
 
 			const emotePayload = Object.fromEntries(this.emotes);
-			this.deps.dispatchService.sendEmoteList(io, emotePayload);
+			this.deps.dispatchService.sendEmoteListPayload(io, emotePayload);
 			return deleteCount;
 		} 
 		catch(error: unknown){
@@ -178,8 +177,8 @@ export class StateService {
 		}
 	}
 
-	public getSocketUsersMap(): Map<Socket['id'], Identity>{
-		const copy = new Map<Socket['id'], Identity>();
+	public getSocketUsersMap(): Map<RatSocket['id'], Identity>{
+		const copy = new Map<RatSocket['id'], Identity>();
 
 		for(const [socketID, identity] of this.socketUsers){
 			copy.set(socketID, structuredClone(identity));
@@ -188,7 +187,7 @@ export class StateService {
 		return copy;
 	}
 	
-	public getSocketUser(socketID: Socket['id']): Identity | null {
+	public getSocketUser(socketID: RatSocket['id']): Identity | null {
 		const user = this.socketUsers.get(socketID);
 		if(!user){
 			return null;
@@ -196,7 +195,7 @@ export class StateService {
 		return structuredClone(user);
 	}
 	
-	public updateSocketUser(io: Server, socketID: Socket['id'], identity: Identity): void {
+	public updateSocketUser(io: RatServer, socketID: RatSocket['id'], identity: Identity): void {
 		this.socketUsers.set(socketID, identity);
 
 		for (const [sId, user] of this.socketUsers.entries()){
@@ -208,12 +207,12 @@ export class StateService {
 		this.broadcastUsers(io);
 	}
 
-	public deleteSocketUser(io: Server, socketID: Socket['id']): void {
+	public deleteSocketUser(io: RatServer, socketID: RatSocket['id']): void {
 		this.socketUsers.delete(socketID);
 		this.broadcastUsers(io);
 	}
 
-	public broadcastUsers(io: Server): void {		
+	public broadcastUsers(io: RatServer): void {		
 		const userList: UserSum[] = Array.from(this.socketUsers.values())
 			.map(({ fullnick, status, isMod, isAfk }) => ({ fullnick, status, isMod, isAfk }))
 			.sort((a,b) =>{
@@ -254,10 +253,10 @@ export class StateService {
 			isAfk: true
 		});
 
-		this.deps.dispatchService.sendUserList(io, userList);
+		this.deps.dispatchService.sendUserListPayload(io, userList);
 	}
 
-	public toggleMarkov(io: Server): Identity {
+	public toggleMarkov(io: RatServer): Identity {
 		if(this.markovUser === null){
 			throw new AppError('toggleMarkov called while markov bot is disabled', 'bug');
 		}
@@ -274,7 +273,7 @@ export class StateService {
 		return this.markovUser; 
 	}
 
-	public toggleMarkovSleep(io: Server): boolean {
+	public toggleMarkovSleep(io: RatServer): boolean {
 		if(this.markovSleep){
 			this.markovSleep = false;
 		}
@@ -321,7 +320,7 @@ export class StateService {
 		return this.announcement;
 	}
 
-	public setAnnouncement(io: Server, str: SafeString): void {
+	public setAnnouncement(io: RatServer, str: SafeString): void {
 		if(this.announcement === str){
 			throw new AppError("that's already the announcement", 'user');
 		}
@@ -329,7 +328,7 @@ export class StateService {
 		this.announcement = str;
 		
 		if(str){
-		  	this.deps.dispatchService.sendSystemChat(io, mType.ann,`announcement: ${str}`);
+		  	this.deps.dispatchService.sendSystemChatPayload(io, cType.ann,`announcement: ${str}`);
 		}
 
 		this.announcementQueue.chain();
@@ -365,7 +364,7 @@ export class StateService {
 		}
 	}
 
-	public queueSignup(socket: Socket, basenick: SafeString): Promise<boolean> {
+	public queueSignup(socket: RatSocket, basenick: SafeString): Promise<boolean> {
 		return new Promise<boolean>((resolve, reject) => {
 			try {
 				const hashed = hashIP(socket.handshake.address);
@@ -464,7 +463,7 @@ export class StateService {
 		setInterval(() =>{
 			const now = Date.now();
 			const afkTime = this.deps.configService.getServerConfig().afkDef * 1000;
-			const updates: Array<{ id: Socket['id']; user: Identity }> = [];
+			const updates: Array<{ id: RatSocket['id']; user: Identity }> = [];
 
 			for(const [id, user] of this.socketUsers.entries()){
 				const lastMessage = new Date(user.lastMessage).getTime();

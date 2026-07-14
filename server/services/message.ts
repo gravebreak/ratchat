@@ -1,8 +1,8 @@
-import { Server, Socket } from 'socket.io';
-
+import { cType } from '../defs/def-events';
 import { clearInput, keepInput } from '../defs/def-input';
-import { mType } from '../defs/def-message';
+import type { RatServer, RatSocket } from '../defs/def-events';
 import type { Identity } from '../defs/def-identity';
+import type { InputStatus } from '../defs/def-input';
 
 import { ConfigService } from './config';
 import { DispatchService } from './dispatch';
@@ -21,7 +21,7 @@ export interface MessageServiceDependencies {
 	identityService: IdentityService;
 	markovService: MarkovService | null;
 
-	io: Server;
+	io: RatServer;
 }
 
 export class MessageService {
@@ -30,10 +30,10 @@ export class MessageService {
 		this.deps = dependencies;
 	}
 
-	public handleChat(msg: string, user: Identity, socket: Socket, spoiler: boolean): boolean{
+	public handleChat(msg: string, user: Identity, socket: RatSocket, spoiler: boolean): InputStatus {
 		try{
 			const safe = this.deps.moderationService.moderateText(msg, user, 'chat');
-			this.deps.dispatchService.sendChat(this.deps.io, user, safe, spoiler);
+			this.deps.dispatchService.sendChatPayload(this.deps.io, user, safe, spoiler);
 
 			if(this.deps.markovService && this.deps.configService.getMarkovConfig().learning){
 				const markov = this.deps.markovService;
@@ -50,10 +50,10 @@ export class MessageService {
 		catch(error: unknown){
 			const response = handleError(error, 'handleChat text check');
 			if(response){
-				this.deps.dispatchService.sendSystemChat(socket, mType.error, `system: ${response}`);
+				this.deps.dispatchService.sendSystemChatPayload(socket, cType.error, `system: ${response}`);
 			} 
 			else{
-				this.deps.dispatchService.sendSystemChat(socket, mType.error, 'system: unknown error. try again');
+				this.deps.dispatchService.sendSystemChatPayload(socket, cType.error, 'system: unknown error. try again');
 			}
 			return keepInput;
 		}

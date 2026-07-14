@@ -1,9 +1,10 @@
 import { existsSync } from 'fs';
 import { DatabaseSync } from 'node:sqlite';
-import { Server } from 'socket.io';
 
-import { mType } from '../defs/def-message';
+
+import { cType } from '../defs/def-events';
 import { tType } from '../defs/def-moderation';
+import type { RatServer } from '../defs/def-events';
 import type { RandomCandidateMap } from '../defs/def-random';
 
 import { ConfigService } from './config';
@@ -39,7 +40,7 @@ export interface MarkovServiceDependencies {
 	stateService: StateService;
 
 	brainPath: string;
-	io: Server;
+	io: RatServer;
 }
 
 export class MarkovService{
@@ -56,10 +57,10 @@ export class MarkovService{
 	
 	private init(): void {
 		this.initializeMarkovBrain();
-		this.startMarkovTimer(this.deps.io);
+		this.startMarkovTimer();
 	}
 
-	public async generateMarkovText(io: Server, seed?: string): Promise<string> {
+	public async generateMarkovText(io: RatServer, seed?: string): Promise<string> {
 		if(!this.db){
 			throw new AppError('brain db not initialized', 'internal', 'warn');
 		}
@@ -149,7 +150,7 @@ export class MarkovService{
 			catch(error: unknown){
 				if(error instanceof AppError){
 					if(error.message === 'watch your profamity'){
-						this.deps.dispatchService.sendSystemChat(io, mType.ann, `${getBaseNick(markovUser.fullnick)} tried to say something naughty`);
+						this.deps.dispatchService.sendSystemChatPayload(io, cType.ann, `${getBaseNick(markovUser.fullnick)} tried to say something naughty`);
 						continue;
 					}
 					else{
@@ -468,15 +469,16 @@ export class MarkovService{
 		}
 	}
 
-	private startMarkovTimer(io: Server): void {
+	private startMarkovTimer(): void {
 		setInterval(async () =>{
 			if(this.deps.stateService.markovSleep){
 				return;
 			}
 			try{
+				const io = this.deps.io;
 				const generatedText = await this.generateMarkovText(io);
 				if(this.deps.stateService.markovUser){
-					this.deps.dispatchService.sendMarkovChat(io, generatedText, this.deps.stateService.markovUser, this.deps.stateService.markovUser, '');
+					this.deps.dispatchService.sendMarkovChatPayload(io, generatedText, this.deps.stateService.markovUser, this.deps.stateService.markovUser, '');
 				}
 			}
 			catch(error: unknown){

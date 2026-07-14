@@ -674,7 +674,7 @@
 		
 		socket.on('toClientGame', handleGameEvent);
 
-		socket.on('identity', (identity) => {
+		socket.on('toClientIdentity', (identity) => {
 			if(identity && identity.guid){
 				localStorage.setItem('ratGUID', identity.guid);
 				localGUID = identity.guid;
@@ -684,7 +684,7 @@
 			}
 		});
 		
-		socket.on('userlist', (uList) => {
+		socket.on('toClientUserList', (uList) => {
 			const userListElement = document.getElementById('user-list');
 			const lurkerElement = document.getElementById('lurker-status');
 			userListElement.replaceChildren();
@@ -768,11 +768,11 @@
 			lurkerElement.textContent = `lurkers: ${lurkerData.status}`;
 		});
 
-		socket.on('eventlist', (payload) =>{
+		socket.on('toClientEventList', (payload) =>{
 			eventList = payload.map(event => event.toLowerCase());
 		});
 
-		socket.on('emotelist', (payload) =>{
+		socket.on('toClientEmoteList', (payload) =>{
 			emotes = payload;
 			const container = document.getElementById('emotes-grid-wrapper');
 			
@@ -809,7 +809,7 @@
 			container.appendChild(grid);
 		});
 
-		socket.on('deleteMsg', (msgArray) => {
+		socket.on('toClientDeleteMessage', (msgArray) => {
 			if(!Array.isArray(msgArray)){
 				return;
 			}
@@ -833,7 +833,7 @@
 			});
 		});
 
-		socket.on('clearLocalData', (payload) => {
+		socket.on('toClientClearLocalData', (payload) => {
 			if (!payload || payload !== localGUID){
 				return;
 			}
@@ -1015,7 +1015,7 @@
 							displayClientMessage('fetching event list...', 'i-li');
 
 							await Promise.race([
-								new Promise(resolve => socket.emit('requesteventlist', resolve)),
+								new Promise(resolve => socket.emit('toServerEventList', resolve)),
 								new Promise(resolve => setTimeout(resolve, 3000))
 							]);
 
@@ -1094,7 +1094,7 @@
 							displayClientMessage('fetching event list...', 'i-li');
 
 							await Promise.race([
-								new Promise(resolve => socket.emit('requesteventlist', resolve)),
+								new Promise(resolve => socket.emit('toServerEventList', resolve)),
 								new Promise(resolve => setTimeout(resolve, 3000))
 							]);
 

@@ -1,4 +1,4 @@
-import { Socket } from 'socket.io';
+import type { RatSocket } from '../defs/def-events';
 
 import { ConfigService } from './config';
 
@@ -40,7 +40,7 @@ export class SecurityService{
 		this.startBanSweepTimer();
 	}
 	
-	public existsBan(address: Socket['handshake']['address']): boolean {
+	public existsBan(address: RatSocket['handshake']['address']): boolean {
 		try{
 			const hash = hashIP(address);
 			if(this.bans.has(hash)){
@@ -60,7 +60,7 @@ export class SecurityService{
 		}
 	}
 
-	public setBan(socket: Socket): void {
+	public setBan(socket: RatSocket): void {
 		const banIP = hashIP(socket.handshake.address);
 		const now = new Date();
 		const ban: BanEntry = {hash: banIP, date: now};

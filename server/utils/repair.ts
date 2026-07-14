@@ -22,4 +22,3 @@ function getTempPath(originalPath: string): string{
 	const temp = `${originalPath}.tmp`;
 	return temp;
 }
-

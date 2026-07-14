@@ -1,2 +1,4 @@
-export const clearInput: boolean = true;
-export const keepInput: boolean = false;
+export type InputStatus = boolean & {readonly __brand: 'Input'};
+
+export const clearInput: InputStatus = true as InputStatus;
+export const keepInput: InputStatus = false as InputStatus;

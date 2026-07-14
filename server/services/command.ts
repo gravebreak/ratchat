@@ -1,10 +1,11 @@
-import { Server, Socket } from 'socket.io';
-
+import { cType } from '../defs/def-events';
 import { keepInput, clearInput } from '../defs/def-input';
-import { mType } from '../defs/def-message';
 import { tType } from '../defs/def-moderation';
+import type { Command } from '../defs/def-commands';
+import type { RatServer, RatSocket } from '../defs/def-events';
 import type { Identity } from '../defs/def-identity';
-import type { Command } from '../defs/def-message';
+import type { InputStatus } from '../defs/def-input';
+
 
 import { ConfigService } from './config';
 import { DispatchService } from './dispatch';
@@ -24,7 +25,7 @@ import { isValidGUID } from '../utils/validate';
 type CommandEntry = {
 	requiresMod: boolean;
 	requiresMarkov: boolean;
-	handler: (ctx: Command) => boolean | Promise<boolean>;
+	handler: (ctx: Command) => InputStatus | Promise<InputStatus>;
 }
 
 export interface CommandServiceDependencies {
@@ -42,7 +43,7 @@ export interface CommandServiceDependencies {
 
 export class CommandService {
 	private commands: Record<string, CommandEntry> = {};
-	private activeCommands: Map<Socket['id'], boolean> = new Map();
+	private activeCommands: Map<RatSocket['id'], boolean> = new Map();
 	private gameCommandNames: Set<string> = new Set();
 	private markovBaseNick: string = 'markov';
 	
@@ -58,7 +59,7 @@ export class CommandService {
 		this.initializeGameCommands();
 	}
 
-	public async handleCommand(msg: string, socket: Socket, io: Server, caller: Identity | null): Promise<boolean>{
+	public async handleCommand(msg: string, socket: RatSocket, io: RatServer, caller: Identity | null): Promise<InputStatus>{
 		const args = msg.slice(1).trim().split(/ +/);
 		const commandName = args.shift()?.toLowerCase() || '';
 
@@ -93,7 +94,7 @@ export class CommandService {
 			return result;
 		}
 		catch(error: unknown){
-			this.deps.dispatchService.sendUserError(socket, error, `Handle Command: ${commandName}`);
+			this.deps.dispatchService.sendUserErrorMessage(socket, error, `Handle Command: ${commandName}`);
 			return keepInput;
 		}
 		finally{
@@ -105,17 +106,17 @@ export class CommandService {
 		return Object.keys(this.commands);
 	}
 	
-	private sendRegistrationWarning(socket: Socket, action: string = 'do that'): boolean{
-		this.deps.dispatchService.sendSystemChat(socket, mType.error, `system: please use /chrat <nickname> before trying to ${action}`);
+	private sendRegistrationWarning(socket: RatSocket, action: string = 'do that'): InputStatus {
+		this.deps.dispatchService.sendSystemChatPayload(socket, cType.error, `system: please use /chrat <nickname> before trying to ${action}`);
 		return clearInput;
 	}
 
-	private sendNotCommand(socket: Socket): boolean {
-		this.deps.dispatchService.sendSystemChat(socket, mType.error, "system: that's not a command lol");
+	private sendNotCommand(socket: RatSocket): InputStatus {
+		this.deps.dispatchService.sendSystemChatPayload(socket, cType.error, "system: that's not a command lol");
 		return keepInput;
 	}
 
-	private async executeCommand(name: string, ctx: Command): Promise<boolean> {
+	private async executeCommand(name: string, ctx: Command): Promise<InputStatus> {
 		const entry = this.commands[name];
 		if(!entry){
 			return this.sendNotCommand(ctx.socket);
@@ -127,7 +128,7 @@ export class CommandService {
 			return this.sendNotCommand(ctx.socket);
 		}
 		if(entry.requiresMod && notMod){
-			this.deps.dispatchService.sendSystemChat(ctx.socket, mType.error, 'naughty naughty');
+			this.deps.dispatchService.sendSystemChatPayload(ctx.socket, cType.error, 'naughty naughty');
 			return clearInput;
 		}
 
@@ -164,7 +165,7 @@ export class CommandService {
 		this.commands['help'] = {
 			requiresMod: false,
 			requiresMarkov: false,
-			handler: (ctx): boolean => {
+			handler: (ctx): InputStatus => {
 
 				const helpMessages = [
 					'/help, /h, or /commands : View this list.',
@@ -220,7 +221,7 @@ export class CommandService {
 				);
 
 				const formatTable = helpMessages.join('\n');
-				this.deps.dispatchService.sendSystemChat(ctx.socket, mType.info, formatTable);
+				this.deps.dispatchService.sendSystemChatPayload(ctx.socket, cType.info, formatTable);
 				return clearInput;
 			}
 		};
@@ -228,7 +229,7 @@ export class CommandService {
 		this.commands['mutehelp'] = {
 			requiresMod: false,
 			requiresMarkov: false,
-			handler:(ctx): boolean => {
+			handler:(ctx): InputStatus => {
 				const helpMessages = [
 					"/mutehelp : information on how to use the /mute feature. you're looking at it",
 					//./mute and /m are handled client side
@@ -244,7 +245,7 @@ export class CommandService {
 				];
 				
 				const formatTable = helpMessages.join('\n');
-				this.deps.dispatchService.sendSystemChat(ctx.socket, mType.info, formatTable);
+				this.deps.dispatchService.sendSystemChatPayload(ctx.socket, cType.info, formatTable);
 				return clearInput;
 			}
 		};
@@ -252,7 +253,7 @@ export class CommandService {
 		this.commands['nick'] = {
 			requiresMod: false,
 			requiresMarkov: false,
-			handler: async (ctx): Promise<boolean> => {
+			handler: async (ctx): Promise<InputStatus> => {
 				const newBaseNick = ctx.fullArgs;
 
 				if(ctx.commandUser){
@@ -261,26 +262,26 @@ export class CommandService {
 						const safe = this.deps.moderationService.moderateText(newBaseNick, ctx.commandUser, 'base');
 						const user = this.deps.identityService.setBaseNick(ctx.commandUser.guid, safe);
 						this.deps.stateService.updateSocketUser(ctx.io, ctx.socket.id, user);
-						this.deps.dispatchService.sendIdentity(ctx.socket, user);
-						this.deps.dispatchService.sendSystemChat(ctx.io, mType.ann, `${oldBaseNick} changed their username to ${getBaseNick(user.fullnick)}`);
+						this.deps.dispatchService.sendIdentityPayload(ctx.socket, user);
+						this.deps.dispatchService.sendSystemChatPayload(ctx.io, cType.ann, `${oldBaseNick} changed their username to ${getBaseNick(user.fullnick)}`);
 						return clearInput;
 					} 
 					catch(error: unknown){
-						this.deps.dispatchService.sendUserError(ctx.socket, error, 'Nick Command');
+						this.deps.dispatchService.sendUserErrorMessage(ctx.socket, error, 'Nick Command');
 						return keepInput;
 					}
 				}
 				else{
 					try{
 						const safe = this.deps.moderationService.moderateNewUserBaseNick(newBaseNick, 'base');
-						this.deps.dispatchService.sendSystemChat(ctx.socket, mType.info, 'creating user...');
+						this.deps.dispatchService.sendSystemChatPayload(ctx.socket, cType.info, 'creating user...');
 						const batch = await this.deps.stateService.queueSignup(ctx.socket, safe);
 						if(batch){
 							const user = this.deps.identityService.createNewUser(safe);
 							this.deps.stateService.updateSocketUser(ctx.io, ctx.socket.id, user);
-							this.deps.dispatchService.sendIdentity(ctx.socket, user);
-							this.deps.dispatchService.sendSystemChat(ctx.socket, mType.info, 'system: your new identity has been loaded. consider using /export to save for later use');
-							this.deps.dispatchService.sendSystemChat(ctx.io, mType.ann, `${getBaseNick(user.fullnick)} has joined teh ratchat`);
+							this.deps.dispatchService.sendIdentityPayload(ctx.socket, user);
+							this.deps.dispatchService.sendSystemChatPayload(ctx.socket, cType.info, 'system: your new identity has been loaded. consider using /export to save for later use');
+							this.deps.dispatchService.sendSystemChatPayload(ctx.io, cType.ann, `${getBaseNick(user.fullnick)} has joined teh ratchat`);
 							return clearInput;
 						}
 						else{
@@ -288,7 +289,7 @@ export class CommandService {
 						}
 					}
 					catch(error: unknown){
-						this.deps.dispatchService.sendUserError(ctx.socket, error,'Nick Command New User');
+						this.deps.dispatchService.sendUserErrorMessage(ctx.socket, error,'Nick Command New User');
 						return keepInput;
 					}
 				}
@@ -298,7 +299,7 @@ export class CommandService {
 		this.commands['color'] = {
 			requiresMod: false,
 			requiresMarkov: false,		
-			handler: (ctx): boolean => {
+			handler: (ctx): InputStatus => {
 				if(!ctx.commandUser){
 					return this.sendRegistrationWarning(ctx.socket, 'set a color');
 				}
@@ -307,13 +308,13 @@ export class CommandService {
 					const user = this.deps.identityService.setColor(ctx.commandUser.guid, safe);
 
 					this.deps.stateService.updateSocketUser(ctx.io, ctx.socket.id, user);
-					this.deps.dispatchService.sendIdentity(ctx.socket, user);
-					this.deps.dispatchService.sendSystemChat(ctx.socket, mType.info, `system: your color has been updated to ${getNickColor(user.fullnick)}`);
+					this.deps.dispatchService.sendIdentityPayload(ctx.socket, user);
+					this.deps.dispatchService.sendSystemChatPayload(ctx.socket, cType.info, `system: your color has been updated to ${getNickColor(user.fullnick)}`);
 
 					return clearInput;
 				}
 				catch(error: unknown){
-					this.deps.dispatchService.sendUserError(ctx.socket, error, 'Color Command');
+					this.deps.dispatchService.sendUserErrorMessage(ctx.socket, error, 'Color Command');
 					return keepInput;
 				}
 			}
@@ -323,11 +324,11 @@ export class CommandService {
 		this.commands['colour'] = {
 			requiresMod: false,
 			requiresMarkov: false,
-			handler: (ctx): boolean => {
+			handler: (ctx): InputStatus => {
 				if(!ctx.commandUser){
 					return this.sendRegistrationWarning(ctx.socket, 'set a colour');
 				}
-				this.deps.dispatchService.sendSystemChat(ctx.socket, mType.error, 'system: lern to speak american');
+				this.deps.dispatchService.sendSystemChatPayload(ctx.socket, cType.error, 'system: lern to speak american');
 				return keepInput;
 			}
 		};
@@ -335,7 +336,7 @@ export class CommandService {
 		this.commands['import'] = {
 			requiresMod: false,
 			requiresMarkov: false,
-			handler: (ctx): boolean => {
+			handler: (ctx): InputStatus => {
 				try{
 					const newGUID = ctx.args[0];	
 					if(!isValidGUID(newGUID)){
@@ -344,20 +345,20 @@ export class CommandService {
 					const updatedUser = this.deps.identityService.getUser(newGUID);
 
 					this.deps.stateService.updateSocketUser(ctx.io, ctx.socket.id, updatedUser);
-					this.deps.dispatchService.sendIdentity(ctx.socket, updatedUser);
-					this.deps.dispatchService.sendSystemChat(ctx.socket, mType.info, `system: identity changed to ${getBaseNick(updatedUser.fullnick)}`);
+					this.deps.dispatchService.sendIdentityPayload(ctx.socket, updatedUser);
+					this.deps.dispatchService.sendSystemChatPayload(ctx.socket, cType.info, `system: identity changed to ${getBaseNick(updatedUser.fullnick)}`);
 					
 					//if existing user show them disconnecting
 					if(ctx.commandUser){
-						this.deps.dispatchService.sendSystemChat(ctx.io, mType.ann, `${getBaseNick(ctx.commandUser.fullnick)} disconnected`);
+						this.deps.dispatchService.sendSystemChatPayload(ctx.io, cType.ann, `${getBaseNick(ctx.commandUser.fullnick)} disconnected`);
 					}
 
-					this.deps.dispatchService.sendSystemChat(ctx.io, mType.ann, `${getBaseNick(updatedUser.fullnick)} connected`);
+					this.deps.dispatchService.sendSystemChatPayload(ctx.io, cType.ann, `${getBaseNick(updatedUser.fullnick)} connected`);
 					
 					return clearInput;
 				} 
 				catch(error: unknown){
-					this.deps.dispatchService.sendUserError(ctx.socket, error, 'GUID Import Command');
+					this.deps.dispatchService.sendUserErrorMessage(ctx.socket, error, 'GUID Import Command');
 					return keepInput;
 				}
 			}
@@ -366,7 +367,7 @@ export class CommandService {
 		this.commands['afk'] = {
 			requiresMod: false,
 			requiresMarkov: false,
-			handler: async (ctx): Promise<boolean> => {
+			handler: async (ctx): Promise<InputStatus> => {
 				if(!ctx.commandUser){
 					return this.sendRegistrationWarning(ctx.socket, 'go afk lmao');
 				} 
@@ -377,7 +378,7 @@ export class CommandService {
 					
 
 					this.deps.stateService.updateSocketUser(ctx.io, ctx.socket.id, afkUser);
-					this.deps.dispatchService.sendSystemChat(ctx.socket, mType.info, afkUser.isAfk ? "you've gone afk" : `welcome back, ${getBaseNick(afkUser.fullnick)}`);
+					this.deps.dispatchService.sendSystemChatPayload(ctx.socket, cType.info, afkUser.isAfk ? "you've gone afk" : `welcome back, ${getBaseNick(afkUser.fullnick)}`);
 
 					if(ctx.fullArgs && ctx.fullArgs.trim().length > 0){
 						return await this.executeCommand('status', ctx);
@@ -386,7 +387,7 @@ export class CommandService {
 					return clearInput;
 				} 
 				catch(error: unknown){
-					this.deps.dispatchService.sendUserError(ctx.socket, error, 'AFK Command');
+					this.deps.dispatchService.sendUserErrorMessage(ctx.socket, error, 'AFK Command');
 					return keepInput;
 				}
 			}
@@ -395,7 +396,7 @@ export class CommandService {
 		this.commands['status'] = {
 			requiresMod: false,
 			requiresMarkov: false,
-			handler: (ctx): boolean => {
+			handler: (ctx): InputStatus => {
 				if(!ctx.commandUser){
 					return this.sendRegistrationWarning(ctx.socket, 'facebook post');
 				}
@@ -404,13 +405,13 @@ export class CommandService {
 					const user = this.deps.identityService.setStatus(ctx.commandUser.guid, safe);
 
 					this.deps.stateService.updateSocketUser(ctx.io, ctx.socket.id, user);
-					this.deps.dispatchService.sendSystemChat(ctx.socket, mType.info, `your status is now: ${user.status}`);
+					this.deps.dispatchService.sendSystemChatPayload(ctx.socket, cType.info, `your status is now: ${user.status}`);
 					
 					return clearInput;
 
 				}
 				catch(error: unknown){
-					this.deps.dispatchService.sendUserError(ctx.socket, error, 'Status Command');
+					this.deps.dispatchService.sendUserErrorMessage(ctx.socket, error, 'Status Command');
 					return keepInput;
 				}
 			}
@@ -419,7 +420,7 @@ export class CommandService {
 		this.commands['spoiler'] = {
 			requiresMod: false,
 			requiresMarkov: false,
-			handler: (ctx): boolean => {
+			handler: (ctx): InputStatus => {
 			if(!ctx.commandUser){
 				return this.sendRegistrationWarning(ctx.socket, 'ruin things for everyone else');
 			}
@@ -430,7 +431,7 @@ export class CommandService {
 		this.commands['markov'] = {
 			requiresMod: false,
 			requiresMarkov: true,
-			handler: async (ctx): Promise<boolean> => {
+			handler: async (ctx): Promise<InputStatus> => {
 				if(!ctx.commandUser){
 					return this.sendRegistrationWarning(ctx.socket, 'generate random text');
 				}
@@ -443,7 +444,7 @@ export class CommandService {
 					}
 
 					if(this.deps.stateService.markovSleep){
-						this.deps.dispatchService.sendSystemChat(ctx.socket, mType.info, `shh, ${getBaseNick(markovUser.fullnick)} is sleeping`);
+						this.deps.dispatchService.sendSystemChatPayload(ctx.socket, cType.info, `shh, ${getBaseNick(markovUser.fullnick)} is sleeping`);
 						return clearInput;
 					}
 
@@ -462,11 +463,11 @@ export class CommandService {
 						return this.sendNotCommand(ctx.socket);
 					}
 
-					this.deps.dispatchService.sendSystemChat(ctx.socket, mType.info, 'generating markov text...');
+					this.deps.dispatchService.sendSystemChatPayload(ctx.socket, cType.info, 'generating markov text...');
 
 					const gentext = await this.deps.markovService.generateMarkovText(ctx.io, seed);
 
-					this.deps.dispatchService.sendMarkovChat(ctx.io, gentext, markovUser, ctx.commandUser, seed);
+					this.deps.dispatchService.sendMarkovChatPayload(ctx.io, gentext, markovUser, ctx.commandUser, seed);
 					if(!ctx.commandUser.isMod){
 						this.deps.stateService.toggleMarkov(ctx.io);
 					}
@@ -474,7 +475,7 @@ export class CommandService {
 				}
 				catch(error: unknown){
 					this.deps.identityService.setLastMessage(ctx.commandUser.guid, Date.now());
-					this.deps.dispatchService.sendUserError(ctx.socket, error, 'Markov Command Generation');
+					this.deps.dispatchService.sendUserErrorMessage(ctx.socket, error, 'Markov Command Generation');
 					return keepInput;
 				}
 			}
@@ -485,7 +486,7 @@ export class CommandService {
 		this.commands['modhelp'] = {
 			requiresMod: true,
 			requiresMarkov: false,
-			handler: (ctx): boolean => {
+			handler: (ctx): InputStatus => {
 				const config = this.deps.configService.getServerConfig();
 				
 				const helpMessages = [
@@ -507,7 +508,7 @@ export class CommandService {
 				}
 				
 				const formatTable = helpMessages.join('\n');
-				this.deps.dispatchService.sendSystemChat(ctx.socket, mType.info, formatTable);
+				this.deps.dispatchService.sendSystemChatPayload(ctx.socket, cType.info, formatTable);
 				return clearInput;
 			}
 		};
@@ -515,7 +516,7 @@ export class CommandService {
 		this.commands['announce'] = {
 			requiresMod: true,
 			requiresMarkov: false,
-			handler: (ctx): boolean => {
+			handler: (ctx): InputStatus => {
 				try{
 					if(!ctx.commandUser){
 						throw new AppError('Undefined user in Mod Command Call', 'bug');
@@ -523,12 +524,12 @@ export class CommandService {
 					const safe = this.deps.moderationService.moderateText(ctx.fullArgs, ctx.commandUser, 'chat');
 					this.deps.stateService.setAnnouncement(ctx.io, safe);
 					if(safe.length === 0){
-						this.deps.dispatchService.sendSystemChat(ctx.socket, mType.info, 'announcement cleared');
+						this.deps.dispatchService.sendSystemChatPayload(ctx.socket, cType.info, 'announcement cleared');
 					}
 					return clearInput;
 				}
 				catch(error: unknown){
-					this.deps.dispatchService.sendUserError(ctx.socket, error, 'Announce Command');
+					this.deps.dispatchService.sendUserErrorMessage(ctx.socket, error, 'Announce Command');
 					return keepInput;
 				}
 			}
@@ -537,7 +538,7 @@ export class CommandService {
 		this.commands['ban'] = {
 			requiresMod: true,
 			requiresMarkov: false,
-			handler: (ctx): boolean => {		
+			handler: (ctx): InputStatus => {		
 				
 				try{
 					if(!ctx.args[0]){
@@ -558,8 +559,8 @@ export class CommandService {
 						}
 					}
 					if(msgArray.length > 0){
-						this.deps.dispatchService.deleteMessage(ctx.io, msgArray);
-						this.deps.dispatchService.sendSystemChat(ctx.socket, mType.info, `deleted ${msgArray.length} user messages`);
+						this.deps.dispatchService.deleteMessages(ctx.io, msgArray);
+						this.deps.dispatchService.sendSystemChatPayload(ctx.socket, cType.info, `deleted ${msgArray.length} user messages`);
 					}
 
 					for (const [socketID, identity] of this.deps.stateService.getSocketUsersMap()){
@@ -568,8 +569,8 @@ export class CommandService {
 								const targetsocket = ctx.io.sockets.sockets.get(socketID);
 								if(targetsocket){
 									this.deps.securityService.setBan(targetsocket);
-									this.deps.dispatchService.sendClearLocalData(targetsocket, identity.guid);
-									this.deps.dispatchService.sendSystemChat(targetsocket, mType.info, 'You have been banned.');
+									this.deps.dispatchService.sendDeleteClientLocalDataPayload(targetsocket, identity.guid);
+									this.deps.dispatchService.sendSystemChatPayload(targetsocket, cType.info, 'You have been banned.');
 									targetsocket.disconnect();
 								}
 							}
@@ -582,11 +583,11 @@ export class CommandService {
 					
 					this.deps.identityService.deleteUserByBaseNick(targetBaseNick);
 
-					this.deps.dispatchService.sendSystemChat(ctx.io, mType.info, `${targetBaseNick} has been banned.`);
+					this.deps.dispatchService.sendSystemChatPayload(ctx.io, cType.info, `${targetBaseNick} has been banned.`);
 					return clearInput;
 				}
 				catch(error: unknown){
-					this.deps.dispatchService.sendUserError(ctx.socket, error, 'Ban Command');
+					this.deps.dispatchService.sendUserErrorMessage(ctx.socket, error, 'Ban Command');
 					return keepInput;
 				}
 			}
@@ -595,7 +596,7 @@ export class CommandService {
 		this.commands['timeout'] = {
 			requiresMod: true,
 			requiresMarkov: false,
-			handler: (ctx): boolean => {
+			handler: (ctx): InputStatus => {
 				try{
 					if(!ctx.args[0]){
 						throw new AppError('missing target', 'user');
@@ -634,14 +635,14 @@ export class CommandService {
 
 					//delete messages if any
 					if(msgArray.length > 0){
-						this.deps.dispatchService.deleteMessage(ctx.io, msgArray);
+						this.deps.dispatchService.deleteMessages(ctx.io, msgArray);
 					}
 
-					this.deps.dispatchService.sendSystemChat(ctx.io, mType.info, `${targetBaseNick} has been timed out.`);
+					this.deps.dispatchService.sendSystemChatPayload(ctx.io, cType.info, `${targetBaseNick} has been timed out.`);
 					return clearInput;
 				} 
 				catch(error: unknown){
-					this.deps.dispatchService.sendUserError(ctx.socket, error, 'Timeout Command');
+					this.deps.dispatchService.sendUserErrorMessage(ctx.socket, error, 'Timeout Command');
 					return keepInput;
 				}
 			}
@@ -650,15 +651,15 @@ export class CommandService {
 		this.commands['delete'] = {
 			requiresMod: true,
 			requiresMarkov: false,
-			handler: (ctx): boolean => {
+			handler: (ctx): InputStatus => {
 				const id = Number(ctx.args[0]);
 
 				if(!ctx.args[0] || !Number.isInteger(id) || id < 0){
-					this.deps.dispatchService.sendSystemChat(ctx.socket, mType.error, 'system: please provide a valid message id');
+					this.deps.dispatchService.sendSystemChatPayload(ctx.socket, cType.error, 'system: please provide a valid message id');
 					return keepInput;
 				}
 
-				this.deps.dispatchService.deleteMessage(ctx.io, [id]);
+				this.deps.dispatchService.deleteMessages(ctx.io, [id]);
 
 				return clearInput;
 			}
@@ -667,23 +668,23 @@ export class CommandService {
 		this.commands['emotes'] = {
 			requiresMod: true,
 			requiresMarkov: false,
-			handler: async (ctx): Promise<boolean> => {
+			handler: async (ctx): Promise<InputStatus> => {
 				const targetID = ctx.args[0];
 
 				if(targetID){
-					this.deps.dispatchService.sendSystemChat(ctx.socket, mType.info, `fetching new emote set ${targetID}...`);
+					this.deps.dispatchService.sendSystemChatPayload(ctx.socket, cType.info, `fetching new emote set ${targetID}...`);
 				}
 				else{
-					this.deps.dispatchService.sendSystemChat(ctx.socket, mType.info, 'reloading emotes from config...');
+					this.deps.dispatchService.sendSystemChatPayload(ctx.socket, cType.info, 'reloading emotes from config...');
 				}
 
 				try{
 					const size = await this.deps.stateService.updateEmotes(ctx.io, targetID);
-					this.deps.dispatchService.sendSystemChat(ctx.socket, mType.info, `${size} emotes loaded`);
+					this.deps.dispatchService.sendSystemChatPayload(ctx.socket, cType.info, `${size} emotes loaded`);
 					return clearInput;
 				} 
 				catch(error: unknown){
-					this.deps.dispatchService.sendUserError(ctx.socket, error, 'Emotes Command');
+					this.deps.dispatchService.sendUserErrorMessage(ctx.socket, error, 'Emotes Command');
 					return keepInput;
 				}
 			}
@@ -692,17 +693,17 @@ export class CommandService {
 		this.commands['unemotes'] = {
 			requiresMod: true,
 			requiresMarkov: false,
-			handler: async (ctx): Promise<boolean> => {
+			handler: async (ctx): Promise<InputStatus> => {
 				const targetID = ctx.args[0];
-				this.deps.dispatchService.sendSystemChat(ctx.socket, mType.info, `removing emote set ${targetID}...`);
+				this.deps.dispatchService.sendSystemChatPayload(ctx.socket, cType.info, `removing emote set ${targetID}...`);
 				
 				try{
 					const size = await this.deps.stateService.deleteEmotes(ctx.io, targetID);
-					this.deps.dispatchService.sendSystemChat(ctx.socket, mType.info, `${size} emotes removed`);
+					this.deps.dispatchService.sendSystemChatPayload(ctx.socket, cType.info, `${size} emotes removed`);
 					return clearInput;
 				} 
 				catch(error: unknown){
-					this.deps.dispatchService.sendUserError(ctx.socket, error, 'Unemotes Command');
+					this.deps.dispatchService.sendUserErrorMessage(ctx.socket, error, 'Unemotes Command');
 					return keepInput;
 				}
 			}
@@ -711,16 +712,16 @@ export class CommandService {
 		this.commands['loadusers'] = {
 			requiresMod: true,
 			requiresMarkov: false,
-			handler: (ctx): boolean => {
+			handler: (ctx): InputStatus => {
 				try{
 					const size = this.deps.identityService.reloadUsers();
-					this.deps.dispatchService.sendSystemChat(ctx.socket, mType.info, `${size} users reloaded`);
+					this.deps.dispatchService.sendSystemChatPayload(ctx.socket, cType.info, `${size} users reloaded`);
 					const gameSize = this.deps.gameIdentityService.reloadGameUsers();
-					this.deps.dispatchService.sendSystemChat(ctx.socket, mType.info, `${gameSize} game users reloaded`);
+					this.deps.dispatchService.sendSystemChatPayload(ctx.socket, cType.info, `${gameSize} game users reloaded`);
 					return clearInput;
 				} 
 				catch(error: unknown){
-					this.deps.dispatchService.sendUserError(ctx.socket, error, 'Load Users Command');
+					this.deps.dispatchService.sendUserErrorMessage(ctx.socket, error, 'Load Users Command');
 					return keepInput;
 				}
 			}
@@ -729,7 +730,7 @@ export class CommandService {
 		this.commands['botstatus'] = {
 			requiresMod: true,
 			requiresMarkov: true,
-			handler: (ctx): boolean => {
+			handler: (ctx): InputStatus => {
 				try{
 					const markovUser = this.deps.stateService.markovUser;
 					if(!markovUser){
@@ -741,11 +742,11 @@ export class CommandService {
 					const safe = this.deps.moderationService.moderateText(ctx.fullArgs, ctx.commandUser, 'status');
 					markovUser.status = safe;
 					this.deps.stateService.broadcastUsers(ctx.io);
-					this.deps.dispatchService.sendSystemChat(ctx.socket, mType.info, `${this.markovBaseNick} status is now: ${markovUser.status}`);
+					this.deps.dispatchService.sendSystemChatPayload(ctx.socket, cType.info, `${this.markovBaseNick} status is now: ${markovUser.status}`);
 					return clearInput;
 				} 
 				catch(error: unknown){
-					this.deps.dispatchService.sendUserError(ctx.socket, error, 'Bot Status Command');
+					this.deps.dispatchService.sendUserErrorMessage(ctx.socket, error, 'Bot Status Command');
 					return keepInput;
 				}
 			}
@@ -754,21 +755,21 @@ export class CommandService {
 		this.commands['botsleep'] = {
 			requiresMod: true,
 			requiresMarkov: true,
-			handler: (ctx): boolean => {
+			handler: (ctx): InputStatus => {
 				const markovUser = this.deps.stateService.markovUser;
 				if(!markovUser){
-					this.deps.dispatchService.sendSystemChat(ctx.socket, mType.error, "system: we couldn't find a markov bot");
+					this.deps.dispatchService.sendSystemChatPayload(ctx.socket, cType.error, "system: we couldn't find a markov bot");
 					return keepInput;
 				}
 
 				const markovSleep = this.deps.stateService.toggleMarkovSleep(ctx.io);
 
 				if(markovSleep){
-					this.deps.dispatchService.sendSystemChat(ctx.socket, mType.info, `${this.markovBaseNick} is sleepin now. honk shoo`);
+					this.deps.dispatchService.sendSystemChatPayload(ctx.socket, cType.info, `${this.markovBaseNick} is sleepin now. honk shoo`);
 					return clearInput;
 				}
 				else{
-					this.deps.dispatchService.sendSystemChat(ctx.socket, mType.info, `${this.markovBaseNick} is awake now. rise and grind`);
+					this.deps.dispatchService.sendSystemChatPayload(ctx.socket, cType.info, `${this.markovBaseNick} is awake now. rise and grind`);
 					return clearInput;
 				}
 			}
@@ -779,7 +780,7 @@ export class CommandService {
 		this.commands['gdpr'] = {
 			requiresMod: false,
 			requiresMarkov: false,
-			handler: (ctx): boolean => {
+			handler: (ctx): InputStatus => {
 				const subComm = ctx.args[0];
 				switch (subComm){
 					case 'info':{
@@ -828,7 +829,7 @@ export class CommandService {
 						);
 
 						const formatTable = infoMsgs.join('\n');
-						this.deps.dispatchService.sendSystemChat(ctx.socket, mType.info, formatTable);
+						this.deps.dispatchService.sendSystemChatPayload(ctx.socket, cType.info, formatTable);
 						return clearInput;
 					}
 
@@ -844,36 +845,36 @@ export class CommandService {
 							'---------------------------------------------------------------------------------------------'
 						];
 						const formatIpTable = ipMsgs.join('\n');
-						this.deps.dispatchService.sendSystemChat(ctx.socket, mType.info, formatIpTable);
+						this.deps.dispatchService.sendSystemChatPayload(ctx.socket, cType.info, formatIpTable);
 						return clearInput;
 					}
 					
 					case 'export':{
 						if(!ctx.commandUser){
-							this.deps.dispatchService.sendSystemChat(ctx.socket, mType.error, 'system: no server stored data');
+							this.deps.dispatchService.sendSystemChatPayload(ctx.socket, cType.error, 'system: no server stored data');
 							return clearInput;
 						}
 						try{
 							const user = this.deps.identityService.getUser(ctx.commandUser.guid);
 							const gameUser = this.deps.gameIdentityService.getGameUser(ctx.commandUser.playerid);
 
-							this.deps.dispatchService.sendSystemChat(ctx.socket, mType.info, `Server stored user info: ${JSON.stringify(user, null, 4)}`);
-							this.deps.dispatchService.sendSystemChat(ctx.socket, mType.info, `Server stored game info: ${JSON.stringify(gameUser, null, 4)}`);
+							this.deps.dispatchService.sendSystemChatPayload(ctx.socket, cType.info, `Server stored user info: ${JSON.stringify(user, null, 4)}`);
+							this.deps.dispatchService.sendSystemChatPayload(ctx.socket, cType.info, `Server stored game info: ${JSON.stringify(gameUser, null, 4)}`);
 							return clearInput;
 						}
 						catch(error: unknown){
-							this.deps.dispatchService.sendUserError(ctx.socket, error, 'GDPR Export Command');
+							this.deps.dispatchService.sendUserErrorMessage(ctx.socket, error, 'GDPR Export Command');
 							return keepInput;
 						}
 					}
 
 					case 'delete':{
 						if(!ctx.commandUser){
-							this.deps.dispatchService.sendSystemChat(ctx.socket, mType.error, 'system: no server stored data');
+							this.deps.dispatchService.sendSystemChatPayload(ctx.socket, cType.error, 'system: no server stored data');
 							return clearInput;
 						}
 						if(ctx.args[1] !== 'confirm'){
-							this.deps.dispatchService.sendSystemChat(ctx.socket, mType.error, "warning: this will permanently delete your account and all server-side data. type '/gdpr delete confirm' to proceed.");
+							this.deps.dispatchService.sendSystemChatPayload(ctx.socket, cType.error, "warning: this will permanently delete your account and all server-side data. type '/gdpr delete confirm' to proceed.");
 							return keepInput;
 						}
 
@@ -882,11 +883,11 @@ export class CommandService {
 							const targetFullNick = ctx.commandUser.fullnick;
 
 							if(!this.deps.identityService.existsUser(targetGuid)){
-								this.deps.dispatchService.sendSystemChat(ctx.socket, mType.info, 'No server side data found.');
+								this.deps.dispatchService.sendSystemChatPayload(ctx.socket, cType.info, 'No server side data found.');
 							}
 							else{
 								this.deps.identityService.deleteUser(targetGuid);
-								this.deps.dispatchService.sendSystemChat(ctx.socket, mType.info, 'Your server side data has been deleted.');
+								this.deps.dispatchService.sendSystemChatPayload(ctx.socket, cType.info, 'Your server side data has been deleted.');
 							}
 
 							//iterate through all sockets to find matches
@@ -895,23 +896,23 @@ export class CommandService {
 							allSockets.forEach((socket) => {
 								const mappedUser = socketUsers.get(socket.id);
 								if(mappedUser && mappedUser.guid === targetGuid){
-									this.deps.dispatchService.sendClearLocalData(socket, targetGuid);
+									this.deps.dispatchService.sendDeleteClientLocalDataPayload(socket, targetGuid);
 									this.deps.stateService.deleteSocketUser(ctx.io, socket.id);
 								}
 							});
 
-							this.deps.dispatchService.sendSystemChat(ctx.io, mType.ann, `${getBaseNick(targetFullNick)} disconnected`);
+							this.deps.dispatchService.sendSystemChatPayload(ctx.io, cType.ann, `${getBaseNick(targetFullNick)} disconnected`);
 							return clearInput;
 
 						} 
 						catch(error: unknown){
-							this.deps.dispatchService.sendUserError(ctx.socket, error, 'GDPR Delete Command');
+							this.deps.dispatchService.sendUserErrorMessage(ctx.socket, error, 'GDPR Delete Command');
 							return keepInput;
 						}
 					}
 					
 					default:{
-						this.deps.dispatchService.sendSystemChat(ctx.socket, mType.error, "system: please use with 'info', 'ip', 'export' or 'delete' after /gdpr");
+						this.deps.dispatchService.sendSystemChatPayload(ctx.socket, cType.error, "system: please use with 'info', 'ip', 'export' or 'delete' after /gdpr");
 						return keepInput;
 					}
 				}

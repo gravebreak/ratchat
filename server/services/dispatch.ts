@@ -1,8 +1,7 @@
-import { Server, Socket } from 'socket.io';
-
-import { mType, eType, ChatMessageSchema } from '../defs/def-message';
-import type { UserSum, Identity } from '../defs/def-identity';
-import type { MessageType, ChatMessage, GameEvent, GameEventType } from '../defs/def-message';
+import { cType, eType, ChatPayloadSchema } from '../defs/def-events';
+import type { RatServer, RatSocket, ClientEventType, GameEventType } from '../defs/def-events';
+import type { ToClient, ChatPayload, GamePayload, IdentityPayload, UserListPayload, EventListPayload, EmoteListPayload, DeleteMessagePayload, DeleteClientLocalDataPayload } from '../defs/def-events';
+import type { Identity } from '../defs/def-identity';
 
 import { CacheService } from './cache';
 import { ConfigService } from './config';
@@ -12,22 +11,10 @@ import { getBaseNick } from '../utils/format';
 import { parseArray, isUnknownArray } from '../utils/parse';
 import { createSaveQueue } from '../utils/queue';
 
-type Target = { emit: Server['emit'] };
-type TextPayload = typeof mType.chat | typeof mType.ann | typeof mType.error | typeof mType.info | typeof mType.welcome | typeof mType.markov;
-type EmotePayload = Record<string, string>;
-type EventPayload = GameEventType[];
-type ChatHistory = Map<ChatMessage['id'], ChatMessage>;
-type MessagePayloadMap = {
-	[MType in MessageType]:
-		MType extends typeof mType.game ? GameEvent :
-		MType extends typeof mType.identity ? Identity :
-		MType extends typeof mType.ulist ? UserSum[] :
-		MType extends typeof mType.elist ? EventPayload :
-		MType extends typeof mType.emotelist ? EmotePayload :
-		MType extends typeof mType.delmsg ? ChatMessage['id'][] :
-		MType extends typeof mType.clrlocal ? Identity['guid'] :
-		ChatMessage;
-};
+type Target = { emit: RatServer['emit'] };
+type TextPayload = typeof cType.chat | typeof cType.ann | typeof cType.error | typeof cType.info | typeof cType.welcome | typeof cType.markov;
+type ChatHistory = Map<ChatPayload['id'], ChatPayload>;
+
 
 const REDIS_HISTORY_KEY = CacheService.createRedisKey('messageHistory');
 const REDIS_COUNTER_KEY = CacheService.createRedisKey('messageCounter');
@@ -39,7 +26,7 @@ export interface DispatchServiceDependencies {
 }
 
 export class DispatchService{
-	private messageCounter: ChatMessage['id'] = 0; 
+	private messageCounter: ChatPayload['id'] = 0; 
 	private chatHistory : ChatHistory = new Map();
 	private historyQueue = createSaveQueue(() => this.saveChatHistory());
 	private counterQueue = createSaveQueue(() => this.saveMessageCounter());
@@ -54,76 +41,79 @@ export class DispatchService{
 		this.startExpireMessageTimer();
 	}
 
-	public sendChat(to: Target, author: Identity, content:string, spoiler: boolean): void {
-		const msg = this.createMessage(false, author, content, mType.chat, spoiler);
-		this.sendPayload(to, mType.chat, msg);
+	public sendChatPayload(to: Target, author: Identity, content:string, spoiler: boolean): void {
+		const chatMessage = this.createChatPayload(false, author, content, cType.chat, spoiler);
+		this.sendPayload(to, cType.chat, chatMessage);
 		const msgArrayLen = this.deps.configService.getServerConfig().msgArrayLen;
 		if(msgArrayLen > 0){
-			this.chatHistory.set(msg.id, msg);
+			this.chatHistory.set(chatMessage.id, chatMessage);
 			this.trimChatHistory();
 		}
 	}
 
 	public sendChatHistory(to: Target): void {
-		for (const [, msg] of this.chatHistory){
-			this.sendPayload(to, mType.chat, msg);
+		for (const [, chatMessage] of this.chatHistory){
+			this.sendPayload(to, cType.chat, chatMessage);
 		}
 	}
 
-	public sendSystemChat(to: Target, type: TextPayload, text: string): void {
-		this.sendPayload(to, type, this.createMessage(true,'system',text, type, false));
+	public sendSystemChatPayload(to: Target, type: TextPayload, text: string): void {
+		const systemChatMessage = this.createChatPayload(true,'system',text, type, false);
+		this.sendPayload(to, type, systemChatMessage);
 	}
 
-	public sendMarkovChat(to: Target, text: string, markov: Identity, user: Identity, seed?: string): void {
-		const payload = `${getBaseNick(user.fullnick)}|${seed}|${text}`;
-		this.sendPayload(to, mType.markov, this.createMessage(false,markov, payload, mType.markov, false));
+	public sendMarkovChatPayload(to: Target, text: string, markov: Identity, user: Identity, seed?: string): void {
+		const taggedText = `${getBaseNick(user.fullnick)}|${seed}|${text}`;
+		const markovChat = this.createChatPayload(false,markov, taggedText, cType.markov, false);
+		this.sendPayload(to, cType.markov, markovChat);
 	}
 
-	public sendGameEvent(to: Target, content: string, event: GameEventType): void {
-		const payload: GameEvent = {
+	public sendGamePayload(to: Target, content: string, event: GameEventType): void {
+		const payload: GamePayload = {
 			content: content,
 			timestamp: Date.now(),
 			event: event
 		};
-		this.sendPayload(to, mType.game, payload);
+		this.sendPayload(to, cType.game, payload);
 	}
 
-	public sendIdentity(to: Target, identity: Identity): void {
-		this.sendPayload(to, mType.identity, identity);
+	public sendIdentityPayload(to: Target, identity: IdentityPayload): void {
+		this.sendPayload(to, cType.identity, identity);
 	}
 
-	public sendEmoteList(to: Target, emotes: EmotePayload): void {
-		this.sendPayload(to, mType.emotelist, emotes);
+	public sendEmoteListPayload(to: Target, emotes: EmoteListPayload): void {
+		this.sendPayload(to, cType.emotelist, emotes);
 	}
 
-	public sendUserList(to: Target, users: UserSum[]): void {
-		this.sendPayload(to, mType.ulist, users);
+	public sendUserListPayload(to: Target, users: UserListPayload): void {
+		this.sendPayload(to, cType.ulist, users);
 	}
 
-	public sendEventList(to: Target): void {
-		this.sendPayload(to, mType.elist, Object.values(eType));
+	public sendEventListPayload(to: Target): void {
+		const eventList: EventListPayload = Object.values(eType);
+		this.sendPayload(to, cType.elist, eventList);
 	}
 
-	public sendClearLocalData(to: Target, guid: Identity['guid']): void {
-		this.sendPayload(to, mType.clrlocal, guid);
+	public sendDeleteClientLocalDataPayload(to: Target, guid: DeleteClientLocalDataPayload): void {
+		this.sendPayload(to, cType.clrlocal, guid);
 	}
 
-	public sendUserError(to: Socket, error: unknown, prefix: string): void {
+	public sendUserErrorMessage(to: RatSocket, error: unknown, prefix: string): void {
 		const response = handleError(error, prefix);
 		if(response){
-			this.sendSystemChat(to, mType.error, `system: ${response}`);
+			this.sendSystemChatPayload(to, cType.error, `system: ${response}`);
 		} 
 		else{
-			this.sendSystemChat(to, mType.error, 'system: unknown error. try again');
+			this.sendSystemChatPayload(to, cType.error, 'system: unknown error. try again');
 		}
 	}
 
-	public deleteMessage(io: Server, msgArray: ChatMessage['id'][]): void {
-		const deleted: ChatMessage['id'][] = [];
+	public deleteMessages(io: RatServer, msgIdArray: DeleteMessagePayload): void {
+		const deleted: ChatPayload['id'][] = [];
 
-		this.sendPayload(io, mType.delmsg, msgArray);
+		this.sendPayload(io, cType.delmsg, msgIdArray);
 
-		msgArray.forEach(id => { 
+		msgIdArray.forEach(id => { 
 			if(this.chatHistory.delete(id)){
 				deleted.push(id);
 			}
@@ -164,10 +154,10 @@ export class DispatchService{
 			const now = Date.now();
 			const expireTime = (config.msgArrayTimeout - 60) * 1000;
 
-			const validMessages = parseArray(historyLoad, ChatMessageSchema);
+			const validMessages = parseArray(historyLoad, ChatPayloadSchema);
 			const fresh = validMessages.filter(msg => msg.timestamp + expireTime > now);
 			const trimmed = fresh.slice(-config.msgArrayLen);
-			const trimmedMap = trimmed.map((msg): [ChatMessage['id'], ChatMessage] => [msg.id, msg]);
+			const trimmedMap = trimmed.map((msg): [ChatPayload['id'], ChatPayload] => [msg.id, msg]);
 			this.chatHistory = new Map(trimmedMap);
 			console.log(`Restored ${this.chatHistory.size} chat history messages from Redis`);
 		}
@@ -202,24 +192,24 @@ export class DispatchService{
 		}
 	}
 
-	private sendPayload<MType extends MessageType>(to: Target, metype: MType, msg: MessagePayloadMap[MType]): void {
-		to.emit(metype, msg);
+	private sendPayload<Key extends ClientEventType>(to: Target, key: Key, ...args: Parameters<ToClient[Key]>): void {
+		to.emit(key, ...args);
 	}
 
-	private createMessage(sys: false, author: Identity, content: string, metype: TextPayload, spoiler: boolean): ChatMessage;
-	private createMessage(sys: true, author: string, content: string, metype: TextPayload, spoiler: boolean): ChatMessage;
-	private createMessage(sys: boolean = false, author: Identity | string = 'system', content: string, metype: TextPayload, spoiler: boolean = false): ChatMessage {
+	private createChatPayload(sys: false, author: Identity, content: string, eventtype: TextPayload, spoiler: boolean): ChatPayload;
+	private createChatPayload(sys: true, author: string, content: string, eventtype: TextPayload, spoiler: boolean): ChatPayload;
+	private createChatPayload(sys: boolean = false, author: Identity | string = 'system', content: string, eventtype: TextPayload, spoiler: boolean = false): ChatPayload {
 		return {
 			id: sys? -1: this.generateMessageId(),
 			author: typeof author === 'string' ? author : author.fullnick,
 			content: content,
 			timestamp: Date.now(),
-			type: metype,
+			type: eventtype,
 			spoiler: spoiler
 		};
 	}
 
-	private generateMessageId(): ChatMessage['id'] {
+	private generateMessageId(): ChatPayload['id'] {
 		if(this.messageCounter >= MAX_INT || this.messageCounter < 0){
 			this.messageCounter = 0;
 		}

@@ -4,8 +4,9 @@ import { join } from 'node:path';
 import { Server } from 'socket.io';
 
 import { clearInput, keepInput } from './defs/def-input';
-import { eType, mType } from './defs/def-message';
+import { eType, cType, sType } from './defs/def-events';
 import { tType } from './defs/def-moderation';
+import type { RatServer } from './defs/def-events';
 import type { Identity } from './defs/def-identity';
 
 import { CacheService } from './services/cache';
@@ -38,7 +39,7 @@ async function main(): Promise<void> {
 
 	const app = express();
 	const httpserver = createServer(app);
-	const io = new Server(httpserver, {path:'/ratchat/socket.io/', connectionStateRecovery:{}});
+	const io: RatServer = new Server(httpserver, {path:'/ratchat/socket.io/', connectionStateRecovery:{}});
 	
 	const serverConfigPath = join(__dirname, 'config.json');
 	const markovConfigPath = join(__dirname, 'markov.json');
@@ -195,7 +196,7 @@ async function main(): Promise<void> {
 		
 		try{
 			if(securityService.existsBan(socket.handshake.address)){
-				dispatchService.sendSystemChat(socket, mType.error, 'You are banned.');
+				dispatchService.sendSystemChatPayload(socket, cType.error, 'You are banned.');
 				socket.disconnect(true);
 				console.log('a banned user attempted to join');
 			}
@@ -211,15 +212,15 @@ async function main(): Promise<void> {
 		
 		if(emotes.size > 0){
 			const emotePayload = Object.fromEntries(emotes);
-			dispatchService.sendEmoteList(socket, emotePayload);
+			dispatchService.sendEmoteListPayload(socket, emotePayload);
 		}
 		dispatchService.sendChatHistory(socket);
-		dispatchService.sendEventList(socket);
+		dispatchService.sendEventListPayload(socket);
 
 		if(!inGrace){
-			dispatchService.sendSystemChat(socket, mType.welcome, `${welcomeMsg}`);
+			dispatchService.sendSystemChatPayload(socket, cType.welcome, `${welcomeMsg}`);
 			if(announcement){
-				dispatchService.sendSystemChat(socket, mType.ann, `announcement: ${announcement}`);
+				dispatchService.sendSystemChatPayload(socket, cType.ann, `announcement: ${announcement}`);
 			}
 		}
 
@@ -233,9 +234,9 @@ async function main(): Promise<void> {
 
 		if(returningUser){
 			stateService.updateSocketUser(io, socket.id, returningUser);
-			dispatchService.sendIdentity(socket, returningUser);
+			dispatchService.sendIdentityPayload(socket, returningUser);
 			if(!inGrace){
-				dispatchService.sendSystemChat(socket, mType.info, `welcome back, ${getBaseNick(returningUser.fullnick)}`);
+				dispatchService.sendSystemChatPayload(socket, cType.info, `welcome back, ${getBaseNick(returningUser.fullnick)}`);
 			}
 			let scount = 0;
 			for (const [, u] of stateService.getSocketUsersMap()){
@@ -247,7 +248,7 @@ async function main(): Promise<void> {
 				try{
 					moderationService.moderateTime(returningUser, tType.joinleave);
 					if(!inGrace){
-						dispatchService.sendSystemChat(io.except(socket.id), mType.ann,`${getBaseNick(returningUser.fullnick)} connected`);
+						dispatchService.sendSystemChatPayload(io.except(socket.id), cType.ann,`${getBaseNick(returningUser.fullnick)} connected`);
 					}
 					identityService.setLastMessage(returningUser.guid, Date.now(), false);
 				}
@@ -257,18 +258,18 @@ async function main(): Promise<void> {
 			}
 		} 
 		else {
-			dispatchService.sendSystemChat(socket,mType.error,'system: please use the /nick <nickname> to set a nickname or /import <GUID> to import one');
+			dispatchService.sendSystemChatPayload(socket,cType.error,'system: please use the /nick <nickname> to set a nickname or /import <GUID> to import one');
 			//GDPR warning
-			dispatchService.sendSystemChat(socket,mType.error,"system: be aware either command will store data regarding your session. type '/gdpr info' for more info");
-			dispatchService.sendSystemChat(socket,mType.info,'system: feel free to use /help or /h to see all available commands. some commands will not be available until you set your nickname!');
-			dispatchService.sendSystemChat(socket,mType.info,'we recommend increasing the zoom of your browser to 200% for the best viewing experience :)');
+			dispatchService.sendSystemChatPayload(socket,cType.error,"system: be aware either command will store data regarding your session. type '/gdpr info' for more info");
+			dispatchService.sendSystemChatPayload(socket,cType.info,'system: feel free to use /help or /h to see all available commands. some commands will not be available until you set your nickname!');
+			dispatchService.sendSystemChatPayload(socket,cType.info,'we recommend increasing the zoom of your browser to 200% for the best viewing experience :)');
 			
 			//force broadcastUsers for lurkers check
 			stateService.broadcastUsers(io);
 		}
 
 		//Message Handling
-		socket.on('toServerChat', async (msg, callback) => {
+		socket.on(sType.schat, async (msg, callback) => {
 			const user = stateService.getSocketUser(socket.id);
 
 			// Check if it's a command
@@ -279,7 +280,7 @@ async function main(): Promise<void> {
 					return;
 				}
 				catch(error: unknown){
-					dispatchService.sendUserError(socket, error, 'Main Function Command Check');
+					dispatchService.sendUserErrorMessage(socket, error, 'Main Function Command Check');
 					callback(keepInput);
 					return;
 				}
@@ -287,7 +288,7 @@ async function main(): Promise<void> {
 
 			//Prevent users from chatting without an identity
 			if(!user){
-				dispatchService.sendSystemChat(socket, mType.error, 'system: please set your nickname with /chrat <nickname> before chatting');
+				dispatchService.sendSystemChatPayload(socket, cType.error, 'system: please set your nickname with /chrat <nickname> before chatting');
 				callback(clearInput);
 				return;
 			}
@@ -296,8 +297,8 @@ async function main(): Promise<void> {
 			callback(messageService.handleChat(msg, user, socket, false));
 		});
 
-		socket.on('requesteventlist', (callback) => {
-			dispatchService.sendEventList(socket);
+		socket.on(sType.elist, (callback) => {
+			dispatchService.sendEventListPayload(socket);
 			callback();
 		});
 
@@ -318,7 +319,7 @@ async function main(): Promise<void> {
 					try{
 						moderationService.moderateTime(disuser, tType.joinleave);
 						if(!inGrace){
-							dispatchService.sendSystemChat(io, mType.ann, `${getBaseNick(disuser.fullnick)} disconnected`);
+							dispatchService.sendSystemChatPayload(io, cType.ann, `${getBaseNick(disuser.fullnick)} disconnected`);
 						}
 						identityService.setLastMessage(disuser.guid, Date.now());
 					}

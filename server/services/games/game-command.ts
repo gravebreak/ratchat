@@ -1,11 +1,12 @@
-import { Server, Socket } from 'socket.io';
-
+import { cType } from '../../defs/def-events';
 import { allGames } from '../../defs/def-config';
 import { clearInput, keepInput } from '../../defs/def-input';
-import { mType } from '../../defs/def-message';
+import type { Command } from '../../defs/def-commands';
 import type { GameType } from '../../defs/def-config';
+import type { RatServer, RatSocket } from '../../defs/def-events';
 import type { Identity } from '../../defs/def-identity';
-import type { Command } from '../../defs/def-message';
+import type { InputStatus } from '../../defs/def-input';
+
 
 import { ConfigService } from '../config';
 import { DispatchService } from '../dispatch';
@@ -15,7 +16,7 @@ import { GameStateService } from './game-state';
 
 type GameCommandEntry = {
 	enabledFor: GameType[];
-	handler: (ctx: Command) => boolean | Promise<boolean>;
+	handler: (ctx: Command) => InputStatus | Promise<InputStatus>;
 }
 
 export interface GameCommandServiceDependencies {
@@ -28,7 +29,7 @@ export interface GameCommandServiceDependencies {
 
 export class GameCommandService {
 	private gameCommands: Record<string, GameCommandEntry> = {};
-	private activeGameCommands: Map<Socket['id'], boolean> = new Map();
+	private activeGameCommands: Map<RatSocket['id'], boolean> = new Map();
 	
 	private deps: GameCommandServiceDependencies;
 	constructor(dependencies: GameCommandServiceDependencies){
@@ -40,7 +41,7 @@ export class GameCommandService {
 		this.registerGameCommands();
 	}
 
-	public async handleGameCommand(msg: string, socket: Socket, io: Server, caller: Identity): Promise<boolean>{
+	public async handleGameCommand(msg: string, socket: RatSocket, io: RatServer, caller: Identity): Promise<InputStatus>{
 		const args = msg.slice(1).trim().split(/ +/);
 		const commandName = args.shift()?.toLowerCase() || '';
 
@@ -66,7 +67,7 @@ export class GameCommandService {
 			return result;
 		}
 		catch(error: unknown){
-			this.deps.dispatchService.sendUserError(socket, error, `Handle Game Command: ${commandName}`);
+			this.deps.dispatchService.sendUserErrorMessage(socket, error, `Handle Game Command: ${commandName}`);
 			return keepInput;
 		}
 		finally{
@@ -78,13 +79,12 @@ export class GameCommandService {
 		return Object.keys(this.gameCommands);
 	}
 
-	private sendNotCommand(socket: Socket): boolean {
-		this.deps.dispatchService.sendSystemChat(socket, mType.error, "system: that's not a command lol");
+	private sendNotCommand(socket: RatSocket): InputStatus {
+		this.deps.dispatchService.sendSystemChatPayload(socket, cType.error, "system: that's not a command lol");
 		return keepInput;
 	}
 
-	//execute the command, true to clear 
-	private async executeGameCommand(name: string, ctx: Command): Promise<boolean> {
+	private async executeGameCommand(name: string, ctx: Command): Promise<InputStatus> {
 		const entry = this.gameCommands[name];
 
 		if(!entry){
@@ -101,7 +101,7 @@ export class GameCommandService {
 	private registerGameCommands(): void {
 		this.gameCommands['gamehelp'] = {
 			enabledFor: allGames,
-				handler: (ctx): boolean => {
+				handler: (ctx): InputStatus => {
 				const config = this.deps.configService.getGameConfig();
 				const helpMessages = [
 					'/gamehelp  : View this list.',
@@ -113,7 +113,7 @@ export class GameCommandService {
 				}
 
 				const formatTable = helpMessages.join('\n');
-				this.deps.dispatchService.sendSystemChat(ctx.socket, mType.info, formatTable);
+				this.deps.dispatchService.sendSystemChatPayload(ctx.socket, cType.info, formatTable);
 				return clearInput;
 			}
 		};
