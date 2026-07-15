@@ -175,6 +175,7 @@ async function main(): Promise<void> {
 		securityService: securityService,
 		gameIdentityService: gameIdentityService,
 		identityService: identityService,
+		gameStateService: gameStateService,
 		stateService: stateService,
 		markovService: markovService,
 		messageService: messageService,

@@ -94,6 +94,19 @@ export class GameStateService {
 		}
 	}
 
+	public reconcileRecords(): void {
+		let fishChanged = false;
+		for(const record of this.fishRecords){
+			if(record.playerid !== null && !this.deps.gameIdentityService.existsGameUser(record.playerid)){
+				Object.assign(record, this.buildDefaultFishRecordEntry());
+				fishChanged = true;
+			}
+		}
+		if(fishChanged){
+			this.fishQueue.chain();
+		}
+	}
+
 	private joinNicksToArray(entries: GameIdentity[]): StageOne[]{
 		const results: StageOne[] = [];
 

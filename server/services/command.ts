@@ -12,6 +12,7 @@ import { ModerationService } from './moderation';
 import { SecurityService } from './security';
 import { GameIdentityService } from './games/game-identity';
 import { IdentityService } from './identity';
+import { GameStateService } from './games/game-state';
 import { StateService } from './state';
 import { MarkovService } from './markov';
 import { MessageService } from './message';
@@ -30,11 +31,12 @@ type CommandEntry = {
 export interface CommandServiceDependencies {
 	configService: ConfigService;
 	dispatchService: DispatchService;
-	stateService: StateService;
-	gameIdentityService: GameIdentityService;
 	moderationService: ModerationService;
-	identityService: IdentityService;
 	securityService: SecurityService;
+	gameIdentityService: GameIdentityService;
+	identityService: IdentityService;
+	gameStateService: GameStateService;
+	stateService: StateService;
 	markovService: MarkovService | null;
 	messageService: MessageService;
 	gameCommandService: GameCommandService;
@@ -580,6 +582,7 @@ export class CommandService {
 					}
 
 					this.deps.identityService.deleteUserByBaseNick(targetBaseNick);
+					this.deps.gameStateService.reconcileRecords();
 
 					this.deps.dispatchService.sendSystemChatPayload(ctx.io, cType.info, `${targetBaseNick} has been banned.`);
 					return clearInput;
@@ -885,6 +888,7 @@ export class CommandService {
 							}
 							else{
 								this.deps.identityService.deleteUser(targetGuid);
+								this.deps.gameStateService.reconcileRecords();
 								this.deps.dispatchService.sendSystemChatPayload(ctx.socket, cType.info, 'Your server side data has been deleted.');
 							}
 
