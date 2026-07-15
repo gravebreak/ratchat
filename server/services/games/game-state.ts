@@ -129,6 +129,8 @@ export class GameStateService {
 		}
 
 		if(!session.biting || !session.fish){
+			clearTimeout(session.biteTimer);
+			this.activeFishing.delete(playerid);
 			return null;
 		}
 		const fishCatch = session.fish;
