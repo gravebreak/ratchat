@@ -64,7 +64,7 @@ export class StateService {
 	}
 
 	public getEmotes(): Map<string, string>{
-		return this.emotes;
+		return new Map(this.emotes);
 	}
 
 	public async updateEmotes(io: RatServer, setID?: string): Promise<number>{

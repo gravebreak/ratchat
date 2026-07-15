@@ -163,7 +163,7 @@ export class GameIdentityService {
 		if(!user){
 			throw new AppError('get game user: no matching game user found to playerid', 'internal', 'warn');
 		}
-		return user;
+		return structuredClone(user);
 	}
 
 	public createGameUser(newplayerid: GameIdentity['playerid']): GameIdentity{

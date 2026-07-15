@@ -124,7 +124,13 @@ export class DispatchService{
 	}
 
 	public getChatHistory(): ChatHistory {
-		return this.chatHistory;
+		const copy: ChatHistory = new Map();
+
+		for(const [id, msg] of this.chatHistory){
+			copy.set(id, structuredClone(msg));
+		}
+
+		return copy;
 	}
 
 	public async restoreChatHistory(): Promise<void> {

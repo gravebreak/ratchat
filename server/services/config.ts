@@ -54,12 +54,14 @@ export class ConfigService {
 				console.warn('No GDPR contact info set. If hosting publicly please set gdprcontact in config.json');
 			}
 			this.serverConfig = resolved;
+			Object.freeze(this.serverConfig.baseNickRes);
 			Object.freeze(this.serverConfig);
 			console.log('LOADED SERVER CONFIG:', this.serverConfig);
 		}
 		catch(error: unknown){
 			handleError(error, 'Server Config Merge');
 			this.serverConfig = defaultServerConfig;
+			Object.freeze(this.serverConfig.baseNickRes);
 			Object.freeze(this.serverConfig);
 			console.error('SERVER CONFIG LOAD FAILURE, ROLLED BACK TO DEFAULT', defaultServerConfig);
 		}
