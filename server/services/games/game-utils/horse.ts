@@ -31,7 +31,8 @@ export function createHorseRaceResult(records: PrivateHorseRecordList): HorseRac
 	}
 
 	const gateScores = createHorseScoresPhase(raceField, 1, 0);
-	const gates = createHorseStartCommentary(gateScores);
+	const gateSqueeze = squeezeHorseScores(gateScores, .5, .5);
+	const gates = createHorseStartCommentary(gateSqueeze);
 
 	const checkpoint1Scores = createHorseScoresPhase(gateScores, 0.7, 0.3);
 	const checkpoint1 = createHorseCommentary(checkpoint1Scores, gateScores, 2);
@@ -70,15 +71,40 @@ function createHorseWeights(candidates: Candidate[]): WeightedCandidates {
 	const weighted: WeightedCandidates = new Map();
 	for(let i = 0; i < candidates.length; i++){
 		if(i === candidates.length - 1){
-			const finalWeight = Math.max(remaining, 0.001);
+			let finalWeight: number;
+			if(remaining > 0.2){
+				finalWeight = Math.max(remaining * Math.random(), 0.001);
+			}
+			else{
+				finalWeight = Math.max(remaining, 0.001);
+			}
 			weighted.set(candidates[i], finalWeight);
 		}
 		else{
-			const thisWeight = Math.max(remaining * Math.random(), 0.001);
+			const doubleroll = (Math.random() + Math.random())/2;
+			const thisWeight = Math.max(remaining * doubleroll * 0.3, 0.001);
 			weighted.set(candidates[i], thisWeight);
 			remaining -= thisWeight;
 		}
 	}
+	const normalized = normalizeHorseWeights(weighted);
+	return normalized;
+}
+
+function normalizeHorseWeights(weighted: WeightedCandidates): WeightedCandidates {
+	let total = 0;
+	for(const weight of weighted.values()){
+		total += weight;
+	}
+
+	if(total <= 0){
+		throw new AppError('horse weight normalization found non-positive total weight', 'internal', 'warn');
+	}
+
+	for(const [horse, weight] of weighted){
+		weighted.set(horse, weight / total);
+	}
+
 	return weighted;
 }
 
@@ -132,10 +158,18 @@ function createHorseScoresPhase(race: HorseRaceEntry[], weightWeight: number, sc
 	return sorted;
 }
 
-function createHorseScore(raceEntry: HorseRaceEntry, xWeight: number, yWeight: number): number {
-	const random = Math.random() + 0.5;
-	const newScore = (xWeight * raceEntry.weight + yWeight * raceEntry.score) * random;
+function createHorseScore(raceEntry: HorseRaceEntry, weightWeight: number, scoreWeight: number): number {
+	const blend = (weightWeight * raceEntry.weight + scoreWeight * raceEntry.score);
+	const random = ((Math.random() - 0.5) * 0.3);
+	const newScore = Math.max(blend + random, 0.01);
 	return newScore;
+}
+
+function squeezeHorseScores(race: HorseRaceEntry[], mult: number, add: number): HorseRaceEntry[] {
+	for(const raceEntry of race){
+		raceEntry.score = raceEntry.score * mult + add;
+	}
+	return race;
 }
 
 function normalizeHorseScores(race: HorseRaceEntry[]): HorseRaceEntry[] {

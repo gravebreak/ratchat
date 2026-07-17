@@ -478,9 +478,10 @@ export function createHorseCommentary(curr: HorseRaceEntry[], prev: HorseRaceEnt
 			const surgeLine = createSurgeCommentary(secondCluster[0], nextCluster);
 			commentary.push(surgeLine);
 		}
-
-		const secondLine = createClusterCommentary(secondCluster, secondGap, ClusterType.Second);
-		commentary.push(secondLine);
+		else{
+			const secondLine = createClusterCommentary(secondCluster, secondGap, ClusterType.Second);
+			commentary.push(secondLine);
+		}
 
 		for(let clusterIndex = 1; clusterIndex < clusters.length; clusterIndex++){
 			const cluster = clusters[clusterIndex];
@@ -653,7 +654,7 @@ function createHorseMovementArray(curr: HorseRaceEntry[], prev: HorseRaceEntry[]
 function createHorseClusters(horses: HorseMovement[]): HorseMovement[][] {
 	let endStart = horses.length;
 	for(let index = 0; index < horses.length; index++){
-		if(horses[index].score < 0.5){
+		if(horses[index].score < 0.3){
 			endStart = index;
 			break;
 		}
