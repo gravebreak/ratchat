@@ -8,7 +8,7 @@ export const defaultHorseCatalog: HorseCatalogEntry[] = [
 	{horseName: 'Seis Siete'},
 	{horseName: 'The Horse Formerly Known As McQueen'},
 	{horseName: 'My Fat Chud Son'},
-	{horseName: 'Fillyvester Staillion'},
+	{horseName: 'Fillyvester Stallion'},
 	{horseName: 'MOPAR Gen 3 6.4L Apache HEMI'},
 	{horseName: 'Miku Miku BEEAAAAAAAAAAAAAAAAAAAM!'},
 	{horseName: 'Ocean Pretzel'},
@@ -42,4 +42,13 @@ export const defaultHorseCatalog: HorseCatalogEntry[] = [
 	{horseName: 'Bad Neigh-bor'},
 	{horseName: 'The Creepy Neigh-bor Who Stares In Your Windows'},
 	{horseName: 'Franz Herdinand'},
+	{horseName: 'Glue Sniffer'},
+	{horseName: 'A Bad Case of Hay Fever'},
+	{horseName: 'Haneighbal'},
+	{horseName: 'Marely Passing Through'},
+	{horseName: 'Feed and Seed'},
+	{horseName: 'Whorre "C"'},
+	{horseName: '24 Carrot Bold'},
+	{horseName: 'Ran Away to Join the Circus'},
+	{horseName: 'Break a Leg'}
 ];
