@@ -504,8 +504,10 @@ export class CommandService {
 					this.deps.dispatchService.sendSystemChatPayload(ctx.socket, cType.info, 'generating markov text...');
 
 					const gentext = await this.deps.markovService.generateMarkovText(ctx.io, seed);
+					const format = this.deps.markovService.generateMarkovFormats();
+					const spoiler = this.deps.markovService.generateMarkovSpoiler();
 
-					this.deps.dispatchService.sendMarkovChatPayload(ctx.io, gentext, markovUser, ctx.commandUser, seed);
+					this.deps.dispatchService.sendMarkovChatPayload(ctx.io, gentext, markovUser, ctx.commandUser, format, spoiler, seed);
 					if(!ctx.commandUser.isMod){
 						this.deps.stateService.toggleMarkov(ctx.io);
 					}

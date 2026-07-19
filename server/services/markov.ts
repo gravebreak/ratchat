@@ -1,9 +1,9 @@
 import {existsSync} from 'fs';
 import {DatabaseSync} from 'node:sqlite';
 
-import {cType} from '../defs/def-events';
+import {cType, fType} from '../defs/def-events';
 import {tType} from '../defs/def-moderation';
-import type {RatServer} from '../defs/def-events';
+import type {RatServer, FormatType} from '../defs/def-events';
 import type {WeightedCandidates} from '../defs/def-random';
 
 import {ConfigService} from './config';
@@ -15,7 +15,7 @@ import {StateService} from './state';
 import {AppError, handleError} from '../utils/errors';
 import {getBaseNick} from '../utils/format';
 import {isUnknownArray} from '../utils/parse';
-import {pickWeighted} from '../utils/random';
+import {pickUniform, pickWeighted} from '../utils/random';
 
 const MAX_RETRY_ATTEMPTS = 5;
 const MIN_WORD_COUNT = 4;
@@ -224,6 +224,41 @@ export class MarkovService{
 		entries.push(gramEntry);
 
 		this.queueSaveNeuron(entries);
+	}
+
+	public generateMarkovFormats(): FormatType[] {
+		const config = this.deps.configService.getMarkovConfig();
+		if(!config.enabled){
+			throw new AppError('generateMarkovFormats call with markov disabled', 'bug');
+		}
+		if(config.formatchance === 0){
+			return [];
+		}
+
+		const random = Math.random();
+		if(random <= config.formatchance){
+			const raw = pickUniform(Object.keys(fType));
+			const isFTypeKey = (key: string): key is keyof typeof fType => key in fType;
+
+			if (isFTypeKey(raw)) {
+				return [fType[raw]];
+			}
+		}
+
+		return [];
+	}
+
+	public generateMarkovSpoiler(): boolean {
+		const config = this.deps.configService.getMarkovConfig();
+		if(!config.enabled){
+			throw new AppError('generateMarkovSpoiler call with markov disabled', 'bug');
+		}
+		if(config.spoilerchance === 0){
+			return false;
+		}
+
+		const random = Math.random();
+		return random <= config.spoilerchance;
 	}
 
 	private queueSaveNeuron(entries: InsertNeuron[]): void {
@@ -473,11 +508,14 @@ export class MarkovService{
 			if(this.deps.stateService.markovSleep){
 				return;
 			}
+			const config = this.deps.configService.getMarkovConfig();
 			try{
 				const io = this.deps.io;
 				const generatedText = await this.generateMarkovText(io);
-				if(this.deps.stateService.markovUser){
-					this.deps.dispatchService.sendMarkovChatPayload(io, generatedText, this.deps.stateService.markovUser, this.deps.stateService.markovUser, '');
+				if(config.enabled && this.deps.stateService.markovUser){
+					const format = this.generateMarkovFormats();
+					const spoiler = this.generateMarkovSpoiler();
+					this.deps.dispatchService.sendMarkovChatPayload(io, generatedText, this.deps.stateService.markovUser, this.deps.stateService.markovUser, format, spoiler, '');
 				}
 			}
 			catch(error: unknown){

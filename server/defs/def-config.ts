@@ -58,7 +58,9 @@ export const MarkovConfigSchema = z.object({
 	color: z.string().refine(isValidHexColor, {message: 'must be a valid hex color, e.g. #A1B2C3'}),
 	status: z.string().min(1).max(128),
 	cooldown: z.number().int().min(5).max(86400),
-	timer: z.number().int().min(60).max(86400)
+	timer: z.number().int().min(60).max(86400),
+	formatchance: z.number().min(0).max(1),
+	spoilerchance: z.number().min(0).max(1)
 });
 export const defaultMarkovConfig: MarkovConfig = {
 	enabled: false,
@@ -67,7 +69,9 @@ export const defaultMarkovConfig: MarkovConfig = {
 	color: '#000000',
 	status: 'online',
 	cooldown: 30,
-	timer: 300
+	timer: 300,
+	formatchance: 0,
+	spoilerchance: 0
 };
 
 export type GameType = keyof typeof GameTypeConfigSchema;

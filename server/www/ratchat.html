@@ -1376,9 +1376,8 @@
 				else{
 					wrapper = hideMessage(li, '[a muted user said something. click to reveal]', '[MUTED]', msg.id, msg.timestamp);
 				}
-				if(wrapper){
-					renderMessage(wrapper);
-				}
+
+				renderMessage(wrapper);
 				return;
 			}
 		

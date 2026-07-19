@@ -61,9 +61,9 @@ export class DispatchService{
 		this.sendPayload(to, type, systemChatMessage);
 	}
 
-	public sendMarkovChatPayload(to: Target, text: string, markov: Identity, user: Identity, seed?: string): void {
+	public sendMarkovChatPayload(to: Target, text: string, markov: Identity, user: Identity, format: FormatType[], spoiler: boolean, seed?: string): void {
 		const taggedText = `${getBaseNick(user.fullnick)}|${seed}|${text}`;
-		const markovChat = this.createChatPayload(false,markov, taggedText, cType.markov, [], false);
+		const markovChat = this.createChatPayload(false,markov, taggedText, cType.markov, format, spoiler);
 		this.sendPayload(to, cType.markov, markovChat);
 	}
 
