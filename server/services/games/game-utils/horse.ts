@@ -1,5 +1,5 @@
 import {allowedHorseColors} from '../../../defs/def-games';
-import type {HorseOdds, HorseColor, HorseFieldEntry, HorseRaceEntry, HorseRaceResult} from '../../../defs/def-games';
+import type {HorseOdds, HorseLabel, HorseColor, HorseFieldEntry, HorseRaceEntry, HorseRaceResult, HorseStandings, HorseBet, HorseBetResult} from '../../../defs/def-games';
 import type {Candidate, WeightedCandidates} from '../../../defs/def-random';
 import type {PrivateHorseRecordList} from '../../../defs/def-record';
 
@@ -10,6 +10,46 @@ import {createHorseStartCommentary, createHorseCommentary, createHorseEndComment
 
 const MIN_FIELD_SIZE = 8;
 const MAX_FIELD_SIZE = 13;
+
+export function createHorseBetResult(bet: HorseBet, standings: HorseStandings): HorseBetResult {
+	const index = standings.findIndex(entry => entry.horsePost === bet.postNumber);
+	const place = index + 1;
+
+	let payout = bet.stake + (bet.stake * (bet.oddsNum / bet.oddsDen));
+
+	if(place === 1){
+		payout = payout;
+	}
+	else if(place === 2){
+		payout = payout * (1/2);
+	}
+	else if(place === 3){
+		payout = payout * (1/3);
+	}
+	else{
+		payout = 0;
+	}
+
+	if(bet.prerace){
+		payout = payout * 2;
+	}
+
+	payout = Math.ceil(payout);
+
+	const result: HorseBetResult = {
+		playerid: bet.playerid,
+		horseName: bet.horseName,
+		postNumber: bet.postNumber,
+		stake: bet.stake,
+		oddsNum: bet.oddsNum,
+		oddsDen: bet.oddsDen,
+		prerace: bet.prerace,
+		place: place,
+		payout: payout
+	};
+
+	return result;
+}
 
 export function createHorseRaceResult(records: PrivateHorseRecordList): HorseRaceResult{
 	const fieldSize = randomInt(MIN_FIELD_SIZE, MAX_FIELD_SIZE);
@@ -70,6 +110,12 @@ export function createHorseRaceResult(records: PrivateHorseRecordList): HorseRac
 	const end = createHorseEndCommentary(endScores);
 
 	const field = createHorseField(raceField);
+	const standings: HorseStandings = endScores.map((entry): HorseLabel => ({
+		horsePost: entry.horsePost,
+		horseColor: entry.horseColor,
+		horseName: entry.horseName
+	}));
+
 	const result: HorseRaceResult = {
 		field: field,
 		gates: gates,
@@ -78,12 +124,7 @@ export function createHorseRaceResult(records: PrivateHorseRecordList): HorseRac
 		checkpoint3: checkpoint3,
 		finalStretch: finalStretch,
 		end: end,
-		first: endScores[0].horseName,
-		firstPost: endScores[0].horsePost,
-		second: endScores[1].horseName,
-		secondPost: endScores[1].horsePost,
-		third: endScores[2].horseName,
-		thirdPost: endScores[2].horsePost
+		standings: standings
 	};
 
 	return result;

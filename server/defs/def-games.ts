@@ -23,13 +23,14 @@ export const allowedHorseColors = {
 export type HorseOdds = {
 	oddsNum: number;
 	oddsDen: number;
-}
-
-export type HorseFieldEntry = {
+};
+export type HorseLabel = {
 	horsePost: number;
 	horseColor: HorseColor;
 	horseName: HorseRecordEntry['horseName'];
-} & HorseOdds;
+};
+export type HorseStandings = HorseLabel[];
+export type HorseFieldEntry = HorseLabel & HorseOdds;
 
 export type HorseRaceEntry = HorseFieldEntry & {
 	weight: number;
@@ -44,12 +45,7 @@ export type HorseRaceResult = {
 	checkpoint3: GameTextPayload;
 	finalStretch: GameTextPayload;
 	end: GameTextPayload;
-	first: HorseRecordEntry['horseName'];
-	firstPost: HorseFieldEntry['horsePost'];
-	second: HorseRecordEntry['horseName'];
-	secondPost: HorseFieldEntry['horsePost'];
-	third: HorseRecordEntry['horseName'];
-	thirdPost: HorseFieldEntry['horsePost'];
+	standings: HorseStandings;
 };
 
 export type HorseBet = {
@@ -60,7 +56,14 @@ export type HorseBet = {
 	oddsNum: number;
 	oddsDen: number;
 	prerace: boolean;
+	callback: HorseBetCallback;
 };
+export type HorseBetResult = Omit<HorseBet, 'callback'> & {
+	place: number;
+	payout: number;
+};
+
+export type HorseBetCallback = (result: HorseBetResult) => void;
 
 export type CommentaryLine = {
 	commentary: string;

@@ -24,7 +24,7 @@ import {assertSafeStartup, getRepairPath} from '../../utils/repair';
 import {createJsonFile, existsFile, readJsonFile, writeJsonFile} from '../../utils/serialize';
 
 import {createCatch} from './game-utils/fishing';
-import {createHorseRaceResult} from './game-utils/horse';
+import {createHorseRaceResult, createHorseBetResult} from './game-utils/horse';
 import {assertFishingEnabled, assertGamesEnabled, assertHorseRacingEnabled} from './game-utils/checks';
 
 import {defaultFishCatalog} from '../catalogs/catalog-fish';
@@ -124,6 +124,7 @@ export class GameStateService {
 	private async createHorseSession(): Promise<void>{
 		assertGamesEnabled(this.deps.configService, 'createHorseSession');
 		assertHorseRacingEnabled(this.deps.configService, 'createHorseSession');
+		let session: HorseSession | null = null;
 		try{
 			const blankLine: GameLine = [{text: '', color: hType.clear, format: []}];
 
@@ -131,7 +132,7 @@ export class GameStateService {
 			this.raceCounter++;
 			const raceid = this.raceCounter;
 
-			const session: HorseSession = {
+			session = {
 				raceid: raceid,
 				results: raceResult,
 				field: raceResult.field,
@@ -196,10 +197,19 @@ export class GameStateService {
 			session.phase = 6;
 			this.deps.dispatchService.sendGamePayload(this.deps.io, raceResult.end, gType.horse, 100);
 
+			const resolvingBets = [...session.bets];
+			for(const bet of resolvingBets){
+				const result = createHorseBetResult(bet, raceResult.standings);
+				bet.callback(result);
+
+				const betIndex = session.bets.indexOf(bet);
+				session.bets.splice(betIndex, 1);
+			}
+
 			try{
-				this.incrementHorseRecord(raceResult.first, 0);
-				this.incrementHorseRecord(raceResult.second, 1);
-				this.incrementHorseRecord(raceResult.third, 2);
+				this.incrementHorseRecord(raceResult.standings[0].horseName, 0);
+				this.incrementHorseRecord(raceResult.standings[1].horseName, 1);
+				this.incrementHorseRecord(raceResult.standings[2].horseName, 2);
 			}
 			catch(error: unknown){
 				handleError(error);
@@ -211,6 +221,24 @@ export class GameStateService {
 			handleError(error, 'Create Horse Session');
 			const line: GameLine = [{text: 'the race has been cancelled due to an unexpected error.', color: hType.normal, format: []}];
 			this.deps.dispatchService.sendGamePayload(this.deps.io, [line], gType.horse);
+
+			let refundCount = 0;
+			if(session){
+				for(const bet of session.bets){
+					try{
+						this.deps.gameIdentityService.addGamePoints(bet.playerid, bet.stake);
+						refundCount++;
+					}
+					catch(error: unknown){
+						handleError(error, 'Refund Horse Bet (Race Cancelled)');
+					}
+				}
+
+				if(refundCount > 0){
+					const refundLine: GameLine = [{text: `${refundCount} bets have been successfully returned.`, color: hType.normal, format: []}];
+					this.deps.dispatchService.sendGamePayload(this.deps.io, [refundLine], gType.horse);
+				}
+			}
 			this.activeRace = null;
 		}
 	}

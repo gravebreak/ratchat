@@ -1,6 +1,6 @@
 import {fType, hType} from '../../../defs/def-events';
 import type {GameText, GameLine, GameTextPayload} from '../../../defs/def-events';
-import type {HorseRaceEntry, CommentaryLine} from '../../../defs/def-games';
+import type {HorseLabel, HorseRaceEntry, CommentaryLine} from '../../../defs/def-games';
 
 import {AppError} from '../../../utils/errors';
 import {getOrdinalSuffix} from '../../../utils/format';
@@ -22,8 +22,6 @@ type HorseMovement = HorseRaceEntry & {
 	surged: boolean;
 	fell: boolean;
 };
-
-type HorseLabel = Pick<HorseRaceEntry, 'horseName' | 'horseColor' | 'horsePost'>;
 
 const BIG = 0.2;
 const SMALL = 0.1;
