@@ -479,7 +479,13 @@ export function createHorseCommentary(curr: HorseRaceEntry[], prev: HorseRaceEnt
 	const leaderChosen = pickUniform(leaderCandidates.map(line => line.commentary));
 	const leaderLabel = {horseName: curr[0].horseName, horseColor: curr[0].horseColor, horsePost: curr[0].horsePost};
 	const leaderName = appendHorseNames([leaderLabel]);
-	const leaderLine: GameLine = [...leaderName, {text: leaderChosen, color: hType.normal, format: []}];
+	let leaderLine: GameLine;
+	if(!sameLeader && movementArray[0].surged){
+		leaderLine = [...leaderName, {text: leaderChosen, color: hType.normal, format: [fType.b]}];
+	}
+	else{
+		leaderLine = [...leaderName, {text: leaderChosen, color: hType.normal, format: []}];
+	}
 	commentary.push(leaderLine);
 
 	const clusters = createHorseClusters(movementArray.slice(1));
