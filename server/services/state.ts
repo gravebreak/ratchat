@@ -1,4 +1,4 @@
-import {cType} from '../defs/def-events';
+import {cType, fType} from '../defs/def-events';
 import type {RatServer, RatSocket} from '../defs/def-events';
 import type {Identity, UserSum} from '../defs/def-identity';
 
@@ -328,7 +328,7 @@ export class StateService {
 		this.announcement = str;
 
 		if(str){
-			this.deps.dispatchService.sendSystemChatPayload(io, cType.ann,`announcement: ${str}`);
+			this.deps.dispatchService.sendSystemChatPayload(io, cType.ann,`announcement: ${str}`, [fType.b]);
 		}
 
 		this.announcementQueue.chain();

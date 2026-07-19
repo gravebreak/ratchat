@@ -129,7 +129,7 @@ export class CommandService {
 			return this.sendNotCommand(ctx.socket);
 		}
 		if(entry.requiresMod && notMod){
-			this.deps.dispatchService.sendSystemChatPayload(ctx.socket, cType.error, 'naughty naughty');
+			this.deps.dispatchService.sendSystemChatPayload(ctx.socket, cType.error, 'naughty naughty', [fType.b]);
 			return clearInput;
 		}
 
@@ -915,7 +915,7 @@ export class CommandService {
 							return clearInput;
 						}
 						if(ctx.args[1] !== 'confirm'){
-							this.deps.dispatchService.sendSystemChatPayload(ctx.socket, cType.error, "warning: this will permanently delete your account and all server-side data. type '/gdpr delete confirm' to proceed.");
+							this.deps.dispatchService.sendSystemChatPayload(ctx.socket, cType.error, "warning: this will permanently delete your account and all server-side data. type '/gdpr delete confirm' to proceed.", [fType.b]);
 							return keepInput;
 						}
 

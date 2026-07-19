@@ -4,7 +4,7 @@ import {join} from 'node:path';
 import {Server} from 'socket.io';
 
 import {clearInput, keepInput} from './defs/def-input';
-import {gType, cType, sType} from './defs/def-events';
+import {gType, cType, sType, fType} from './defs/def-events';
 import {tType} from './defs/def-moderation';
 import type {RatServer} from './defs/def-events';
 import type {Identity} from './defs/def-identity';
@@ -223,7 +223,7 @@ async function main(): Promise<void> {
 		dispatchService.sendEventListPayload(socket);
 
 		if(!inGrace){
-			dispatchService.sendSystemChatPayload(socket, cType.welcome, `${welcomeMsg}`);
+			dispatchService.sendSystemChatPayload(socket, cType.welcome, `${welcomeMsg}`, [fType.b]);
 			if(announcement){
 				dispatchService.sendSystemChatPayload(socket, cType.ann, `announcement: ${announcement}`);
 			}
@@ -266,7 +266,7 @@ async function main(): Promise<void> {
 		else {
 			dispatchService.sendSystemChatPayload(socket,cType.error,'system: please use the /nick <nickname> to set a nickname or /import <GUID> to import one');
 			//GDPR warning
-			dispatchService.sendSystemChatPayload(socket,cType.error,"system: be aware either command will store data regarding your session. type '/gdpr info' for more info");
+			dispatchService.sendSystemChatPayload(socket,cType.error,"be aware either command will store data regarding your session. type '/gdpr info' for more info", [fType.b]);
 			dispatchService.sendSystemChatPayload(socket,cType.info,'system: feel free to use /help or /h to see all available commands. some commands will not be available until you set your nickname!');
 			dispatchService.sendSystemChatPayload(socket,cType.info,'we recommend increasing the zoom of your browser to 200% for the best viewing experience :)');
 

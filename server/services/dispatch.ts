@@ -56,8 +56,8 @@ export class DispatchService{
 		}
 	}
 
-	public sendSystemChatPayload(to: Target, type: TextPayload, text: string): void {
-		const systemChatMessage = this.createChatPayload(true,'system',text, type, [], false);
+	public sendSystemChatPayload(to: Target, type: TextPayload, text: string, format: FormatType[] = []): void {
+		const systemChatMessage = this.createChatPayload(true,'system',text, type, format, false);
 		this.sendPayload(to, type, systemChatMessage);
 	}
 
