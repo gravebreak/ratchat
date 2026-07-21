@@ -58,7 +58,8 @@ export class ModerationService {
 				}
 				try{
 					this.moderateProfanity(clean);
-					this.moderateTime(user, 'chat');
+					this.assertUserNotTimedout(user);
+					this.moderateTime(user.lastMessage, 'chat');
 				}
 				catch(error: unknown){
 					if(error instanceof AppError){
@@ -78,7 +79,8 @@ export class ModerationService {
 				}
 				try{
 					this.moderateProfanity(clean);
-					this.moderateTime(user, 'other');
+					this.assertUserNotTimedout(user);
+					this.moderateTime(user.lastChanged, 'other');
 				}
 				catch(error: unknown){
 					if(error instanceof AppError){
@@ -102,7 +104,8 @@ export class ModerationService {
 				}
 				try{
 					this.moderateBaseNick(clean);
-					this.moderateTime(user, 'nick');
+					this.assertUserNotTimedout(user);
+					this.moderateTime(user.lastChanged, 'nick');
 				}
 				catch(error: unknown){
 					if(error instanceof AppError){
@@ -122,7 +125,8 @@ export class ModerationService {
 				}
 
 				try{
-					this.moderateTime(user, 'other');
+					this.assertUserNotTimedout(user);
+					this.moderateTime(user.lastChanged, 'other');
 				}
 				catch(error: unknown){
 					if(error instanceof AppError){
@@ -171,14 +175,18 @@ export class ModerationService {
 		}
 	}
 
-	public moderateTime(user: Identity, type: TimeType): void {
+	public assertUserNotTimedout(user: Identity): void {
 		const now = Date.now();
 		const lastMessage = new Date(user.lastMessage).getTime();
-		const lastChanged = new Date(user.lastChanged).getTime();
 
 		if(lastMessage > now){
-			throw new AppError ('ur in timeout rn', 'user');
+			throw new AppError('ur in timeout rn', 'user');
 		}
+	}
+
+	public moderateTime(date: Date, type: TimeType): void {
+		const now = Date.now();
+		const time = date.getTime();
 
 		const serverConfig = this.deps.configService.getServerConfig();
 		const gameConfig = this.deps.configService.getGameConfig();
@@ -190,8 +198,7 @@ export class ModerationService {
 			other: serverConfig.otherSlow * 1000,
 		};
 
-		const last = type === 'chat' || type === 'joinleave' ? lastMessage : lastChanged;
-		const waitTime = ((last + limits[type]) - now) /1000;
+		const waitTime = ((time + limits[type]) - now) /1000;
 
 		if(waitTime > 0){
 			throw new AppError(`you're doing that too fast, wait ${Math.ceil(waitTime)} seconds.`, 'user');

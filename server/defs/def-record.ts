@@ -22,7 +22,7 @@ export const HorseCatalogEntrySchema = z.object({
 	horseName: z.string().max(128)
 });
 export const HorseRecordEntrySchema = HorseCatalogEntrySchema.extend({
-	results: z.tuple([z.number().int().min(0), z.number().int().min(0), z.number().int().min(0)])
+	finishes: z.object({first: z.number().int().min(0), second: z.number().int().min(0), third: z.number().int().min(0)}),
 });
 
 export type FishCatalogEntry = z.infer<typeof FishCatalogEntrySchema>;

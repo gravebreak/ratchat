@@ -1,6 +1,6 @@
 import {fType, hType} from '../../../defs/def-events';
 import type {GameText, GameLine, GameTextPayload} from '../../../defs/def-events';
-import type {HorseLabel, HorseRaceEntry, CommentaryLine} from '../../../defs/def-games';
+import type {HorseLabel, HorseRaceEntry, CommentaryLine, HorseField, HorseBet} from '../../../defs/def-games';
 
 import {AppError} from '../../../utils/errors';
 import {getOrdinalSuffix} from '../../../utils/format';
@@ -38,6 +38,57 @@ export function createHorseNameText(horse: HorseLabel): GameText[] {
 	];
 
 	return nametext;
+}
+
+export function createHorseOddsText(field: HorseField): GameTextPayload {
+	const gameText: GameTextPayload = [];
+	const sortedField = [...field].sort((a, b) => {
+		const probA = a.oddsDen / (a.oddsNum + a.oddsDen);
+		const probB = b.oddsDen / (b.oddsNum + b.oddsDen);
+		return probB - probA;
+	});
+
+	for(let index = 0; index < sortedField.length; index++){
+		const horse = sortedField[index];
+		const horseNameText = createHorseNameText(horse);
+		const line: GameLine = [
+			...horseNameText,
+			{text: `at ${horse.oddsNum} : ${horse.oddsDen}`, color: hType.normal, format: []},
+		];
+		gameText.push(line);
+	}
+	return gameText;
+}
+
+export function createHorseBetsText(bets: Omit<HorseBet, 'callback'>[]): GameTextPayload {
+	const gameText: GameTextPayload = [];
+
+	for(const bet of bets){
+		const horseNameText = createHorseNameText(bet);
+		const line1: GameLine = [
+			{text: `you bet ${bet.stake.toLocaleString('en-US')} on `, color: hType.normal, format: []},
+			...horseNameText,
+			{text: ` at ${bet.oddsNum} : ${bet.oddsDen}`, color: hType.normal, format: []},
+		];
+		gameText.push(line1);
+
+		let expectedPayout = bet.stake + (bet.stake * (bet.oddsNum / bet.oddsDen));
+		if(bet.prerace){
+			expectedPayout = expectedPayout * 2;
+			const preraceline: GameLine = [{text: 'prerace bonus applied!', color: hType.normal, format: [fType.i]}];
+			gameText.push(preraceline);
+		}
+
+		const firstPays = Math.ceil(expectedPayout);
+		const secondPays = Math.ceil(expectedPayout / 2);
+		const thirdPays = Math.ceil(expectedPayout / 3);
+		const line2: GameLine = [
+			{text: `first place pays: ${firstPays}, second place pays: ${secondPays}, third place pays: ${thirdPays}`, color: hType.normal, format: []}
+		];
+		gameText.push(line2);
+	}
+
+	return gameText;
 }
 
 export function createHorseStartCommentary(curr: HorseRaceEntry[]): GameTextPayload {

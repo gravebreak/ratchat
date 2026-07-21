@@ -207,7 +207,35 @@ export class GameIdentityService {
 		return gameId;
 	}
 
-	public setFishingBestCatch(playerid: GameIdentity['playerid'], bestCatch: string, value: number): GameIdentity{
+	public incrementHorseBetWins(playerid: GameIdentity['playerid'], place: keyof GameIdentity['horseBetWins']): GameIdentity {
+		assertGamesEnabled(this.deps.configService, 'incrementHorseBetWins');
+		assertHorseRacingEnabled(this.deps.configService, 'incrementHorseBetWins');
+
+		const gameId = this.gameUsers.get(playerid);
+		if(!gameId){
+			throw new AppError('increment horse bet wins: no matching game user found to playerid', 'internal', 'warn');
+		}
+
+		gameId.horseBetWins[place]++;
+		this.gameUserQueue.chain();
+		return gameId;
+	}
+
+	public setHorseBetBiggestWin(playerid: GameIdentity['playerid'], payout: number, stake: number): GameIdentity {
+		assertGamesEnabled(this.deps.configService, 'setHorseBetBiggestWin');
+		assertHorseRacingEnabled(this.deps.configService, 'setHorseBetBiggestWin');
+		const gameId = this.gameUsers.get(playerid);
+
+		if(!gameId){
+			throw new AppError('set horse bet biggest win: no matching game user found to playerid', 'internal', 'warn');
+		}
+
+		gameId.horseBetBiggestWin = {payout: payout, stake: stake};
+		this.gameUserQueue.chain();
+		return gameId;
+	}
+
+	public setFishingBestCatch(playerid: GameIdentity['playerid'], bestCatch: string, value: number): GameIdentity {
 		assertGamesEnabled(this.deps.configService, 'setFishingBestCatch');
 		assertFishingEnabled(this.deps.configService, 'setFishingBestCatch');
 
@@ -283,17 +311,19 @@ export class GameIdentityService {
 		return{
 			gamePoints: Math.round(this.deps.configService.getGameConfig().pointStartAmt),
 			lastGame: new Date(0),
-			blackjackWinnings: 0,
-			blackjackBlackjacks: 0,
+			horseWinnings: 0,
+			horseBetWins: {firsts: 0, seconds: 0, thirds: 0},
+			horseBetBiggestWin: {payout: 0, stake: 0},
 			duelingWins: 0,
 			duelingHonor: 0,
+			blackjackWinnings: 0,
+			blackjackBlackjacks: 0,
 			fishingFishCaught: [],
 			fishingCatches: 0,
 			fishingWinnings: 0,
 			fishingBestCatch: null,
 			fishingBestCatchValue: null,
-			horseWinnings: 0,
-			horseBetWins: [0,0,0]
+
 		};
 	}
 

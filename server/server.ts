@@ -165,6 +165,7 @@ async function main(): Promise<void> {
 	const gameCommandService = new GameCommandService({
 		configService: configService,
 		dispatchService: dispatchService,
+		moderationService: moderationService,
 		gameIdentityService: gameIdentityService,
 		identityService: identityService,
 		gameStateService: gameStateService,
@@ -252,7 +253,7 @@ async function main(): Promise<void> {
 			}
 			if(scount === 1){
 				try{
-					moderationService.moderateTime(returningUser, tType.joinleave);
+					moderationService.moderateTime(returningUser.lastMessage, tType.joinleave);
 					if(!inGrace){
 						dispatchService.sendSystemChatPayload(io.except(socket.id), cType.ann,`${getBaseNick(returningUser.fullnick)} connected`);
 					}
@@ -324,7 +325,7 @@ async function main(): Promise<void> {
 				}
 				if(scount === 0){
 					try{
-						moderationService.moderateTime(disuser, tType.joinleave);
+						moderationService.moderateTime(disuser.lastMessage, tType.joinleave);
 						if(!inGrace){
 							dispatchService.sendSystemChatPayload(io, cType.ann, `${getBaseNick(disuser.fullnick)} disconnected`);
 						}

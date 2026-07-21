@@ -90,6 +90,7 @@ export const GameConfigSchema = z.object({
 	pointsName: z.string().min(1).max(64),
 	gameSlow: z.number().int().min(0).max(86400),
 	raceFrequency: z.number().int().min(300).max(86400),
+	horseBetBigWin: z.number().int().min(0).max(4294967295),
 	...GameTypeConfigSchema,
 });
 
@@ -100,6 +101,7 @@ export const defaultGameConfig: GameConfig = {
 	gameSlow: 30,
 	horseRacing: false,
 	raceFrequency: 900,
+	horseBetBigWin: 100000,
 	dueling: false,
 	duelingChallenge: false,
 	blackjack: false,

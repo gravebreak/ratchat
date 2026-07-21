@@ -1,6 +1,7 @@
 import {cType, fType, gType, hType} from '../../defs/def-events';
 import {allGames} from '../../defs/def-config';
 import {clearInput, keepInput} from '../../defs/def-input';
+import {tType} from '../../defs/def-moderation';
 import type {GameCommand} from '../../defs/def-commands';
 import type {GameType} from '../../defs/def-config';
 import type {RatServer, RatSocket, GameEventType, GameLine, GameTextPayload} from '../../defs/def-events';
@@ -10,6 +11,7 @@ import type {InputStatus} from '../../defs/def-input';
 
 import {ConfigService} from '../config';
 import {DispatchService} from '../dispatch';
+import {ModerationService} from '../moderation';
 import {GameIdentityService} from './game-identity';
 import {IdentityService} from '../identity';
 import {GameStateService} from './game-state';
@@ -18,7 +20,7 @@ import {StateService} from '../state';
 import {AppError, handleError} from '../../utils/errors';
 import {getBaseNick} from '../../utils/format';
 
-import {createHorseNameText} from './game-utils/commentary';
+import {createHorseBetsText, createHorseNameText, createHorseOddsText} from './game-utils/commentary';
 
 type GameCommandEntry = {
 	enabledFor: GameType[];
@@ -26,8 +28,9 @@ type GameCommandEntry = {
 }
 
 export interface GameCommandServiceDependencies {
-	dispatchService: DispatchService;
 	configService: ConfigService;
+	dispatchService: DispatchService;
+	moderationService: ModerationService;
 	gameIdentityService: GameIdentityService;
 	identityService: IdentityService;
 	gameStateService: GameStateService;
@@ -133,6 +136,7 @@ export class GameCommandService {
 		}
 
 		const message: GameTextPayload = [];
+		const jackpots: GameLine[] = [];
 		let totalStake = 0;
 		let totalPayout = 0;
 
@@ -144,10 +148,55 @@ export class GameCommandService {
 			let line: GameLine;
 			if(result.payout > 0){
 				line = [
-					{text: `your bet of ${result.stake.toLocaleString('en-US')} on `, color: hType.normal, format: []},
+					{text: `you won ${result.payout.toLocaleString('en-US')} betting on `, color: hType.normal, format: []},
 					...horseName,
-					{text: ` won ${result.payout.toLocaleString('en-US')}.`, color: hType.normal, format: []}
+					{text: ` for ${result.stake.toLocaleString('en-US')}`, color: hType.normal, format: []}
 				];
+
+				let place: keyof GameIdentity['horseBetWins'] | null = null;
+				if(result.place === 1){
+					place = 'firsts';
+				}
+				else if(result.place === 2){
+					place = 'seconds';
+				}
+				else if(result.place === 3){
+					place = 'thirds';
+				}
+				else{
+					handleError(new AppError(`horse bet result had payout but an unexpected place: ${result.place}`, 'internal', 'warn'), 'Record Horse Bet Win Place');
+				}
+
+				if(place){
+					try{
+						this.deps.gameIdentityService.incrementHorseBetWins(playerid, place);
+
+						const gameUser = this.deps.gameIdentityService.getGameUser(playerid);
+						if(result.payout > gameUser.horseBetBiggestWin.payout){
+							this.deps.gameIdentityService.setHorseBetBiggestWin(playerid, result.payout, result.stake);
+						}
+					}
+					catch(error: unknown){
+						handleError(error, 'Record Horse Bet Win Stats');
+					}
+				}
+
+				if(result.payout > this.deps.configService.getGameConfig().horseBetBigWin){
+					try{
+						const fullnick = this.deps.identityService.getFullNickByPlayerId(playerid);
+						const basenick = getBaseNick(fullnick);
+						const announcement: GameLine = [
+							{text: 'jackpot! ', color: hType.normal, format: [fType.b]},
+							{text: `${basenick} won ${result.payout.toLocaleString('en-US')} betting on `, color: hType.normal, format: []},
+							...horseName,
+							{text: ` for ${result.stake.toLocaleString('en-US')}!`, color: hType.normal, format: []}
+						];
+						jackpots.push(announcement);
+					}
+					catch(error: unknown){
+						handleError(error, 'Horse Big Win Announcement');
+					}
+				}
 			}
 			else{
 				line = [
@@ -162,16 +211,19 @@ export class GameCommandService {
 		const netWinnings = totalPayout - totalStake;
 
 		const summaryLine: GameLine = [];
-		if(netWinnings > 0){
-			summaryLine.push({text: `you made a total of ${netWinnings.toLocaleString('en-US')} on ${totalStake.toLocaleString('en-US')} staked.`, color: hType.normal, format: [fType.b]});
+		if(results.length > 1){
+			if(netWinnings > 0){
+				const totalWinnings = netWinnings + totalStake;
+				summaryLine.push({text: `you made a total of ${totalWinnings.toLocaleString('en-US')} on ${totalStake.toLocaleString('en-US')} staked.`, color: hType.normal, format: []});
+			}
+			else if(netWinnings < 0){
+				summaryLine.push({text: `you lost a total of ${Math.abs(netWinnings).toLocaleString('en-US')} on ${totalStake.toLocaleString('en-US')} staked.`, color: hType.normal, format: []});
+			}
+			else{
+				summaryLine.push({text: `you broke even on ${totalStake.toLocaleString('en-US')} staked.`, color: hType.normal, format: []});
+			}
+			message.push(summaryLine);
 		}
-		else if(netWinnings < 0){
-			summaryLine.push({text: `you lost a total of ${Math.abs(netWinnings).toLocaleString('en-US')} on ${totalStake.toLocaleString('en-US')} staked.`, color: hType.normal, format: [fType.b]});
-		}
-		else{
-			summaryLine.push({text: `you broke even on ${totalStake.toLocaleString('en-US')} staked.`, color: hType.normal, format: [fType.b]});
-		}
-		message.push(summaryLine);
 
 		let targetSocket: RatSocket | null = null;
 		try{
@@ -185,6 +237,9 @@ export class GameCommandService {
 					this.deps.dispatchService.sendGamePayload(foundSocket, message, gType.horse);
 					targetSocket = foundSocket;
 				}
+			}
+			if(jackpots.length > 0){
+				this.deps.dispatchService.sendGamePayload(io, jackpots, gType.horse);
 			}
 		}
 		catch(error: unknown){
@@ -341,6 +396,9 @@ export class GameCommandService {
 						throw new AppError('very clever, please use a integer number larger than 0', 'user');
 					}
 
+					const player = this.deps.gameIdentityService.getGameUser(ctx.commandUser.playerid);
+					this.deps.moderationService.moderateTime(player.lastGame, tType.game);
+
 					this.deps.gameIdentityService.removeGamePoints(ctx.commandUser.playerid, stake);
 					paid = true;
 
@@ -361,27 +419,9 @@ export class GameCommandService {
 					};
 
 					const placedBet = this.deps.gameStateService.pushBetHorseSession(bet);
-					const message: GameTextPayload = [];
-					const horseNameText = createHorseNameText(horse);
-					const line1: GameLine = [
-						{text: `you bet ${placedBet.stake.toLocaleString('en-US')} on `, color: hType.normal, format: []},
-						...horseNameText,
-						{text: ` at ${placedBet.oddsNum} : ${placedBet.oddsDen}`, color: hType.normal, format: []},
-					];
-					message.push(line1);
+					const message: GameTextPayload = createHorseBetsText([placedBet]);
 
-					let expectedPayout = stake + (stake * (placedBet.oddsNum/placedBet.oddsDen));
-					if(placedBet.prerace){
-						expectedPayout = expectedPayout *2;
-						const preraceline: GameLine = [{text: 'prerace bonus applied!', color: hType.normal, format: [fType.i]}];
-						message.push(preraceline);
-					}
-					expectedPayout = Math.ceil(expectedPayout);
-					const line2: GameLine =[
-						{text: `expected payout: 1st - ${expectedPayout}, 2nd - ${expectedPayout/2}, 3rd - ${expectedPayout/3}`, color: hType.normal, format:[]}
-					];
-					message.push(line2);
-
+					this.deps.gameIdentityService.setLastGame(ctx.commandUser.playerid, Date.now());
 					this.deps.dispatchService.sendGamePayload(ctx.socket, message, gType.horse);
 					return clearInput;
 				}
@@ -391,6 +431,52 @@ export class GameCommandService {
 						this.deps.gameIdentityService.addGamePoints(ctx.commandUser.playerid, stake);
 					}
 					return keepInput;
+				}
+			}
+		};
+
+		this.gameCommands['odds'] = {
+			enabledFor: ['horseRacing'],
+			handler: (ctx): InputStatus => {
+				try{
+					if(!this.deps.gameStateService.existsHorseSession()){
+						throw new AppError("no race is currently scheduled. you'll need to wait for the next race", 'user');
+					}
+
+					const field = this.deps.gameStateService.getFieldHorseSession();
+					const message = createHorseOddsText(field);
+
+					this.deps.dispatchService.sendGamePayload(ctx.socket, message, gType.horse);
+					return clearInput;
+				}
+				catch(error: unknown){
+					this.deps.dispatchService.sendUserErrorMessage(ctx.socket, error, 'Odds Command');
+					return clearInput;
+				}
+			}
+		};
+
+		this.gameCommands['bets'] = {
+			enabledFor: ['horseRacing'],
+			handler: (ctx): InputStatus => {
+				try{
+					if(!this.deps.gameStateService.existsHorseSession()){
+						throw new AppError("no race is currently scheduled. you'll need to wait for the next race", 'user');
+					}
+
+					const bets = this.deps.gameStateService.getBetsHorseSession(ctx.commandUser.playerid);
+					if(bets.length === 0){
+						throw new AppError('gotta spend money to make money (no bets placed)', 'user');
+					}
+
+					const message = createHorseBetsText(bets);
+
+					this.deps.dispatchService.sendGamePayload(ctx.socket, message, gType.horse);
+					return clearInput;
+				}
+				catch(error: unknown){
+					this.deps.dispatchService.sendUserErrorMessage(ctx.socket, error, 'Bets Command');
+					return clearInput;
 				}
 			}
 		};

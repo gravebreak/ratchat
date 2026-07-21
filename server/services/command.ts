@@ -384,7 +384,8 @@ export class CommandService {
 				}
 
 				try{
-					this.deps.moderationService.moderateTime(ctx.commandUser, tType.other);
+					this.deps.moderationService.assertUserNotTimedout(ctx.commandUser);
+					this.deps.moderationService.moderateTime(ctx.commandUser.lastChanged, tType.other);
 					const afkUser = this.deps.identityService.toggleAfk(ctx.commandUser.guid);
 
 					this.deps.stateService.updateSocketUser(ctx.io, ctx.socket.id, afkUser);
@@ -479,7 +480,8 @@ export class CommandService {
 					return this.sendRegistrationWarning(ctx.socket, 'generate random text');
 				}
 				try{
-					this.deps.moderationService.moderateTime(ctx.commandUser, tType.chat);
+					this.deps.moderationService.assertUserNotTimedout(ctx.commandUser);
+					this.deps.moderationService.moderateTime(ctx.commandUser.lastMessage, tType.chat);
 
 					const markovUser = this.deps.stateService.markovUser;
 					if(!markovUser){

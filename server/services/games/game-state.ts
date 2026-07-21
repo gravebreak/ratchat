@@ -7,7 +7,7 @@ import type {GameIdentity} from '../../defs/def-identity';
 import type {LeaderboardEntry, BlackjackEntry, DuelingEntry, FishingEntry, HorseEntry} from '../../defs/def-leaderboard';
 import type {PublicLeaderboard, PublicOverallLeaderboard, PublicBlackjackLeaderboard, PublicDuelingLeaderboard, PublicFishingLeaderboard, PublicHorseLeaderboard} from '../../defs/def-leaderboard';
 import type {KeyedParseFailureRecord, ParseFailureRecord} from '../../defs/def-parse';
-import type {PrivateHorseRecordList, PrivateFishRecordList, DefaultFishRecordEntry, DefaultHorseRecordEntry} from '../../defs/def-record';
+import type {PrivateHorseRecordList, PrivateFishRecordList, DefaultFishRecordEntry, DefaultHorseRecordEntry, HorseRecordEntry} from '../../defs/def-record';
 
 import {ConfigService} from '../config';
 import {CacheService} from '../cache';
@@ -24,15 +24,15 @@ import {assertSafeStartup, getRepairPath} from '../../utils/repair';
 import {createJsonFile, existsFile, readJsonFile, writeJsonFile} from '../../utils/serialize';
 
 import {assertFishingEnabled, assertGamesEnabled, assertHorseRacingEnabled} from './game-utils/checks';
-import {createHorseNameText} from './game-utils/commentary';
+import {createHorseOddsText} from './game-utils/commentary';
 import {createCatch} from './game-utils/fishing';
 import {createHorseRaceResult, createHorseBetResult} from './game-utils/horse';
 
 import {defaultFishCatalog} from '../catalogs/catalog-fish';
 import {defaultHorseCatalog} from '../catalogs/catalog-horse';
 
-type StageOne = GameIdentity & {fullnick: string };
-type StageTwo = StageOne & { fishingTypesCaught: number, fishingRecords: number };
+type StageOne = GameIdentity & {fullnick: string};
+type StageTwo = StageOne & {fishingTypesCaught: number, fishingRecords: number};
 type FullEntry = LeaderboardEntry & BlackjackEntry & DuelingEntry & FishingEntry & HorseEntry;
 type FullLeaderboard = FullEntry[];
 
@@ -74,6 +74,7 @@ const HORSE_FINAL_STRETCH_WAIT = 20;
 const HORSE_MIN_RACEOVER_WAIT = 5;
 const HORSE_MAX_RACEOVER_WAIT = 15;
 const HORSE_TEXT_DELAY = 250;
+const HORSE_TEXT_END_DELAY = 100;
 
 export interface GameStateServiceDependencies{
 	cacheService: CacheService;
@@ -147,6 +148,35 @@ export class GameStateService {
 
 		this.activeRace.bets.push(bet);
 		return bet;
+	}
+
+	public getBetsHorseSession(playerid: GameIdentity['playerid']): Omit<HorseBet, 'callback'>[] {
+		assertGamesEnabled(this.deps.configService, 'getBetsHorseSession');
+		assertHorseRacingEnabled(this.deps.configService, 'getBetsHorseSession');
+		if(!this.activeRace){
+			throw new AppError('get bets horse session: called without an active session', 'bug');
+		}
+
+		const playerBets: Omit<HorseBet, 'callback'>[] = [];
+		for(const bet of this.activeRace.bets){
+			if(bet.playerid !== playerid){
+				continue;
+			}
+
+			const copy = {
+				playerid: bet.playerid,
+				horseName: bet.horseName,
+				horsePost: bet.horsePost,
+				horseColor: bet.horseColor,
+				oddsNum: bet.oddsNum,
+				oddsDen: bet.oddsDen,
+				stake: bet.stake,
+				prerace: bet.prerace
+			};
+			playerBets.push(copy);
+		}
+
+		return playerBets;
 	}
 
 	private async createHorseSession(): Promise<void> {
@@ -223,8 +253,9 @@ export class GameStateService {
 			const raceOverWait = randomInt(HORSE_MIN_RACEOVER_WAIT, HORSE_MAX_RACEOVER_WAIT);
 			await wait(raceOverWait * 1000);
 			session.phase = 6;
-			this.deps.dispatchService.sendGamePayload(this.deps.io, raceResult.end, gType.horse, 100);
+			this.deps.dispatchService.sendGamePayload(this.deps.io, raceResult.end, gType.horse, HORSE_TEXT_END_DELAY);
 
+			await wait((raceResult.end.length * HORSE_TEXT_END_DELAY) + HORSE_TEXT_DELAY);
 			const resolvingBets = [...session.bets];
 			const betsGrouped = new Map<GameIdentity['playerid'], HorseBet[]>();
 
@@ -252,9 +283,9 @@ export class GameStateService {
 			}
 
 			try{
-				this.incrementHorseRecord(raceResult.standings[0].horseName, 0);
-				this.incrementHorseRecord(raceResult.standings[1].horseName, 1);
-				this.incrementHorseRecord(raceResult.standings[2].horseName, 2);
+				this.incrementHorseRecord(raceResult.standings[0].horseName, 'first');
+				this.incrementHorseRecord(raceResult.standings[1].horseName, 'second');
+				this.incrementHorseRecord(raceResult.standings[2].horseName, 'third');
 			}
 			catch(error: unknown){
 				handleError(error);
@@ -304,30 +335,10 @@ export class GameStateService {
 		commentary.push(blankLine);
 		const oddsIntro: GameLine = [{text: 'the betting line is as follows:', color: hType.normal, format: []}];
 		commentary.push(oddsIntro);
-
-		const sortedField = [...field].sort((a, b) => {
-			const probA = a.oddsDen / (a.oddsNum + a.oddsDen);
-			const probB = b.oddsDen / (b.oddsNum + b.oddsDen);
-			return probB - probA;
-		});
-
-		for(let index = 0; index < sortedField.length; index++){
-			const horse = sortedField[index];
-			const horseNameText = createHorseNameText(horse);
-			const line: GameLine = [
-				...horseNameText,
-				{text: `at ${horse.oddsNum} : ${horse.oddsDen}`, color: hType.normal, format: []},
-			];
-
-			if(index === 0){
-				line.push({text: ', the favorite!', color: hType.normal, format: []});
-			}
-			else if(index === sortedField.length - 1){
-				line.push({text: ', the longshot!', color: hType.normal, format: []});
-			}
-
-			commentary.push(line);
-		}
+		const oddsText = createHorseOddsText(field);
+		oddsText[0].push({text: ', the favorite!', color: hType.normal, format: []});
+		oddsText[oddsText.length - 1].push({text: ', the longshot!', color: hType.normal, format: []});
+		commentary.push(...oddsText);
 		commentary.push(blankLine);
 
 		const outro1: GameLine = [{text: 'what a beautiful day for a horse race!', color: hType.normal, format: []}];
@@ -634,17 +645,17 @@ export class GameStateService {
 
 	private buildDefaultHorseRecordEntry(): DefaultHorseRecordEntry{
 		return{
-			results: [0, 0, 0]
+			finishes: {first: 0, second: 0, third: 0}
 		};
 	}
 
-	private incrementHorseRecord(horseName: string, place: number): void {
+	private incrementHorseRecord(horseName: HorseRecordEntry['horseName'], place: keyof HorseRecordEntry['finishes']): void {
 		const record = this.horseRecords.find(entry => entry.horseName === horseName);
 		if(!record){
 			throw new AppError('no matching horse record found to increment', 'bug');
 		}
 
-		record.results[place]++;
+		record.finishes[place]++;
 		this.horseQueue.chain();
 	}
 
