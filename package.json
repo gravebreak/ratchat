@@ -6,7 +6,6 @@
 	"dependencies": {
 		"@dsojevic/profanity-list": "^1.0.0",
 		"98.css": "^0.1.21",
-		"body-parser": "^2.3.0",
 		"express": "^5.2.1",
 		"fs": "^0.0.1-security",
 		"http": "^0.0.1-security",
