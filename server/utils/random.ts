@@ -71,7 +71,7 @@ export function pickGaussian(input: GaussianCandidate): number {
 
 	const random1 = Math.random();
 	const random2 = Math.random();
-	const signedBellPosition = Math.sqrt(-2 * Math.log(random1)) * Math.cos(2 * Math.PI * random2);
+	const signedBellPosition = Math.sqrt(-2 * Math.log(1-random1)) * Math.cos(2 * Math.PI * (1-random2));
 
 	const result = input.baseline + (signedBellPosition * standardDev);
 

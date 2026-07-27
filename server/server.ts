@@ -218,6 +218,7 @@ async function main(): Promise<void> {
 				dispatchService.sendSystemChatPayload(socket, cType.info, 'You are banned.', [fType.b]);
 				socket.disconnect(true);
 				console.log('a banned user attempted to join');
+				return;
 			}
 		}
 		catch(error: unknown){
