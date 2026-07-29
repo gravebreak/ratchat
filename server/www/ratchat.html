@@ -7,632 +7,709 @@
 		<title>ratchat</title>
 		<link rel="stylesheet" href="https://unpkg.com/98.css@0.1.21/dist/98.css" integrity="sha384-15ft94Qa+wtquckGuqoUZVwmRnPrMFakV20jxURH5clORpGUeXAbhNK5x6aVebrD" crossorigin="anonymous">
 		<style>
+			/* GENERIC */
+			html {
+				background-color: #000000;
+			}
 
-		.hide-scrollbar {
-			scrollbar-width: none;
-			-ms-overflow-style: none;
-		}
+			body {
+				height: 100dvh;
+				margin: 0;
+				padding: 0rem;
+				box-sizing: border-box;
+				overflow: hidden;
+			}
 
-		.hide-scrollbar::-webkit-scrollbar {
-			display: none;
-		}
+			/* OBJECTS */
+			.window {
+				display: flex;
+				flex-direction: column;
+				margin: 0;
+				width: auto;
+			}
 
-		html {
-			background-color: #000000;
-		}
+			.title-bar-controls {
+				display: flex;
+				gap: 0.125rem;
+				padding: 0;
+			}
+			.title-bar-controls button {
+				margin: 0 !important;
+			}
 
-		.format-bold {
-			font-weight: bold;
-			font-size: 1rem;
-		}
-		.format-italics {
-			font-style: italic;
-		}
-		.format-mono {
-			font-family: 'VT323', monospace;
-			font-variant-numeric: tabular-nums;
-			font-size: 1.275rem;
-			display: inline-block;
-			transform-origin: bottom;
-		}
+			.window-body {
+				display: flex;
+				flex-direction: column;
+				height: calc(100dvh - 2rem);
+				margin: 0;
+				padding: 0.2rem;
+			}
+			
+			.layoutRow {
+				display: flex;
+				flex-direction: row;
+				flex-grow: 1;
+				overflow: hidden;
+			}
 
-		body {
-			height: 100dvh;
-			margin: 0;
-			padding: 0rem;
-			box-sizing: border-box;
-			overflow: hidden;
-		}
+			.layoutColumn {
+				display: flex;
+				flex-direction: column;
+				flex-grow: 1;
+				overflow: hidden;
+			}
 
-		.window {
-			display: flex;
-			flex-direction: column;
-			margin: 0;
-			width: auto;
-		}
+			/* COMPONENTS */
+			#bgUpload {
+				display: none;
+			}		
+			
+			/* Emote Window */
+			#emotePicker {
+				display: none; 
+				position: fixed; 
+				top: 50%; 
+				left: 50%; 
+				transform: translate(-50%, -50%); 
+				z-index: 1000;
+			}
+			#emotePicker.isVisible {
+				display: block;
+			}
 
-		.window-body {
-			display: flex;
-			flex-direction: column;
-			height: calc(100dvh - 2rem);
-			margin: 0;
-			padding: 0.2rem;
-		}
+			#emotePicker .window {
+				width: 30rem;
+				max-width: min(30rem, 80vw);
+				min-width: 12rem;
+				max-height: 16.125rem;
+			}
 
-		.title-bar-controls {
-			display: flex;
-			gap: 0.125rem;
-			padding: 0;
-		}
+			#emotePicker .window-body { 
+				height: auto; 
+				max-height: 100%; 
+			}
 
-		.title-bar-controls button {
-			margin: 0 !important;
-		}
+			#emotePicker .scrollbar {
+				margin-top: 0;
+				margin-bottom: 0;
+				margin-right: 0;
+			}
+		
+			.emotePicker-frame {
+				flex-grow: 1;
+				position: relative;
+				background-color: #ffffff;
+				box-shadow: inset -0.0625rem -0.0625rem #ffffff,
+							inset 0.0625rem 0.0625rem #0a0a0a, 
+							inset -0.125rem -0.125rem #dfdfdf, 
+							inset 0.125rem 0.125rem #808080;
+				max-height: 12rem;
+				height:12rem;
+				overflow: hidden;
+			}
+			#emotePicker-viewport {
+				position: absolute;
+				inset: 0.625rem 0.625rem;
+				overflow-y: auto;
+			}
 
-		#emotes-popup {
-			display: none; 
-			position: fixed; 
-			top: 50%; 
-			left: 50%; 
-			transform: translate(-50%, -50%); 
-			z-index: 1000;
-		}
-		#emotes-popup.is-visible {
-			display: block;
-		}
-		#emotes-popup .window {
-			width: 30rem;
-			max-width: min(30rem, 80vw);
-			min-width: 12rem;
-			max-height: 16.125rem;
-		}
-		#emotes-popup .window-body { 
-			height: auto; 
-			max-height: 100%; 
-		}
-		.emotes-content {
-			flex-grow: 1;
-			position: relative;
-			background-color: #ffffff;
-			box-shadow: inset -0.0625rem -0.0625rem #ffffff,
-						inset 0.0625rem 0.0625rem #0a0a0a, 
-						inset -0.125rem -0.125rem #dfdfdf, 
-						inset 0.125rem 0.125rem #808080;
-			max-height: 12rem;
-			height:12rem;
-			overflow: hidden;
-		}
-		#emotes-grid-wrapper {
-			position: absolute;
-			inset: 0.625rem 0.625rem;
-			overflow-y: auto;
-		}
-		#search {
-			padding: 0 0.5rem;
-			min-width: 0;
-			font-size: .625rem;
-			height: 1.125rem;
-			box-sizing: border-box;
-			margin-bottom: .125rem;
-		}	
-		#search:focus {
-			outline: none;
-		}
-		#search::placeholder{
-			color: #999999;
-		}
+			#emotePicker-search {
+				padding: 0 0.5rem;
+				min-width: 0;
+				font-size: .625rem;
+				height: 1.125rem;
+				box-sizing: border-box;
+				margin-bottom: .125rem;
+			}	
+			#emotePicker-search:focus {
+				outline: none;
+			}
+			#emotePicker-search::placeholder{
+				color: #999999;
+			}
 
-		#form{
-			display: flex;
-			gap: 0.125rem;
-			padding-top: 0.125rem;
-			align-items: stretch;
-			height: 2rem;
-			flex-wrap: nowrap;
-		}
-		#form button {
-			padding: 0;
-			box-sizing: border-box;
-			min-width: 2rem;
-			max-width: 2rem;
-			font-size: 1.7rem;
-			display: flex;
-			flex-shrink: 0;
-			line-height: 0;
-			align-items: center;
-			justify-content: center;
-			background: #c0c0c0;
-			border: none;
-		}
-		#form button[type="submit"] {
-			max-width: 7.5475rem !important;
-			min-width: 7.5475rem !important;
-			font-size: 1rem !important;
-		}
-		#input {
-			border: none;
-			height: 100%;
-			padding: 0 0.5rem;
-			flex: 1 1 0;
-			min-width: 0;
-			font-size: 1rem;
-			box-sizing: border-box;
-			margin-right: 0.0625rem;
-			text-indent: 0.0625rem;
-		}	
-		#input:focus {
-			outline: none;
-		}
+			/* Message Pane */
+			#chat-frame {
+				flex-grow: 1;
+				min-height: 1rem;
+				background-color: #ffffff;
+				background-blend-mode: normal;
+				background-repeat: repeat;
+				background-position: center;
+				background-size: 25%;
+				box-shadow: inset -0.0625rem -0.0625rem #ffffff,
+							inset 0.0625rem 0.0625rem #0a0a0a, 
+							inset -0.125rem -0.125rem #dfdfdf, 
+							inset 0.125rem 0.125rem #808080;
+				padding-top: 0.25rem;
+				padding-bottom: 0.25rem;
+				margin-top: 0.25rem;
+				margin-bottom: 0.25rem;
+				display: flex;
+				flex-direction: column;
+			}
 
-		#user-sidebar {
-			flex: 0 0 9.7600rem; 
-			background: #ffffff;
-			box-shadow: 
+			#chat-viewport {
+				height: 100%;
+				width: 100%;
+				overflow-y: auto;
+			}
+
+			#chat-list {
+				list-style-type: none;
+				margin: 0;
+				padding: 0;
+				display: flex;
+				flex-direction: column;
+				justify-content: flex-end;
+				min-height: 100%;
+				font-size: large;
+			}
+			#chat-list .message-author {
+				font-weight: bold;
+				color: var(--user-color, black);
+				margin-right: .15rem;
+			}
+			.chat-item{
+				padding-top: 0.2rem;
+				padding-bottom: 0.2rem;
+				padding-left: 1rem;
+				padding-right: 0.2rem;
+				white-space: pre-wrap;
+				word-break: break-word;
+			}
+			.chat-item:hover {
+				background-color: rgba(0, 0, 0, 0.05);
+			}
+			.chat-item.isHidden:hover {
+				cursor: pointer;
+			}
+
+			/* User Panel */
+			#activeUsers-frame {
+				flex: 0 0 9.7600rem; 
+				background: #ffffff;
+				box-shadow: 
+							inset -0.0625rem -0.0625rem #ffffff, 
+							inset 0.0625rem 0.0625rem #0a0a0a, 
+							inset -0.125rem -0.125rem #dfdfdf, 
+							inset 0.125rem 0.125rem #808080;
+				padding: 0.3125rem;
+				margin-top: 0.25rem;
+				margin-bottom: 0.25rem;			
+				overflow-y: auto;
+				overflow-x: hidden;
+				flex-shrink: 0;
+				display: flex;
+				flex-direction: column;
+			}
+			#activeUsers-frame.isCollapsed {
+				flex-basis: 0 !important;
+				padding: 0 !important;
+				margin: 0 !important;
+				overflow: hidden;
+				border: none;
+			}
+			#activeUsers-frame.isCollapsed + .scrollbar, 
+			#activeUsers-frame.isCollapsed ~ .scrollbar,
+			#chat-frame ~ .scrollbar:has(+ #activeUsers-frame.isCollapsed) {
+				margin-right: 0;
+			}
+
+			#activeUsers-list {
+				flex-grow: 1;
+				overflow-y: auto;
+				overflow-x: hidden;
+				list-style: none;
+				padding: 0;
+				margin: 0.25rem;
+				font-size: large;
+			}
+
+			.activeUsers-item {
+				white-space: nowrap;
+				display: flex;
+				align-items: center;
+				width: 100%;
+				overflow: hidden;
+			}
+			.activeUsers-item span:nth-child(3) {
+				flex-shrink: 1;
+				flex-grow: 1;
+				min-width: 0;
+			}
+
+			.activeUsers-item-modBadge {
+				display: inline-block;
+				line-height: 1;
+				width: 0.8rem;
+				height: 0.8rem;
+				vertical-align: middle;
+				margin-right: 0.125rem;
+				margin-bottom: 0.375rem;
+				color: #008000;
+			}
+
+			.activeUsers-item-orb {
+				display: inline-block;
+				width: 0.7rem;
+				height: 0.7rem;
+				border-radius: 50%;
+				margin-right: 0.375rem;
+				margin-bottom: 0.175rem;
+				flex-shrink: 0;
+				border: 0.0625rem solid rgba(0,0,0,0.2);
+			}
+	
+			.activeUsers-item-orb.isOnline {
+				background: radial-gradient(circle at 0.1875rem 0.1875rem, #52ff52, #008000);
+				box-shadow: 0.0625rem 0.0625rem 0.0625rem rgba(0,0,0,0.3);
+			}
+
+			.activeUsers-item-orb.isAfk {
+				background: radial-gradient(circle at 0.1875rem 0.1875rem, #ffb84d, #ff8c00);
+				box-shadow: 0.0625rem 0.0625rem 0.0625rem rgba(0,0,0,0.3);
+			}
+
+			.activeUsers-item-count {
+				color: #575963;
+				text-align: right;
+			}
+
+			.activeUsers-item-status {
+				display: inline-block;
+				font-size: 0.75rem;
+				color: #575963;
+				margin-left: 0.75rem;
+				margin-right: 0.75rem;
+				white-space: nowrap;
+				overflow: hidden;
+				position: relative;
+				height: 1rem;
+				width: 8rem;
+			}
+			.activeUsers-item-status .emote {
+				height: 0.9125rem;
+				vertical-align: top;
+				margin: -0.1rem;
+			}
+
+			.activeUsers-item-statusScroll {
+				display: inline-block;
+				white-space: nowrap;
+				padding-left: 0.125rem;
+			}
+
+			.activeUsers-item-statusScroll.isAnimated {
+				animation: activeUsers-item-statusMarquee 8s linear infinite;
+			}
+
+			@keyframes activeUsers-item-statusMarquee {
+				0%		{ transform: translateX(0); }
+				15%		{ transform: translateX(0); }
+				80%		{ transform: translateX(calc(-100% + 8rem)); }
+				95%		{ transform: translateX(calc(-100% + 8rem)); }
+				95.01%	{ transform: translateX(0); }
+				100%	{ transform: translateX(0); }
+			}
+
+			#activeUsers-lurkerCount {
+				color:#575963;
+				font-size: small;
+				min-height: 1rem;
+				flex-shrink: 0;
+				text-align: center;
+			}
+
+			/* Footer */
+			#footer {
+				display: flex;
+				gap: 0.125rem;
+				padding-top: 0.125rem;
+				align-items: stretch;
+				height: 2rem;
+				flex-wrap: nowrap;
+			}
+
+			.footer-button {
+				padding: 0;
+				box-sizing: border-box;
+				min-width: 2rem;
+				max-width: 2rem;
+				font-size: 1.7rem;
+				display: flex;
+				flex-shrink: 0;
+				line-height: 0;
+				align-items: center;
+				justify-content: center;
+				background: #c0c0c0;
+				border: none;
+			}
+			.footer-button-submit {
+				max-width: 7.5475rem !important;
+				min-width: 7.5475rem !important;
+				font-size: 1rem !important;
+			}
+
+			#footer-chatBox-form {
+				display: flex;
+				flex: 1 1 0;
+				gap: 0.125rem;
+			}
+
+			#footer-chatBox-input {
+				border: none;
+				height: 100%;
+				padding: 0 0.5rem;
+				flex: 1 1 0;
+				min-width: 0;
+				font-size: 1rem;
+				box-sizing: border-box;
+				margin-right: 0.0625rem;
+				text-indent: 0.0625rem;
+			}
+			#footer-chatBox-input:focus {
+				outline: none;
+			}
+
+			/* Scrollbar */
+			.scrollbar {
+				width: 1.2rem;
+				background: #dfdfdf;
+				display: flex;
+				flex-direction: column;
+				flex-shrink: 0;
+				margin: 0.25rem 0.2rem;
+			}
+
+			.scrollbar-button {
+				width: 1.2rem;
+				height: 1.2rem;
+				padding: 0;
+				min-width: 1.2rem;
+				min-height: 1.2rem;
+				font-size: 0.6rem;
+				display: flex;
+				align-items: center;
+				justify-content: center;
+				background: #c0c0c0;
+				border: none;
+				box-shadow: 
+							inset 0.0625rem 0.0625rem #ffffff, 
+							inset -0.0625rem -0.0625rem #0a0a0a, 
+							inset 0.125rem 0.125rem #dfdfdf, 
+							inset -0.125rem -0.125rem #808080;
+			}
+			.scrollbar-track {
+				flex-grow: 1;
+				position: relative;
+				background-size: 0.2rem 0.2rem;
+				background-position: 0 0, 0 0.1rem, 0.1rem -0.1rem, -0.1rem 0rem;
+				background-color: #dfdfdf;
+				box-shadow: 
 						inset -0.0625rem -0.0625rem #ffffff, 
-						inset 0.0625rem 0.0625rem #0a0a0a, 
-						inset -0.125rem -0.125rem #dfdfdf, 
-						inset 0.125rem 0.125rem #808080;
-			padding: 0.3125rem;
-			margin-top: 0.25rem;
-			margin-bottom: 0.25rem;			
-			overflow-y: auto;
-			overflow-x: hidden;
-			flex-shrink: 0;
-			display: flex;
-			flex-direction: column;
-		}
-		#user-sidebar.collapsed {
-			flex-basis: 0 !important;
-			padding: 0 !important;
-			margin: 0 !important;
-			overflow: hidden;
-			border: none;
-		}
-		#user-sidebar.collapsed + .fake-scrollbar, 
-		#user-sidebar.collapsed ~ .fake-scrollbar,
-		#messages-container ~ .fake-scrollbar:has(+ #user-sidebar.collapsed) {
-			margin-right: 0;
-		}
-		#user-list {
-			flex-grow: 1;
-			overflow-y: auto;
-			overflow-x:hidden;
-			list-style: none;
-			padding: 0;
-			margin: 0.25rem;
-			font-size: large;
-		}
-		.user-list-span {
-			white-space: nowrap;
-			display: flex;
-			align-items: center;
-			width: 100%;
-			overflow: hidden;
-		}
-		.user-list-span span:nth-child(3) {
-			flex-shrink: 1;
-			flex-grow: 1;
-			min-width: 0;
-		}
-		.user-count {
-			color: #575963;
-			text-align: right;
-		}
-		.user-status {
-			display: inline-block;
-			font-size: 0.75rem;
-			color: #575963;
-			margin-left: 0.75rem;
-			margin-right: 0.75rem;
-			white-space: nowrap;
-			overflow: hidden;
-			position: relative;
-			height: 1rem;
-			width: 8rem;
-		}
-		.status-scroll {
-			display: inline-block;
-			white-space: nowrap;
-			padding-left: 0.125rem;
-		}
-		@keyframes status-marquee {
-			0%		{ transform: translateX(0); }
-			15%		{ transform: translateX(0); }
-			80%		{ transform: translateX(calc(-100% + 8rem)); }
-			95%		{ transform: translateX(calc(-100% + 8rem)); }
-			95.01%	{ transform: translateX(0); }
-			100%	{ transform: translateX(0); }
-		}
-		.animate-status {
-			animation: status-marquee 8s linear infinite;
-		}
-		.user-status .emote {
-			height: 0.9125rem;
-			vertical-align: top;
-			margin: -0.1rem;
-		}
-
-		.mod-badge {
-			display: inline-block;
-			line-height: 1;
-			width: 0.8rem;
-			height: 0.8rem;
-			vertical-align: middle;
-			margin-right: 0.125rem;
-			margin-bottom: 0.375rem;
-			color: #008000;
-		}
-
-		.status-orb {
-			display: inline-block;
-			width: 0.7rem;
-			height: 0.7rem;
-			border-radius: 50%;
-			margin-right: 0.375rem;
-			margin-bottom: 0.175rem;
-			flex-shrink: 0;
-			border: 0.0625rem solid rgba(0,0,0,0.2);
-		}
-		.orb-online {
-			background: radial-gradient(circle at 0.1875rem 0.1875rem, #52ff52, #008000);
-			box-shadow: 0.0625rem 0.0625rem 0.0625rem rgba(0,0,0,0.3);
-		}
-
-		.orb-afk {
-			background: radial-gradient(circle at 0.1875rem 0.1875rem, #ffb84d, #ff8c00);
-			box-shadow: 0.0625rem 0.0625rem 0.0625rem rgba(0,0,0,0.3);
-		}
-		#lurker-status {
-			color:#575963;
-			font-size: small;
-			min-height: 1rem;
-			flex-shrink: 0;
-			text-align: center;
-		}
-
-		#messages-container {
-			flex-grow: 1;
-			min-height: 1rem;
-			background-color: #ffffff;
-			background-blend-mode: normal;
-			background-repeat: repeat;
-			background-position: center;
-			background-size: 25%;
-			box-shadow: inset -0.0625rem -0.0625rem #ffffff,
-						inset 0.0625rem 0.0625rem #0a0a0a, 
-						inset -0.125rem -0.125rem #dfdfdf, 
-						inset 0.125rem 0.125rem #808080;
-			padding-top: 0.25rem;
-			padding-bottom: 0.25rem;
-			margin-top: 0.25rem;
-			margin-bottom: 0.25rem;
-			display: flex;
-			flex-direction: column;
-			overflow-y: auto;
-		}
-		.has-bg{
-			background-color: rgba(255, 255, 255, 0.5) !important;
-			background-blend-mode: overlay !important;
-		}
-		.emote {
-			height: 1.5rem;
-			vertical-align: bottom;
-			margin: -0.1rem;
-		}
-
-		#messages {
-			list-style-type: none;
-			margin: 0;
-			padding: 0;
-			display: flex;
-			flex-direction: column;
-			justify-content: flex-end;
-			min-height: 100%;
-			font-size: large;
-		}
-		#messages .user-name {
-			font-weight: bold;
-			color: var(--user-color, black);
-			margin-right: .15rem;
-		}
-		#messages > li{
-			padding-top: 0.2rem;
-			padding-bottom: 0.2rem;
-			padding-left: 1rem;
-			padding-right: 0.2rem;
-			white-space: pre-wrap;
-			word-break: break-word;
-		}
-		#messages > li:hover {
-			background-color: rgba(0, 0, 0, 0.05);
-		}
-		#messages > li.hidden-message:hover {
-			cursor: pointer;
-		}
-		#messages > .e-li {
-			color: #D12626;
-		}
-		#messages > .i-li {
-			color: #575963;
-		}
-		#messages > .w-li {
-			color: #0084FF;
-		}
-		#messages > .a-li {
-			color: #6eab6e;
-		}
-		#messages > .g-li{
-			color: #6f0475;
-		}
-
-		.g-color-clear {
-			color: initial;
-		}
-		.g-color-gold {
-			color: #b8860b;
-		}
-		.g-color-silver {
-			color: #708090;
-		}
-		.g-color-bronze {
-			color: #8c5a2b;
-		}
-		.g-color-blue {
-			color: #0084FF;
-		}
-		.g-color-brown {
-			color: #7a4a2b;
-		}
-		.g-color-black {
-			color: #1a1a1a;
-		}
-		.g-color-gray {
-			color: #6b6b6b;
-		}
-		.g-color-navy {
-			color: #1b2a5e;
-		}
-		.g-color-green {
-			color: #6eab6e;
-		}
-		.g-color-orange {
-			color: #c2650c;
-		}
-		.g-color-pink {
-			color: #c2408a;
-		}
-		.g-color-purple {
-			color: #6f0475;
-		}
-		.g-color-teal {
-			color: #157a72;
-		}
-		.g-color-red {
-			color: #D12626;
-		}
-		.g-color-white {
-			color: #a8a8a8;
-		}
-		.g-color-yellow {
-			color: #a68a00;
-		}
-
-		.fake-scrollbar {
-			width: 1.2rem;
-			background: #dfdfdf;
-			display: flex;
-			flex-direction: column;
-			flex-shrink: 0;
-			margin: 0.25rem 0.2rem;
-		}
-		.fake-scroll-button {
-			width: 1.2rem;
-			height: 1.2rem;
-			padding: 0;
-			min-width: 1.2rem;
-			min-height: 1.2rem;
-			font-size: 0.6rem;
-			display: flex;
-			align-items: center;
-			justify-content: center;
-			background: #c0c0c0;
-			border: none;
-			box-shadow: 
+						inset 0.0625rem 0.0625rem #808080;
+			}
+			.scrollbar-thumb {
+				width: 100%;
+				height: 2rem;
+				background: #c0c0c0;
+				position: absolute;
+				left: 50%;
+				transform: translateX(-50%);
+				border: none;	
+				box-shadow: 
 						inset 0.0625rem 0.0625rem #ffffff, 
 						inset -0.0625rem -0.0625rem #0a0a0a, 
 						inset 0.125rem 0.125rem #dfdfdf, 
 						inset -0.125rem -0.125rem #808080;
-		}
-		.fake-scroll-track {
-			flex-grow: 1;
-			position: relative;
-			background-size: 0.2rem 0.2rem;
-			background-position: 0 0, 0 0.1rem, 0.1rem -0.1rem, -0.1rem 0rem;
-			background-color: #dfdfdf;
-			box-shadow: 
-					inset -0.0625rem -0.0625rem #ffffff, 
-					inset 0.0625rem 0.0625rem #808080;
-		}
-		#emotes-fake-scroll-thumb,
-		#fake-scroll-thumb {
-			width: 100%;
-			height: 2rem;
-			background: #c0c0c0;
-			position: absolute;
-			left: 50%;
-			transform: translateX(-50%);
-			border: none;	
-			box-shadow: 
-					inset 0.0625rem 0.0625rem #ffffff, 
-					inset -0.0625rem -0.0625rem #0a0a0a, 
-					inset 0.125rem 0.125rem #dfdfdf, 
-					inset -0.125rem -0.125rem #808080;
-		}
-		.emotes-popup .fake-scrollbar {
-			margin-top: 0;
-			margin-bottom: 0;
-			margin-right: 0;
-		}
+			}
 
-		/* DARK MODE */
-		[data-theme="dark"] .has-bg {
-			background-color: rgba(0, 0, 0, 0.5) !important;
-		}
-		
-		[data-theme="dark"] .window {
-			background: #000000;
-			box-shadow:
-				inset -0.0625rem -0.0625rem #111111,
-				inset 0.0625rem 0.0625rem #444444,
-				inset -0.125rem -0.125rem #222222,
-				inset 0.125rem 0.125rem #555555;
-		}
+			/* UTILITES */
+			.hideDefaultScrollbar {
+				scrollbar-width: none;
+				-ms-overflow-style: none;
+			}
 
-		[data-theme="dark"] .title-bar {
-			background: linear-gradient(to right, #2b004f, #a46cff);
-			color: #ffffff;
-		}
+			.hideDefaultScrollbar::-webkit-scrollbar {
+				display: none;
+			}
 
-		[data-theme="dark"] .emotes-content,
-		[data-theme="dark"] #messages-container,
-		[data-theme="dark"] #input,
-		[data-theme="dark"] #search,
-		[data-theme="dark"] #user-sidebar {
-			background-color: #2a2a2a;
-			color: #ffffff;
-			box-shadow:
-				inset 0.0625rem 0.0625rem #111111,
-				inset -0.0625rem -0.0625rem #444444,
-				inset 0.125rem 0.125rem #222222,
-				inset -0.125rem -0.125rem #555555;
-		}
-		[data-theme="dark"] #search::placeholder {
-			color: #888888;
-		}
+			.hasBg{
+				background-color: rgba(255, 255, 255, 0.5) !important;
+				background-blend-mode: overlay !important;
+			}
 
-		[data-theme="dark"] #form button{
-			background: #3a3a3a;
-			color: #ffffff;
-			box-shadow:
-				inset -0.0625rem -0.0625rem #111111,
-				inset 0.0625rem 0.0625rem #444444,
-				inset -0.125rem -0.125rem #222222,
-				inset 0.125rem 0.125rem #555555;
-		}
-		[data-theme="dark"] #form button:active {
-			box-shadow:
-				inset 0.0625rem 0.0625rem #111111,
-				inset -0.0625rem -0.0625rem #444444,
-				inset 0.125rem 0.125rem #222222,
-				inset -0.125rem -0.125rem #555555;
-		}
+			/* Text Formatting */
 
-		[data-theme="dark"] #messages > li {
-			color: #ffffff;
-		}
-		[data-theme="dark"] #messages > .e-li { color: #ff8a8a; }
-		[data-theme="dark"] #messages > .i-li { color: #d0d0d0; }
-		[data-theme="dark"] #messages > .w-li { color: #8ac7ff; }
-		[data-theme="dark"] #messages > .a-li { color: #9df79d; }
-		[data-theme="dark"] #messages > .g-li { color: #e889ed; }
-		[data-theme="dark"] #messages > li:hover {
-			background-color: rgba(255, 255, 255, 0.08);
-		}
+			.format-bold {
+				font-weight: bold;
+				font-size: 1rem;
+			}
+			.format-italics {
+				font-style: italic;
+			}
+			.format-mono {
+				font-family: 'VT323', monospace;
+				font-variant-numeric: tabular-nums;
+				font-size: 1.275rem;
+				display: inline-block;
+				transform-origin: bottom;
+			}
 
-		[data-theme="dark"] .g-color-clear { color: #ffffff; }
-		[data-theme="dark"] .g-color-gold { color: #e0b84d; }
-		[data-theme="dark"] .g-color-silver { color: #b8c0c8; }
-		[data-theme="dark"] .g-color-bronze { color: #c9915a; }
-		[data-theme="dark"] .g-color-blue { color: #8ac7ff; }
-		[data-theme="dark"] .g-color-brown { color: #b8825a; }
-		[data-theme="dark"] .g-color-black { color: #cfcfcf; }
-		[data-theme="dark"] .g-color-gray { color: #a8a8a8; }
-		[data-theme="dark"] .g-color-navy { color: #7d95d6; }
-		[data-theme="dark"] .g-color-green { color: #9df79d; }
-		[data-theme="dark"] .g-color-orange { color: #e8973f; }
-		[data-theme="dark"] .g-color-pink { color: #e075b8; }
-		[data-theme="dark"] .g-color-purple { color: #e889ed; }
-		[data-theme="dark"] .g-color-teal { color: #4fc3b8; }
-		[data-theme="dark"] .g-color-red { color: #ff8a8a; }
-		[data-theme="dark"] .g-color-white { color: #e0e0e0; }
-		[data-theme="dark"] .g-color-yellow { color: #e0c95a; }
+			.emote {
+				height: 1.5rem;
+				vertical-align: bottom;
+				margin: -0.1rem;
+			}
 
-		[data-theme="dark"] .fake-scrollbar {
-			background: #2a2a2a;
-		}
+			/* Text Coloring */
 
-		[data-theme="dark"] .fake-scroll-button {
-			background: #3a3a3a;
-			color: #ffffff;
-			box-shadow:
-				inset -0.0625rem -0.0625rem #111111,
-				inset 0.0625rem 0.0625rem #444444,
-				inset -0.125rem -0.125rem #222222,
-				inset 0.125rem 0.125rem #555555;
-		}
+			.textColor-error {
+				color: #D12626;
+			}
 
-		[data-theme="dark"] .fake-scroll-button:active {
-			box-shadow:
-				inset 0.0625rem 0.0625rem #111111,
-				inset -0.0625rem -0.0625rem #444444,
-				inset 0.125rem 0.125rem #222222,
-				inset -0.125rem -0.125rem #555555;
-		}
+			.textColor-info {
+				color: #575963;
+			}
 
-		[data-theme="dark"] .fake-scroll-track {
-			background-color: #555555;
-			box-shadow: 
-					inset 0.0625rem 0.0625rem #333333, 
-					inset -0.0625rem -0.0625rem #666666;
-		}
+			.textColor-welcome {
+				color: #0084FF;
+			}
 
-		[data-theme="dark"] #fake-scroll-thumb,
-		[data-theme="dark"] #emotes-fake-scroll-thumb {
-			background: #3a3a3a;
-			color: #ffffff;
-			box-shadow:
-				inset -0.0625rem -0.0625rem #111111,
-				inset 0.0625rem 0.0625rem #444444,
-				inset -0.125rem -0.125rem #222222,
-				inset 0.125rem 0.125rem #555555;
-		}
+			.textColor-announcement {
+				color: #6eab6e;
+			}
 
+			.textColor-game{
+				color: #6f0475;
+			}
+
+			/* Game Text Coloring */
+			.gameColor-clear {
+				color: initial;
+			}
+
+			.gameColor-gold {
+				color: #b8860b;
+			}
+
+			.gameColor-silver {
+				color: #708090;
+			}
+
+			.gameColor-bronze {
+				color: #8c5a2b;
+			}
+
+			.gameColor-blue {
+				color: #0084FF;
+			}
+
+			.gameColor-brown {
+				color: #7a4a2b;
+			}
+
+			.gameColor-black {
+				color: #1a1a1a;
+			}
+
+			.gameColor-gray {
+				color: #6b6b6b;
+			}
+
+			.gameColor-navy {
+				color: #1b2a5e;
+			}
+
+			.gameColor-green {
+				color: #6eab6e;
+			}
+
+			.gameColor-orange {
+				color: #c2650c;
+			}
+
+			.gameColor-pink {
+				color: #c2408a;
+			}
+
+			.gameColor-purple {
+				color: #6f0475;
+			}
+
+			.gameColor-teal {
+				color: #157a72;
+			}
+
+			.gameColor-red {
+				color: #D12626;
+			}
+
+			.gameColor-white {
+				color: #a8a8a8;
+			}
+
+			.gameColor-yellow {
+				color: #a68a00;
+			}
+
+			/* THEME (DARK MODE) */
+			[data-theme="dark"] .window {
+				background: #000000;
+				box-shadow:
+					inset -0.0625rem -0.0625rem #111111,
+					inset 0.0625rem 0.0625rem #444444,
+					inset -0.125rem -0.125rem #222222,
+					inset 0.125rem 0.125rem #555555;
+			}
+
+			[data-theme="dark"] .title-bar {
+				background: linear-gradient(to right, #2b004f, #a46cff);
+				color: #ffffff;
+			}
+
+			[data-theme="dark"] .emotePicker-frame,
+			[data-theme="dark"] #emotePicker-search,
+			[data-theme="dark"] #chat-frame,
+			[data-theme="dark"] #activeUsers-frame,
+			[data-theme="dark"] #footer-chatBox-input {
+				background-color: #2a2a2a;
+				color: #ffffff;
+				box-shadow:
+					inset 0.0625rem 0.0625rem #111111,
+					inset -0.0625rem -0.0625rem #444444,
+					inset 0.125rem 0.125rem #222222,
+					inset -0.125rem -0.125rem #555555;
+			}
+
+			[data-theme="dark"] #emotePicker-search::placeholder {
+				color: #888888;
+			}
+
+			[data-theme="dark"] .chat-item {
+				color: #ffffff;
+			}
+			[data-theme="dark"] .chat-item:hover {
+				background-color: rgba(255, 255, 255, 0.08);
+			}
+
+			[data-theme="dark"] .footer-button {
+				background: #3a3a3a;
+				color: #ffffff;
+				box-shadow:
+					inset -0.0625rem -0.0625rem #111111,
+					inset 0.0625rem 0.0625rem #444444,
+					inset -0.125rem -0.125rem #222222,
+					inset 0.125rem 0.125rem #555555;
+			}
+			[data-theme="dark"] .footer-button:active {
+				box-shadow:
+					inset 0.0625rem 0.0625rem #111111,
+					inset -0.0625rem -0.0625rem #444444,
+					inset 0.125rem 0.125rem #222222,
+					inset -0.125rem -0.125rem #555555;
+			}
+
+			/* Scrollbars */
+			[data-theme="dark"] .scrollbar {
+				background: #2a2a2a;
+			}
+
+			[data-theme="dark"] .scrollbar-button {
+				background: #3a3a3a;
+				color: #ffffff;
+				box-shadow:
+					inset -0.0625rem -0.0625rem #111111,
+					inset 0.0625rem 0.0625rem #444444,
+					inset -0.125rem -0.125rem #222222,
+					inset 0.125rem 0.125rem #555555;
+			}
+
+			[data-theme="dark"] .scrollbar-button:active {
+				box-shadow:
+					inset 0.0625rem 0.0625rem #111111,
+					inset -0.0625rem -0.0625rem #444444,
+					inset 0.125rem 0.125rem #222222,
+					inset -0.125rem -0.125rem #555555;
+			}
+
+			[data-theme="dark"] .scrollbar-track {
+				background-color: #555555;
+				box-shadow: 
+						inset 0.0625rem 0.0625rem #333333, 
+						inset -0.0625rem -0.0625rem #666666;
+			}
+
+			[data-theme="dark"] .scrollbar-thumb {
+				background: #3a3a3a;
+				color: #ffffff;
+				box-shadow:
+					inset -0.0625rem -0.0625rem #111111,
+					inset 0.0625rem 0.0625rem #444444,
+					inset -0.125rem -0.125rem #222222,
+					inset 0.125rem 0.125rem #555555;
+			}
+
+			/* Text Coloring */
+			[data-theme="dark"] .textColor-error { color: #ff8a8a; }
+			[data-theme="dark"] .textColor-info { color: #d0d0d0; }
+			[data-theme="dark"] .textColor-welcome { color: #8ac7ff; }
+			[data-theme="dark"] .textColor-announcement { color: #9df79d; }
+			[data-theme="dark"] .textColor-game { color: #e889ed; }
+
+			[data-theme="dark"] .gameColor-clear { color: #ffffff; }
+			[data-theme="dark"] .gameColor-gold { color: #e0b84d; }
+			[data-theme="dark"] .gameColor-silver { color: #b8c0c8; }
+			[data-theme="dark"] .gameColor-bronze { color: #c9915a; }
+			[data-theme="dark"] .gameColor-blue { color: #8ac7ff; }
+			[data-theme="dark"] .gameColor-brown { color: #b8825a; }
+			[data-theme="dark"] .gameColor-black { color: #cfcfcf; }
+			[data-theme="dark"] .gameColor-gray { color: #a8a8a8; }
+			[data-theme="dark"] .gameColor-navy { color: #7d95d6; }
+			[data-theme="dark"] .gameColor-green { color: #9df79d; }
+			[data-theme="dark"] .gameColor-orange { color: #e8973f; }
+			[data-theme="dark"] .gameColor-pink { color: #e075b8; }
+			[data-theme="dark"] .gameColor-purple { color: #e889ed; }
+			[data-theme="dark"] .gameColor-teal { color: #4fc3b8; }
+			[data-theme="dark"] .gameColor-red { color: #ff8a8a; }
+			[data-theme="dark"] .gameColor-white { color: #e0e0e0; }
+			[data-theme="dark"] .gameColor-yellow { color: #e0c95a; }
 		</style>
 	</head>
 
 	<body>
-	<input type="file" id="bg-upload" style="display: none;" accept="image/*">
+	<input id="bgUpload" type="file" accept="image/*">
 	
 	<div class="window">
-
-		<div id="emotes-popup" class="emotes-popup">
+		<div id="emotePicker">
 			<div class="window">
 
 				<div class="title-bar">
 					<div class="title-bar-text">click an emote to use</div>
 					<div class="title-bar-controls">
-						<button aria-label="Close" onclick="document.getElementById('emotes-popup').classList.remove('is-visible')"></button>
+						<button aria-label="Close" onclick="document.getElementById('emotePicker').classList.remove('isVisible')"></button>
 					</div>
 				</div>
 
 				<div class="window-body">
-					<div style="display: flex; flex-direction: row; flex-grow: 1; overflow: hidden;">
-						<div style="display: flex; flex-direction: column; flex-grow: 1; overflow: hidden;">			
-							<input id="search" type="text" autocomplete="off" placeholder=" type here to search for emotes..."/>				
-							<div id="emotes-scroll-container" class="emotes-content hide-scrollbar" style="margin-bottom: 0;">
-								<div id="emotes-grid-wrapper" class="hide-scrollbar" ></div>
+					<div class="layoutRow">
+						<div class="layoutColumn">		
+							<input id="emotePicker-search" type="text" autocomplete="off" placeholder=" type here to search for emotes..."/>
+							<div class="emotePicker-frame">				
+								<div id="emotePicker-viewport" class="hideDefaultScrollbar" ></div>
 							</div>
 						</div>	
-						<div class="fake-scrollbar">
-							<button class="fake-scroll-button" id="emotes-btn-up">&#9650;</button>
-							<div class="fake-scroll-track" id="emotes-track">
-								<div id="emotes-fake-scroll-thumb"></div>
+						<div class="scrollbar">
+							<button id="emotePicker-button-up" class="scrollbar-button">&#9650;</button>
+							<div id="emotePicker-track" class="scrollbar-track">
+								<div id="emotePicker-thumb" class="scrollbar-thumb"></div>
 							</div>
-							<button class="fake-scroll-button" id="emotes-btn-down">&#9660;</button>
+							<button id="emotePicker-button-down" class="scrollbar-button">&#9660;</button>
 						</div>
-					</div>				
+					</div>
 				</div>
-			</div>				
+			</div>
 		</div>
 
 		<div class="title-bar">
@@ -645,35 +722,39 @@
 		</div>
 
 		<div class="window-body">
-			<div style="display: flex; flex-direction: row; flex-grow: 1; overflow: hidden; gap: 0rem;">
-				
-				<div id="messages-container" class="hide-scrollbar">
-					<div id="messages-wrapper" class="hide-scrollbar" style="height:100%; width:100%; overflow-y: auto;">
-					<ul id="messages"></ul>
+			<div class="layoutRow">
+				<div id="chat-frame" class="hideDefaultScrollbar">
+					<div id="chat-pin-frame" class="hideDefaultScrollbar">
+						<ul id="chat-pin-list"></ul>
+					</div>
+					<div id="chat-viewport" class="hideDefaultScrollbar">
+						<ul id="chat-list"></ul>
 					</div>
 				</div>
 
-				<div class="fake-scrollbar">
-					<button class="fake-scroll-button" id="btn-up">&#9650;</button>
-					<div class="fake-scroll-track" id="track">
-						<div id="fake-scroll-thumb"></div>
+				<div class="scrollbar">
+					<button id="chat-button-up" class="scrollbar-button">&#9650;</button>
+					<div id="chat-track" class="scrollbar-track">
+						<div id="chat-thumb" class="scrollbar-thumb"></div>
 					</div>
-					<button class="fake-scroll-button" id="btn-down">&#9660;</button>
+					<button id="chat-button-down" class="scrollbar-button">&#9660;</button>
 				</div>
 				
-				<div id="user-sidebar" class="hide-scrollbar">
-					<ul id="user-list"class="hide-scrollbar"></ul>
-					<div id="lurker-status"></div>
+				<div id="activeUsers-frame" class="hideDefaultScrollbar">
+					<ul id="activeUsers-list"></ul>
+					<div id="activeUsers-lurkerCount"></div>
 				</div>
 
 			</div>
 
-			<form id="form" action="">
-				<input id="input" type="text" autocomplete="off" />
-				<button type="submit">Send</button>
-				<button type="button" id="btn-emotes" title="emotes" style="font-size: 2.2rem; padding-bottom: 0.25rem;">&#9786;</button>
-				<button type="button" id="btn-users" title="users" style="font-size:1.2rem">&#128101;</button>
-			</form>
+			<div id="footer">
+				<form id="footer-chatBox-form" action="">
+					<input id="footer-chatBox-input" type="text" autocomplete="off" />
+					<button class="footer-button footer-button-submit" type="submit">Send</button>
+				</form>
+				<button id="footer-button-emotes" class="footer-button" type="button" title="emotes">&#9786;</button>
+				<button id="footer-button-users" class="footer-button" type="button" title="users">&#128101;</button>
+			</div>
 		</div>		
 
 	</div>
@@ -731,9 +812,9 @@
 			path: '/ratchat/socket.io/',
 			auth: {token: localGUID}
 		});
-		const form = document.getElementById('form');
-		const input = document.getElementById('input');
-		const messages = document.getElementById('messages');
+		const form = document.getElementById('footer-chatBox-form');
+		const input = document.getElementById('footer-chatBox-input');
+		const chatList = document.getElementById('chat-list');
 
 		const savedBG = localStorage.getItem('ratBG');
 		const savedTheme = localStorage.getItem('ratMode');
@@ -752,20 +833,19 @@
 		//message type to css class
 		const toClass = {
 			'toClientChat': '',
-			'toClientError': 'e-li',
-			'toClientInfo': 'i-li',
-			'toClientWelcome': 'w-li',
-			'toClientAnnouncement': 'a-li',
+			'toClientError': 'textColor-error',
+			'toClientInfo': 'textColor-info',
+			'toClientWelcome': 'textColor-welcome',
+			'toClientAnnouncement': 'textColor-announcement',
 			'toClientMarkov': '',
-			'toClientGame': 'g-li'
 		};
 
 		if(savedTheme === 'dark'){
 			document.documentElement.setAttribute('data-theme', 'dark');
 		}
 		if(savedBG){
-			document.getElementById('messages-container').style.backgroundImage = `url('${savedBG}')`;
-			document.getElementById('messages-container').classList.add('has-bg');
+			document.getElementById('chat-frame').style.backgroundImage = `url('${savedBG}')`;
+			document.getElementById('chat-frame').classList.add('hasBg');
 		}
 		if(savedMutedUsers){
 			mutedUsers = JSON.parse(savedMutedUsers);
@@ -776,21 +856,21 @@
 
 		//Main window
 		initFakeScrollbar({
-			containerId: 'messages-wrapper',
-			trackId: 'track',
-			thumbId: 'fake-scroll-thumb',
-			contentId: 'messages',
-			btnUpId: 'btn-up',
-			btnDownId: 'btn-down'
+			containerId: 'chat-viewport',
+			trackId: 'chat-track',
+			thumbId: 'chat-thumb',
+			contentId: 'chat-list',
+			btnUpId: 'chat-button-up',
+			btnDownId: 'chat-button-down'
 		});
 		//emote popup
 		initFakeScrollbar({
-			containerId: 'emotes-grid-wrapper',
-			trackId: 'emotes-track',
-			thumbId: 'emotes-fake-scroll-thumb',
-			contentId: 'emotes-grid-wrapper',
-			btnUpId: 'emotes-btn-up',
-			btnDownId: 'emotes-btn-down'
+			containerId: 'emotePicker-viewport',
+			trackId: 'emotePicker-track',
+			thumbId: 'emotePicker-thumb',
+			contentId: 'emotePicker-viewport',
+			btnUpId: 'emotePicker-button-up',
+			btnDownId: 'emotePicker-button-down'
 		});
 
 		socket.on('toClientChat', handleMessage);
@@ -813,8 +893,8 @@
 		});
 		
 		socket.on('toClientUserList', (uList) => {
-			const userListElement = document.getElementById('user-list');
-			const lurkerElement = document.getElementById('lurker-status');
+			const userListElement = document.getElementById('activeUsers-list');
+			const lurkerElement = document.getElementById('activeUsers-lurkerCount');
 			userListElement.replaceChildren();
 
 			let lurkerData = null;
@@ -841,7 +921,7 @@
 				const userColor = user.fullnick.substring(0, 7);
 				const userBaseNick = user.fullnick.substring(7);
 
-				const orb = user.isAfk ? 'orb-afk' : 'orb-online';
+				const orbActivity = user.isAfk ? 'isAfk' : 'isOnline';
 				const orbLabel = user.isAfk ? 'AFK' : 'Online';
 				let displayCount = '';
 
@@ -858,17 +938,17 @@
 					status = '';
 				}
 				else{
-					status = `<div class="user-status"><span class="status-scroll">${status}</span></div>`;
+					status = `<div class="activeUsers-item-status"><span class="activeUsers-item-statusScroll">${status}</span></div>`;
 				}
-				const modBadge = user.isMod ? '<span class="mod-badge" style="font-size:1rem" title="Mod"><b>&#9929;</b></span>': '';
+				const modBadge = user.isMod ? '<span class="activeUsers-item-modBadge" style="font-size:1rem" title="Mod"><b>&#9929;</b></span>': '';
 
 				const fontSize = userBaseNick.length > 11 ? .8 : 1;
 				const dirty = (`
-					<span class="user-list-span" style="font-size: ${fontSize}rem">
-						<span class="status-orb ${orb}" title="${orbLabel}"></span>
+					<span class="activeUsers-item" style="font-size: ${fontSize}rem">
+						<span class="activeUsers-item-orb ${orbActivity}" title="${orbLabel}"></span>
 						${modBadge}
 						<span style="color: ${userColor}; font-weight: bold;">${userBaseNick}</span>
-						<span class="user-count">${displayCount}</span>
+						<span class="activeUsers-item-count">${displayCount}</span>
 					</span>
 					${status}
 				`);
@@ -881,14 +961,14 @@
 				}
 		
 				userListElement.appendChild(li);
-		
+
 				requestAnimationFrame(() => {
 					if(
-						li.querySelector('.status-scroll') &&
-						li.querySelector('.status-scroll').scrollWidth >
-						li.querySelector('.user-status').clientWidth
+						li.querySelector('.activeUsers-item-statusScroll') &&
+						li.querySelector('.activeUsers-item-statusScroll').scrollWidth >
+						li.querySelector('.activeUsers-item-status').clientWidth
 					){
-						li.querySelector('.status-scroll').classList.add('animate-status');
+						li.querySelector('.activeUsers-item-statusScroll').classList.add('isAnimated');
 					}
 				});
 			});
@@ -902,7 +982,7 @@
 
 		socket.on('toClientEmoteList', (payload) =>{
 			emotes = payload;
-			const container = document.getElementById('emotes-grid-wrapper');
+			const container = document.getElementById('emotePicker-viewport');
 		
 			container.replaceChildren();
 
@@ -925,11 +1005,10 @@
 				img.className = 'emote-selectable';
 
 				img.onclick = () => {
-					const input = document.getElementById('input');
+					const input = document.getElementById('footer-chatBox-input');
 					const space = input.value.length > 0 && !input.value.endsWith(' ') ? ' ' : '';
 					input.value += space + name + ' ';
 					input.focus();
-					document.getElementById('emotes-popup').classList.remove('is-visible');
 				};
 
 				grid.appendChild(img);
@@ -937,11 +1016,11 @@
 			container.appendChild(grid);
 		});
 
-		socket.on('toClientDeleteMessage', (msgArray) => {
-			if(!Array.isArray(msgArray)){
+		socket.on('toClientDeleteMessage', (messageArray) => {
+			if(!Array.isArray(messageArray)){
 				return;
 			}
-			msgArray.forEach(id => {
+			messageArray.forEach(id => {
 				if(id < 0){
 					return;
 				}
@@ -952,9 +1031,9 @@
 						target = target.parentElement;
 					}
 					const fresh = target.cloneNode(false);
-					fresh.className = 'i-li';
+					fresh.className = 'textColor-info';
 					fresh.textContent = '[message deleted]';
-					fresh.title = `Msg ID: ${id}`;
+					fresh.title = `Message ID: ${id}`;
 					fresh.setAttribute('data-id', id);
 					target.replaceWith(fresh);
 				}
@@ -967,8 +1046,8 @@
 			}
 			localStorage.clear();
 			console.log('Local storage cleared');
-			displayClientMessage('Your local data has been cleared.', 'i-li');
-			setTimeout(() => { displayClientMessage('reloading...', 'i-li'); }, 200);
+			displayClientMessage('Your local data has been cleared.', 'textColor-info');
+			setTimeout(() => { displayClientMessage('reloading...', 'textColor-info'); }, 200);
 			setTimeout(() => { window.location.reload(); }, 2000);
 		});
 
@@ -981,43 +1060,43 @@
 			socket.disconnect();
 		});
 
-		document.getElementById('btn-users').addEventListener('click', () => {
-			document.getElementById('user-sidebar').classList.toggle('collapsed');
+		document.getElementById('footer-button-users').addEventListener('click', () => {
+			document.getElementById('activeUsers-frame').classList.toggle('isCollapsed');
 			window.dispatchEvent(new Event('resize'));
 		});
 
-		document.getElementById('btn-emotes').addEventListener('click', () => {
-			const popup = document.getElementById('emotes-popup');
-			popup.classList.toggle('is-visible');
-			if(popup.classList.contains('is-visible')){
-				const search = document.getElementById('search');
+		document.getElementById('footer-button-emotes').addEventListener('click', () => {
+			const popup = document.getElementById('emotePicker');
+			popup.classList.toggle('isVisible');
+			if(popup.classList.contains('isVisible')){
+				const search = document.getElementById('emotePicker-search');
 				search.value = '';
 				filterEmotesGrid('');
 				search.focus();
 			}
 		});
 
-		document.getElementById('search').addEventListener('input', (search) => {
+		document.getElementById('emotePicker-search').addEventListener('input', (search) => {
 			filterEmotesGrid(search.target.value);
 		});
 
 		//Background loader
-		document.getElementById('bg-upload').addEventListener('change', function(event){
+		document.getElementById('bgUpload').addEventListener('change', function(event){
 			const file = event.target.files[0];
 			if(file){
 				const reader = new FileReader();
 		
 				reader.onload = function(event){
 					const imageData = event.target.result;
-					document.getElementById('messages-container').style.backgroundImage = `url('${imageData}')`;
-					document.getElementById('messages-container').classList.add('has-bg');
+					document.getElementById('chat-frame').style.backgroundImage = `url('${imageData}')`;
+					document.getElementById('chat-frame').classList.add('hasBg');
 		
 					//local storage
 					try{
 						localStorage.setItem('ratBG', imageData);
 					}
 					catch{
-						displayClientMessage("system: oh fuk it's too big", 'e-li');
+						displayClientMessage("system: oh fuk it's too big", 'textColor-error');
 						console.warn('image too large for localStorage');
 					}
 				};
@@ -1082,27 +1161,27 @@
 					case 'export':{
 						const GUID = localStorage.getItem('ratGUID');
 						if(!GUID){
-							displayClientMessage("system: couldn't find local ID.", 'e-li');
+							displayClientMessage("system: couldn't find local ID.", 'textColor-error');
 							input.value = '';
 							return;
 						}
-						displayClientMessage(`Your GUID is: ${GUID}`, 'i-li');
-						displayClientMessage('don\'t share it, save it! you can use this with /import to reload your identity if necessary.', 'i-li');
+						displayClientMessage(`Your GUID is: ${GUID}`, 'textColor-info');
+						displayClientMessage('don\'t share it, save it! you can use this with /import to reload your identity if necessary.', 'textColor-info');
 						input.value = '';
 						return;
 					}
 
 					case 'clear':
 					case 'clr':{
-						messages.replaceChildren();
+						chatList.replaceChildren();
 						input.value = '';
 						return;
 					}
 
 					case 'background':
 					case 'bg':{
-						document.getElementById('bg-upload').click();
-						displayClientMessage('pick a file', 'i-li');
+						document.getElementById('bgUpload').click();
+						displayClientMessage('pick a file', 'textColor-info');
 						input.value = '';
 						return;
 					}
@@ -1110,14 +1189,14 @@
 					case 'bgreset':{
 						if(localStorage.getItem('ratBG')){
 							localStorage.removeItem('ratBG');
-							document.getElementById('messages-container').style.backgroundImage = '';
-							document.getElementById('messages-container').classList.remove('has-bg');
-							displayClientMessage('background reset', 'i-li');
+							document.getElementById('chat-frame').style.backgroundImage = '';
+							document.getElementById('chat-frame').classList.remove('hasBg');
+							displayClientMessage('background reset', 'textColor-info');
 							input.value = '';
 							return;
 						}
 						else{
-							displayClientMessage('system: no background to reset', 'e-li');
+							displayClientMessage('system: no background to reset', 'textColor-error');
 							return;
 						}
 					}
@@ -1126,11 +1205,11 @@
 						if(document.documentElement.hasAttribute('data-theme')){
 							document.documentElement.removeAttribute('data-theme');
 							localStorage.setItem('ratMode', 'light');
-							displayClientMessage('system: think fast chucklenuts', 'i-li');
+							displayClientMessage('system: think fast chucklenuts', 'textColor-info');
 						} else {
 							document.documentElement.setAttribute('data-theme', 'dark');
 							localStorage.setItem('ratMode', 'dark');
-							displayClientMessage('system: bravo 6, going dark', 'i-li');
+							displayClientMessage('system: bravo 6, going dark', 'textColor-info');
 						}
 						input.value = '';
 						return;
@@ -1139,7 +1218,7 @@
 					case 'mute':
 					case 'm':{
 						if (eventList.length === 0) {
-							displayClientMessage('fetching event list...', 'i-li');
+							displayClientMessage('fetching event list...', 'textColor-info');
 
 							await Promise.race([
 								new Promise(resolve => socket.emit('toServerEventList', resolve)),
@@ -1147,69 +1226,69 @@
 							]);
 
 							if (eventList.length === 0) {
-								displayClientMessage('system: could not fetch event list, try again later', 'e-li');
+								displayClientMessage('system: could not fetch event list, try again later', 'textColor-error');
 								return;
 							}
 						}
 						if(!fullArgs || fullArgs.trim().length === 0){
-							displayClientMessage('system: no mute target provided', 'e-li');
+							displayClientMessage('system: no mute target provided', 'textColor-error');
 							return;
 						}
 						else if(fullArgs.includes(' ')){
-							displayClientMessage('system: mute target cannot contain spaces', 'e-li');
+							displayClientMessage('system: mute target cannot contain spaces', 'textColor-error');
 							return;
 						}
 						else if(fullArgs === 'system'){
-							displayClientMessage("system: nice try, but you can't mute ME!", 'e-li');
+							displayClientMessage("system: nice try, but you can't mute ME!", 'textColor-error');
 							input.value = '';
 							return;
 						}
 						else if(fullArgs === 'list'){
-							displayClientMessage(`users muted: ${mutedUsers}`, 'i-li');
-							displayClientMessage(`events muted: ${mutedEvents}`, 'i-li');
+							displayClientMessage(`users muted: ${mutedUsers}`, 'textColor-info');
+							displayClientMessage(`events muted: ${mutedEvents}`, 'textColor-info');
 							input.value = '';
 							return;
 						}
 						else if(fullArgs === 'eventlist'){
-							displayClientMessage(`muteable events: ${eventList}`, 'i-li');
+							displayClientMessage(`muteable events: ${eventList}`, 'textColor-info');
 							input.value = '';
 							return;
 						}
 						else if(fullArgs === 'all'){
-							displayClientMessage('system: Hahahahahahahaha How The Fuck Is Cyber Bullying Real Hahahaha Just Walk Away From The Screen Like Close Your Eyes Haha', 'e-li');
+							displayClientMessage('system: Hahahahahahahaha How The Fuck Is Cyber Bullying Real Hahahaha Just Walk Away From The Screen Like Close Your Eyes Haha', 'textColor-error');
 							input.value = '';
 							return;
 						}
 						else if(fullArgs === 'allevents'){
 							mutedEvents = [...eventList];
 							localStorage.setItem('ratMutedEvents', JSON.stringify(mutedEvents));
-							displayClientMessage(`muted events: ${mutedEvents}`, 'i-li');
+							displayClientMessage(`muted events: ${mutedEvents}`, 'textColor-info');
 							input.value = '';
 							return;
 						}
 						else if(eventList.includes(fullArgs)){
 							if(mutedEvents.includes(fullArgs)){
-								displayClientMessage(`${fullArgs} event is already muted, did you mean to /unmute?`, 'i-li');
+								displayClientMessage(`${fullArgs} event is already muted, did you mean to /unmute?`, 'textColor-info');
 								return;
 							}
 							else{
 								mutedEvents.push(fullArgs);
 								localStorage.setItem('ratMutedEvents', JSON.stringify(mutedEvents));
-								displayClientMessage(`muted event: ${fullArgs}`, 'i-li');
+								displayClientMessage(`muted event: ${fullArgs}`, 'textColor-info');
 								input.value = '';
 								return;
 							}
 						}
 						else{
 							if(mutedUsers.includes(fullArgs)){
-								displayClientMessage(`${fullArgs} is already muted, did you mean to /unmute?`, 'i-li');
+								displayClientMessage(`${fullArgs} is already muted, did you mean to /unmute?`, 'textColor-info');
 								return;
 							}
 							else{
 								mutedUsers.push(fullArgs);
 								localStorage.setItem('ratMutedUsers', JSON.stringify(mutedUsers));
 								muteMessageHistory(fullArgs);
-								displayClientMessage(`muted user: ${fullArgs}`, 'i-li');
+								displayClientMessage(`muted user: ${fullArgs}`, 'textColor-info');
 								input.value = '';
 								return;
 							}
@@ -1218,7 +1297,7 @@
 
 					case 'unmute':{
 						if (eventList.length === 0) {
-							displayClientMessage('fetching event list...', 'i-li');
+							displayClientMessage('fetching event list...', 'textColor-info');
 
 							await Promise.race([
 								new Promise(resolve => socket.emit('toServerEventList', resolve)),
@@ -1226,30 +1305,30 @@
 							]);
 
 							if (eventList.length === 0) {
-								displayClientMessage('system: could not fetch event list, try again later', 'e-li');
+								displayClientMessage('system: could not fetch event list, try again later', 'textColor-error');
 								return;
 							}
 						}
 						if(!fullArgs || fullArgs.trim().length === 0){
-							displayClientMessage('system: no unmute target provided', 'e-li');
+							displayClientMessage('system: no unmute target provided', 'textColor-error');
 							return;
 						}
 						else if(fullArgs.includes(' ')){
-							displayClientMessage('system: unmute target cannot contain spaces', 'e-li');
+							displayClientMessage('system: unmute target cannot contain spaces', 'textColor-error');
 							return;
 						}
 						else if(fullArgs === 'system'){
-							displayClientMessage('system: wow, thanks. it was getting really stuffy in that data center.', 'i-li');
+							displayClientMessage('system: wow, thanks. it was getting really stuffy in that data center.', 'textColor-info');
 							input.value = '';
 							return;
 						}
 						else if(fullArgs === 'list'){
-							displayClientMessage(`users muted: ${mutedUsers}`, 'i-li');
-							displayClientMessage(`events muted: ${mutedEvents}`, 'i-li');
+							displayClientMessage(`users muted: ${mutedUsers}`, 'textColor-info');
+							displayClientMessage(`events muted: ${mutedEvents}`, 'textColor-info');
 							return;
 						}
 						else if(fullArgs === 'eventlist'){
-							displayClientMessage(`muteable events: ${eventList}`, 'i-li');
+							displayClientMessage(`muteable events: ${eventList}`, 'textColor-info');
 							input.value = '';
 							return;
 						}
@@ -1259,40 +1338,40 @@
 							mutedEvents = [];
 							localStorage.setItem('ratMutedUsers', JSON.stringify(mutedUsers));
 							localStorage.setItem('ratMutedEvents', JSON.stringify(mutedEvents));
-							displayClientMessage('all mutes cleared', 'i-li');
+							displayClientMessage('all mutes cleared', 'textColor-info');
 							input.value = '';
 							return;
 						}
 						else if(fullArgs === 'allevents'){
 							mutedEvents = [];
 							localStorage.setItem('ratMutedEvents', JSON.stringify(mutedEvents));
-							displayClientMessage('unmuted all events', 'i-li');
+							displayClientMessage('unmuted all events', 'textColor-info');
 							input.value = '';
 							return;
 						}
 						else if(eventList.includes(fullArgs)){
 							if(!mutedEvents.includes(fullArgs)){
-								displayClientMessage(`${fullArgs} event is not muted`, 'i-li');
+								displayClientMessage(`${fullArgs} event is not muted`, 'textColor-info');
 								return;
 							}
 							else{
 								mutedEvents.splice(mutedEvents.indexOf(fullArgs), 1);
 								localStorage.setItem('ratMutedEvents', JSON.stringify(mutedEvents));
-								displayClientMessage(`unmuted event: ${fullArgs}`, 'i-li');
+								displayClientMessage(`unmuted event: ${fullArgs}`, 'textColor-info');
 								input.value = '';
 								return;
 							}
 						}
 						else{
 							if(!mutedUsers.includes(fullArgs)){
-								displayClientMessage(`${fullArgs} is not muted`, 'i-li');
+								displayClientMessage(`${fullArgs} is not muted`, 'textColor-info');
 								return;
 							}
 							else{
 								mutedUsers.splice(mutedUsers.indexOf(fullArgs), 1);
 								localStorage.setItem('ratMutedUsers', JSON.stringify(mutedUsers));
 								unmuteMessageHistory(fullArgs);
-								displayClientMessage(`unmuted user: ${fullArgs}`, 'i-li');
+								displayClientMessage(`unmuted user: ${fullArgs}`, 'textColor-info');
 								input.value = '';
 								return;
 							}
@@ -1320,25 +1399,28 @@
 		//FUNCTIONS//
 		function displayClientMessage(string, className){
 			const li = document.createElement('li');
-			li.classList.add(className);
+			li.classList.add('chat-item');
+			if(className){
+				li.classList.add(className);
+			}
 			li.textContent = string;
 			renderMessage(li);
 		}
 
-		async function handleGameEvent(msg){
-			if(mutedEvents.includes(msg.event.toLowerCase())){
+		async function handleGameEvent(message){
+			if(mutedEvents.includes(message.event.toLowerCase())){
 				return;
 			}
 
-			for(let lineIndex = 0; lineIndex < msg.content.length; lineIndex++){
-				const line = msg.content[lineIndex];
+			for(let lineIndex = 0; lineIndex < message.content.length; lineIndex++){
+				const line = message.content[lineIndex];
 				const li = document.createElement('li');
 
 				line.forEach(chunk => {
 					const span = document.createElement('span');
 					span.textContent = chunk.text;
 					if(chunk.color !== 'normal'){
-						span.classList.add(`g-color-${chunk.color}`);
+						span.classList.add(`gameColor-${chunk.color}`);
 					}
 					chunk.format.forEach(tag => {
 						span.classList.add(`format-${tag}`);
@@ -1346,43 +1428,43 @@
 					li.appendChild(span);
 				});
 
-				li.classList.add('g-li');
+				li.classList.add('chat-item', 'textColor-game');
 				renderMessage(li);
 
-				if(lineIndex < msg.content.length - 1 && msg.msdelay > 0){
-					await wait(msg.msdelay);
+				if(lineIndex < message.content.length - 1 && message.msdelay > 0){
+					await wait(message.msdelay);
 				}
 			}
 		}
-		function handleMessage(msg){
-			if(msg.id >= 0){
-				const dupe = document.querySelector(`li[data-id="${msg.id}"]`);
-				if(dupe && dupe.dataset.timestamp === String(msg.timestamp)){
+		function handleMessage(message){
+			if(message.id >= 0){
+				const dupe = document.querySelector(`li[data-id="${message.id}"]`);
+				if(dupe && dupe.dataset.timestamp === String(message.timestamp)){
 					return;
 				}
 			}
 
-			const className = toClass[msg.type];
-			const li = buildMessage(msg, className);
-			if(msg.spoiler){
+			const className = toClass[message.type];
+			const li = buildMessage(message, className);
+			if(message.spoiler){
 				li.dataset.spoiler = 'true';
 			}
 
-			if(msg.author && mutedUsers.includes(msg.author.substring(7).toLowerCase())){
+			if(message.author && mutedUsers.includes(message.author.substring(7).toLowerCase())){
 				let wrapper = null;
-				if(msg.spoiler){
-					wrapper = hideMessage(li, '[a muted user sent a spoiler. click to reveal]', '[MUTED][SPOILER]', msg.id, msg.timestamp);
+				if(message.spoiler){
+					wrapper = hideMessage(li, '[a muted user sent a spoiler. click to reveal]', '[MUTED][SPOILER]', message.id, message.timestamp);
 				}
 				else{
-					wrapper = hideMessage(li, '[a muted user said something. click to reveal]', '[MUTED]', msg.id, msg.timestamp);
+					wrapper = hideMessage(li, '[a muted user said something. click to reveal]', '[MUTED]', message.id, message.timestamp);
 				}
 
 				renderMessage(wrapper);
 				return;
 			}
 		
-			if(msg.author && msg.spoiler){
-				const wrapper = hideMessage(li, `[${msg.author.substring(7)} sent a spoiler — click to reveal]`, '[SPOILER]', msg.id, msg.timestamp);
+			if(message.author && message.spoiler){
+				const wrapper = hideMessage(li, `[${message.author.substring(7)} sent a spoiler — click to reveal]`, '[SPOILER]', message.id, message.timestamp);
 				renderMessage(wrapper);
 				return;
 			}
@@ -1390,17 +1472,18 @@
 			renderMessage(li);
 		}
 
-		function buildMessage(msg, className){
+		function buildMessage(message, className){
 			const li = document.createElement('li');
+			li.classList.add('chat-item');
 			const contentSpan = document.createElement('span');
-			let raw = msg.content;
+			let raw = message.content;
 
 			if (className) {
 				li.classList.add(className);
 			}
 
-			if(msg.id >=0){
-				const date = new Date(msg.timestamp);
+			if(message.id >=0){
+				const date = new Date(message.timestamp);
 				const dateStr = date.toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'});
 				const timeSpan = document.createElement('span');
 
@@ -1410,35 +1493,35 @@
 				li.appendChild(timeSpan);
 			}
 
-			if(msg.id >= 0 && msg.author){
-				const userColor = msg.author.substring(0, 7);
-				const userBaseNick = msg.author.substring(7);
-				const nameSpan = document.createElement('span');
-				nameSpan.className = 'user-name';
-				nameSpan.style.setProperty('--user-color', userColor);
-				nameSpan.textContent = userBaseNick + ': ';
-				li.appendChild(nameSpan);
+			if(message.id >= 0 && message.author){
+				const userColor = message.author.substring(0, 7);
+				const userBaseNick = message.author.substring(7);
+				const authorSpan = document.createElement('span');
+				authorSpan.className = 'message-author';
+				authorSpan.style.setProperty('--user-color', userColor);
+				authorSpan.textContent = userBaseNick + ': ';
+				li.appendChild(authorSpan);
 
-				if(msg.type === 'toClientMarkov'){
-					const parts = msg.content.split('|');
+				if(message.type === 'toClientMarkov'){
+					const parts = message.content.split('|');
 					const gen = parts[0];
 					const seed = parts[1];
-					li.setAttribute('title', seed ? `Msg ID: ${msg.id} by: ${gen} with seed: ${seed}` : `Msg ID: ${msg.id} by: ${gen}`);
+					li.setAttribute('title', seed ? `Message ID: ${message.id} by: ${gen} with seed: ${seed}` : `Message ID: ${message.id} by: ${gen}`);
 				}
 				else{
-					li.setAttribute('title', `Msg ID: ${msg.id}`);
+					li.setAttribute('title', `Message ID: ${message.id}`);
 				}
 
-				li.setAttribute('data-id', msg.id);
-				li.setAttribute('data-timestamp', msg.timestamp);
+				li.setAttribute('data-id', message.id);
+				li.setAttribute('data-timestamp', message.timestamp);
 			}
 
-			if(msg.type === 'toClientMarkov'){
-				const parts = msg.content.split('|');
+			if(message.type === 'toClientMarkov'){
+				const parts = message.content.split('|');
 				raw = parts.slice(2).join('|');
 			}
 
-			if(window.DOMPurify && msg.id >= 0){
+			if(window.DOMPurify && message.id >= 0){
 				const emoted = emotify(raw);
 				contentSpan.innerHTML = DOMPurify.sanitize(emoted);
 			}
@@ -1446,8 +1529,8 @@
 				contentSpan.textContent = raw;
 			}
 
-			if(msg.format && msg.format.length > 0){
-				msg.format.forEach(tag => {
+			if(message.format && message.format.length > 0){
+				message.format.forEach(tag => {
 					contentSpan.classList.add(`format-${tag}`);
 				});
 			}
@@ -1474,10 +1557,10 @@
 			const placeholder = document.createElement('span');
 			placeholder.textContent = placeholderText;
 
-			wrapper.classList.add('i-li', 'hidden-message');
+			wrapper.classList.add('chat-item', 'textColor-info', 'isHidden');
 			wrapper.setAttribute('data-id', id);
 			wrapper.setAttribute('data-timestamp', timestamp);
-			wrapper.title = `Msg ID: ${id} — click to reveal`;
+			wrapper.title = `Message ID: ${id} — click to reveal`;
 			wrapper.appendChild(placeholder);
 			wrapper.appendChild(li);
 
@@ -1485,15 +1568,15 @@
 				if(!revealed){
 					placeholder.style.display = 'none';
 					li.style.display = '';
-					wrapper.classList.remove('i-li');
-					wrapper.title = `Msg ID: ${id} — click to hide`;
+					wrapper.classList.remove('textColor-info');
+					wrapper.title = `Message ID: ${id} — click to hide`;
 					revealed = true;
 				}
 				else{
 					placeholder.style.display = '';
 					li.style.display = 'none';
-					wrapper.classList.add('i-li');
-					wrapper.title = `Msg ID: ${id} — click to reveal`;
+					wrapper.classList.add('textColor-info');
+					wrapper.title = `Message ID: ${id} — click to reveal`;
 					revealed = false;
 				}
 			});
@@ -1518,41 +1601,41 @@
 		}
 
 		function renderMessage(li){
-			const msgContainer = document.getElementById('messages-wrapper');
-			const isAtBottom = msgContainer.scrollHeight - msgContainer.clientHeight <= msgContainer.scrollTop + 20;
-			messages.appendChild(li);
-			if(messages.children.length > 255){
-				messages.firstChild.remove();
+			const messageContainer = document.getElementById('chat-viewport');
+			const isAtBottom = messageContainer.scrollHeight - messageContainer.clientHeight <= messageContainer.scrollTop + 20;
+			chatList.appendChild(li);
+			if(chatList.children.length > 255){
+				chatList.firstChild.remove();
 			}
 			if(isAtBottom){
-				msgContainer.scrollTop = msgContainer.scrollHeight;
+				messageContainer.scrollTop = messageContainer.scrollHeight;
 			}
 		}
 
 		function muteMessageHistory(basenick){
-			const candidates = Array.from(messages.children);
+			const candidates = Array.from(chatList.children);
 			const matches = candidates.filter(li => {
 				//defensive check to prevent muting a muted message
-				if(li.classList.contains('hidden-message')){
+				if(li.classList.contains('isHidden')){
 					const inner = li.querySelector('[data-inside="true"]');
 					if(!inner || inner.dataset.spoiler !== 'true'){
 						return false;
 					}
 				}
 
-				const nameSpan = li.querySelector('.user-name');
-				if(!nameSpan){
+				const authorSpan = li.querySelector('.message-author');
+				if(!authorSpan){
 					return false;
 				}
 
-				return nameSpan.textContent.trim().toLowerCase() === (basenick + ':').toLowerCase();
+				return authorSpan.textContent.trim().toLowerCase() === (basenick + ':').toLowerCase();
 			});
 
 			matches.forEach(li => {
 				let target = null;
 				let wrapper = null;
 
-				if(li.classList.contains('hidden-message')){
+				if(li.classList.contains('isHidden')){
 					target = unhideMessage(li);
 					if(!target){
 						return;
@@ -1577,17 +1660,17 @@
 		}
 
 		function unmuteMessageHistory(basenick){
-			const candidates = Array.from(messages.children);
+			const candidates = Array.from(chatList.children);
 			const matches = candidates.filter(wrapper =>{
-				const nameSpan = wrapper.querySelector('.user-name');
-				if(!wrapper.classList.contains('hidden-message')){
+				const authorSpan = wrapper.querySelector('.message-author');
+				if(!wrapper.classList.contains('isHidden')){
 					return false;
 				}
-				if(!nameSpan){
+				if(!authorSpan){
 					return false;
 				}
 
-				return nameSpan.textContent.trim().toLowerCase() === (basenick + ':').toLowerCase();
+				return authorSpan.textContent.trim().toLowerCase() === (basenick + ':').toLowerCase();
 			});
 
 			matches.forEach(wrapper => {
@@ -1597,7 +1680,7 @@
 				}
 
 				if(inner.dataset.spoiler === 'true'){
-					const userName = inner.querySelector('.user-name')?.textContent.trimEnd().slice(0, -1) || 'someone';
+					const userName = inner.querySelector('.message-author')?.textContent.trimEnd().slice(0, -1) || 'someone';
 					wrapper.replaceWith(hideMessage(inner, `[${userName} sent a spoiler — click to reveal]`, '[SPOILER]', inner.dataset.id, inner.dataset.timestamp));
 				}
 				else{
@@ -1617,10 +1700,10 @@
 
 		function filterEmotesGrid(filter){
 			const lowerFilter = (filter || '').trim().toLowerCase();
-			document.querySelectorAll('#emotes-grid-wrapper .emote-selectable').forEach(img => {
+			document.querySelectorAll('#emotePicker-viewport .emote-selectable').forEach(img => {
 				img.style.display = img.dataset.name.includes(lowerFilter) ? '' : 'none';
 			});
-			document.getElementById('emotes-grid-wrapper').scrollTop = 0;
+			document.getElementById('emotePicker-viewport').scrollTop = 0;
 		}
 
 		function appendSentHistory(text){
