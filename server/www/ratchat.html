@@ -340,10 +340,14 @@
 			.popup {
 				visibility: hidden;
 				position: fixed;
+				user-select: none;
 			}
 
 			.popup.isVisible {
 				visibility: visible;
+			}
+			.popup.isFocused {
+				user-select: text;
 			}
 
 			.popup .window-body {
@@ -807,7 +811,7 @@
 		const savedMutedUsers = localStorage.getItem('ratMutedUsers');
 		const savedMutedEvents = localStorage.getItem('ratMutedEvents');
 
-		const popups = [];
+		const popups = new Set();
 		let emotes = {};
 		let eventList = [];
 		let mutedUsers = [];
@@ -829,6 +833,23 @@
 			'toClientWelcome': 'textColor-welcome',
 			'toClientAnnouncement': 'textColor-announcement',
 			'toClientMarkov': '',
+		};
+
+		const toBuilder ={
+			'testevent': buildTestPopup,
+			'horse': buildHorsePopup,
+			'dueling': buildDuelingPopup,
+			'blackjack': buildBlackjackPopup,
+			'fishing': buildFishingPopup,
+		};
+
+		const toRenderMode = {
+			'testevent': 'append',
+			'horse': 'append',
+			'dueling': 'append',
+			'blackjack': 'replace',
+			'fishing': 'replace',
+			'leaderboard': 'direct'
 		};
 
 		if(savedBG){
@@ -1038,7 +1059,14 @@
 
 		//TEST POPUP LISTENER REMOVE
 		document.getElementById('TESTINGIDREMOVE').addEventListener('click', () => {
-			buildTestPopup();
+			TESTINGPOPUPCOUNT++;
+
+			handleGameEvent({
+				event: 'testevent',
+				id: TESTINGPOPUPCOUNT,
+				content: [[{text: 'test event fired', color: 'normal', format: []}]],
+				msdelay: 0
+			});
 		});
 
 		//best effort disconnect notification
@@ -1059,6 +1087,8 @@
 			const popup = document.getElementById('emotePicker');
 			popup.classList.toggle('isVisible');
 			if(popup.classList.contains('isVisible')){
+				renderPopups(popup);
+
 				const search = document.getElementById('emotePicker-search');
 				search.value = '';
 				filterEmotesGrid('');
@@ -1397,9 +1427,100 @@
 			renderMessage(li);
 		}
 
+		function isDuplicateChat(message){
+			const dupe = document.querySelector(`li[data-id="${message.id}"]`);
+
+			if(dupe && dupe.dataset.timestamp === String(message.timestamp)){
+				return true;
+			}
+
+			return false;
+		}
+
+		function isDuplicateEvent(message){
+			for(const popup of popups){
+				if(popup.dataset.event === message.event && popup.dataset.id === String(message.id) && popup.dataset.timestamp === String(message.timestamp)){
+					return true;
+				}
+			}
+
+			return false;
+		}
+
 		async function handleGameEvent(message){
 			if(mutedEvents.includes(message.event.toLowerCase())){
 				return;
+			}
+
+			if(isDuplicateChat(message)){
+				return;
+			}
+
+			if(isDuplicateEvent(message)){
+				return;
+			}
+
+			const candidates = getPopupsByEvent(message.event);
+			const match = candidates.find(popup => popup.dataset.id === String(message.id));
+
+			let target = null;
+			if(match){
+				match.dataset.timestamp = message.timestamp;
+				target = match.querySelector('.popup-viewport');
+			}
+			else if(toRenderMode[message.event] === 'direct'){
+				target = chatList;
+			}
+			else{
+				const builder = toBuilder[message.event];
+
+				if(!builder){
+					console.warn(`no popup builder registered for event type: ${message.event}`);
+					return;
+				}
+
+				const popup = builder(message.id);
+
+				const used = candidates.map(candidatePopup => parseInt(candidatePopup.dataset.instance, 10));
+
+				let instance = 1;
+
+				while(used.includes(instance)){
+					instance++;
+				}
+
+				popup.dataset.event = message.event;
+				popup.dataset.id = message.id;
+				popup.dataset.timestamp = message.timestamp;
+				popup.dataset.instance = instance;
+
+				let titleText = message.event;
+
+				if(instance > 1){
+					titleText = `${message.event} (${instance})`;
+				}
+
+				popup.querySelector('.title-bar-text').textContent = titleText;
+
+				if(candidates.length > 0){
+					const reference = candidates[candidates.length - 1];
+					const cascadePosition = calculateCascadePosition(reference.offsetTop, reference.offsetLeft, popup.offsetWidth);
+
+					popup.style.top = cascadePosition.top + 'px';
+					popup.style.left = cascadePosition.left + 'px';
+				}
+
+				target = popup.querySelector('.popup-viewport');
+			}
+
+			const renderMode = toRenderMode[message.event];
+			if(!renderMode){
+				console.warn(`no render mode registered for event type: ${message.event}`);
+				return;
+			}
+
+			if(renderMode === 'replace'){
+				target.replaceChildren();
 			}
 
 			for(let lineIndex = 0; lineIndex < message.content.length; lineIndex++){
@@ -1419,17 +1540,23 @@
 				});
 
 				li.classList.add('chat-item', 'textColor-game');
-				renderMessage(li);
+
+				if(renderMode === 'direct'){
+					renderMessage(li);
+				}
+				else{
+					target.appendChild(li);
+				}
 
 				if(lineIndex < message.content.length - 1 && message.msdelay > 0){
 					await wait(message.msdelay);
 				}
 			}
 		}
+
 		function handleMessage(message){
 			if(message.id >= 0){
-				const dupe = document.querySelector(`li[data-id="${message.id}"]`);
-				if(dupe && dupe.dataset.timestamp === String(message.timestamp)){
+				if(isDuplicateChat(message)){
 					return;
 				}
 			}
@@ -1712,11 +1839,10 @@
 		//Popup windows
 
 		//TEST FUNCTION REMOVE
-		function buildTestPopup(){
+		function buildTestPopup(id){
 			const popup = buildPopupFromTemplate();
 
-			TESTINGPOPUPCOUNT++;
-			const popupId = `testPopup-${TESTINGPOPUPCOUNT}`;
+			const popupId = `testPopup-${id}`;
 			popup.id = popupId;
 
 			const popupWindow = popup.querySelector('.window');
@@ -1725,12 +1851,10 @@
 			popupWindow.style.minWidth = '12rem';
 			popupWindow.style.maxHeight = '16rem';
 
-			const titleBarText = popup.querySelector('.title-bar-text');
-			titleBarText.textContent = `test popup ${TESTINGPOPUPCOUNT}`;
-
 			const closeButton = popup.querySelector('.title-bar-controls button');
 			closeButton.setAttribute('aria-label', 'Close');
 			closeButton.addEventListener('click', () => {
+				popups.delete(popup);
 				popup.remove();
 			});
 
@@ -1771,6 +1895,19 @@
 				buttonUp: scrollbar.buttonUp,
 				buttonDown: scrollbar.buttonDown
 			});
+
+			return popup;
+		}
+		function buildHorsePopup(){
+		}
+
+		function buildDuelingPopup(){
+		}
+
+		function buildBlackjackPopup(){
+		}
+
+		function buildFishingPopup(){
 		}
 
 		function buildEmotePopup(){
@@ -1857,17 +1994,22 @@
 		}
 
 		function renderPopups(popup){
-			const currentIndex = popups.indexOf(popup);
-
-			if(currentIndex !== -1){
-				popups.splice(currentIndex, 1);
+			if(!popup){
+				console.warn('renderPopups called without popup');
+				return;
 			}
 
-			popups.push(popup);
+			popups.delete(popup);
+			popups.add(popup);
 
-			popups.forEach((stackedPopup, index) => {
-				stackedPopup.style.zIndex = index + 1;
+			let index = 0;
+			popups.forEach(stackedPopup => {
+				index++;
+				stackedPopup.style.zIndex = index;
+				stackedPopup.classList.remove('isFocused');
 			});
+
+			popup.classList.add('isFocused');
 		}
 
 		function buildPopupDragListener(popup){
@@ -1919,6 +2061,18 @@
 			});
 		}
 
+		function getPopupsByEvent(event){
+			const candidates = [];
+
+			for(const popup of popups){
+				if(popup.dataset.event === event){
+					candidates.push(popup);
+				}
+			}
+
+			return candidates;
+		}
+
 		function calculateSafePosition(currentTop, currentLeft, popupWidth){
 			const minimum = 2 * remPixels;
 			let coordinates = {top: 0, left: 0};
@@ -1933,6 +2087,26 @@
 			coordinates = {top: topPosition, left: leftPosition};
 		
 			return coordinates;
+		}
+
+		function calculateCascadePosition(currentTop, currentLeft, popupWidth){
+			const proposedTop = currentTop + (2 * remPixels);
+			const proposedLeft = currentLeft + (2 * remPixels);
+
+			const safePosition = calculateSafePosition(proposedTop, proposedLeft, popupWidth);
+
+			let top = proposedTop;
+			let left = proposedLeft;
+
+			if(safePosition.top !== top){
+				top = 0;
+			}
+
+			if(safePosition.left !== left){
+				left = 0;
+			}
+
+			return {top, left};
 		}
 
 		function calculateCenterOffset(itemSize, containerSize){
