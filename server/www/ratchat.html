@@ -1,6 +1,11 @@
 <!DOCTYPE html>
 <html>
 	<head>
+		<script>
+			if(localStorage.getItem('ratMode') === 'dark'){
+				document.documentElement.setAttribute('data-theme', 'dark');
+			}
+		</script>
 		<meta name="robots" content="noindex, nofollow">
 		<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, interactive-widget=resizes-content">
 		
@@ -33,8 +38,13 @@
 				gap: 0.125rem;
 				padding: 0;
 			}
+			.title-bar-text{
+				cursor: default;
+				user-select: none;
+			}
 			.title-bar-controls button {
 				margin: 0 !important;
+				cursor: pointer;
 			}
 
 			.window-body {
@@ -297,6 +307,7 @@
 				justify-content: center;
 				background: #c0c0c0;
 				border: none;
+				cursor: pointer;
 			}
 			.footer-button-submit {
 				max-width: 7.5475rem !important;
@@ -403,7 +414,7 @@
 			}
 			.scrollbar-thumb {
 				width: 100%;
-				height: 2rem;
+				height: 100%;
 				background: #c0c0c0;
 				position: absolute;
 				left: 50%;
@@ -677,7 +688,7 @@
 			<div class="title-bar-text">ratchat32.exe</div>
 			<div class="title-bar-controls">
 				<button aria-label="Minimize"></button>
-				<button aria-label="Maximize"></button>
+				<button id="TESTINGIDREMOVE" aria-label="Maximize"></button>
 				<button aria-label="Close"></button>
 			</div>
 		</div>
@@ -762,27 +773,24 @@
 			const loadedFace = await fontFace.load();
 			document.fonts.add(loadedFace);
 		}
-
-		loadVerifiedFont(
-			'https://cdn.jsdelivr.net/fontsource/fonts/vt323@5.2.7/latin-400-normal.woff2',
-			'QJLvofbGdhBPL6ITttGSyiYZXfA3tOmIyRlsd0l0hWuY9sVMU1aNCMYgs95btLjw',
-			'VT323',
-			'400',
-			'normal',
-			'font/woff2'
-		).catch(error => {
-			console.error('VT323 load failed integrity check or network error:', error);
-		});
-
-		loadVerifiedFont(
-			'https://cdn.jsdelivr.net/fontsource/fonts/vt323@5.2.7/latin-400-normal.woff',
-			'W1Dlso+B2HPo5jXxg3O7/RvKO0m1xUy9HU9d7VZ/NkxFobhx8pQ5Az2xob+d+Ekp',
-			'VT323',
-			'400',
-			'normal',
-			'font/woff'
-		).catch(error => {
-			console.error('VT323 load failed integrity check or network error:', error);
+		Promise.allSettled([
+			loadVerifiedFont(
+				'https://cdn.jsdelivr.net/fontsource/fonts/vt323@5.2.7/latin-400-normal.woff2',
+				'QJLvofbGdhBPL6ITttGSyiYZXfA3tOmIyRlsd0l0hWuY9sVMU1aNCMYgs95btLjw',
+				'VT323',
+				'400',
+				'normal',
+				'font/woff2'
+			),
+			loadVerifiedFont(
+				'https://cdn.jsdelivr.net/fontsource/fonts/vt323@5.2.7/latin-400-normal.woff',
+				'W1Dlso+B2HPo5jXxg3O7/RvKO0m1xUy9HU9d7VZ/NkxFobhx8pQ5Az2xob+d+Ekp',
+				'VT323',
+				'400',
+				'normal',
+				'font/woff'
+			)]).then(() => {
+			window.dispatchEvent(new Event('resize'));
 		});
 	</script>
 	<script>
@@ -796,10 +804,10 @@
 		const chatList = document.getElementById('chat-list');
 
 		const savedBG = localStorage.getItem('ratBG');
-		const savedTheme = localStorage.getItem('ratMode');
 		const savedMutedUsers = localStorage.getItem('ratMutedUsers');
 		const savedMutedEvents = localStorage.getItem('ratMutedEvents');
 
+		const popups = [];
 		let emotes = {};
 		let eventList = [];
 		let mutedUsers = [];
@@ -811,6 +819,8 @@
 
 		let remPixels = parseFloat(getComputedStyle(document.documentElement).fontSize);
 
+		let TESTINGPOPUPCOUNT = 0;
+
 		//message type to css class
 		const toClass = {
 			'toClientChat': '',
@@ -821,9 +831,6 @@
 			'toClientMarkov': '',
 		};
 
-		if(savedTheme === 'dark'){
-			document.documentElement.setAttribute('data-theme', 'dark');
-		}
 		if(savedBG){
 			document.getElementById('chat-frame').style.backgroundImage = `url('${savedBG}')`;
 			document.getElementById('chat-frame').classList.add('hasBg');
@@ -837,12 +844,12 @@
 
 		//Main window
 		buildScrollbarListener({
-			containerId: 'chat-viewport',
-			trackId: 'chat-track',
-			thumbId: 'chat-thumb',
-			contentId: 'chat-list',
-			btnUpId: 'chat-button-up',
-			btnDownId: 'chat-button-down'
+			container: document.getElementById('chat-viewport'),
+			track: document.getElementById('chat-track'),
+			thumb: document.getElementById('chat-thumb'),
+			content: document.getElementById('chat-list'),
+			buttonUp: document.getElementById('chat-button-up'),
+			buttonDown: document.getElementById('chat-button-down')
 		});
 
 		buildEmotePopup();
@@ -1028,6 +1035,11 @@
 		input.focus();
 
 		//LISTENERS//
+
+		//TEST POPUP LISTENER REMOVE
+		document.getElementById('TESTINGIDREMOVE').addEventListener('click', () => {
+			buildTestPopup();
+		});
 
 		//best effort disconnect notification
 		window.addEventListener('beforeunload', () => {
@@ -1698,11 +1710,71 @@
 		}
 
 		//Popup windows
-		function buildEmotePopup(){
-			const template = document.getElementById('popup-template');
-			const clone = template.content.cloneNode(true);
 
-			const popup = clone.querySelector('.popup');
+		//TEST FUNCTION REMOVE
+		function buildTestPopup(){
+			const popup = buildPopupFromTemplate();
+
+			TESTINGPOPUPCOUNT++;
+			const popupId = `testPopup-${TESTINGPOPUPCOUNT}`;
+			popup.id = popupId;
+
+			const popupWindow = popup.querySelector('.window');
+			popupWindow.style.width = '20rem';
+			popupWindow.style.maxWidth = 'min(20rem, 80vw)';
+			popupWindow.style.minWidth = '12rem';
+			popupWindow.style.maxHeight = '16rem';
+
+			const titleBarText = popup.querySelector('.title-bar-text');
+			titleBarText.textContent = `test popup ${TESTINGPOPUPCOUNT}`;
+
+			const closeButton = popup.querySelector('.title-bar-controls button');
+			closeButton.setAttribute('aria-label', 'Close');
+			closeButton.addEventListener('click', () => {
+				popup.remove();
+			});
+
+			const popupFrame = popup.querySelector('.popup-frame');
+			const popupViewport = popup.querySelector('.popup-viewport');
+			popupFrame.style.height = '12rem';
+			popupFrame.style.maxHeight = '12rem';
+			popupViewport.id = `${popupId}-viewport`;
+
+			const placeholderText = document.createElement('p');
+			placeholderText.textContent = 'placeholder text '.repeat(60);
+			popupViewport.appendChild(placeholderText);
+
+			const layoutRow = document.createElement('div');
+			layoutRow.className = 'layoutRow';
+			layoutRow.appendChild(popupFrame);
+
+			const scrollbar = buildScrollbar(popupId);
+			layoutRow.appendChild(scrollbar.scrolldiv);
+
+			const windowBody = popup.querySelector('.window-body');
+			windowBody.appendChild(layoutRow);
+
+			document.body.appendChild(popup);
+
+			centerPopup(popup);
+			renderPopups(popup);
+			popup.classList.add('isVisible');
+
+			buildPopupDragListener(popup);
+			buildPopupClickListener(popup);
+
+			buildScrollbarListener({
+				container: popupViewport,
+				track: scrollbar.track,
+				thumb: scrollbar.thumb,
+				content: popupViewport,
+				buttonUp: scrollbar.buttonUp,
+				buttonDown: scrollbar.buttonDown
+			});
+		}
+
+		function buildEmotePopup(){
+			const popup = buildPopupFromTemplate();
 			popup.id = 'emotePicker';
 
 			const popupWindow = popup.querySelector('.window');
@@ -1741,61 +1813,64 @@
 			layoutColumn.appendChild(searchInput);
 			layoutColumn.appendChild(popupFrame);
 
-			const scrollbar = document.createElement('div');
-			scrollbar.className = 'scrollbar';
-
-			const buttonUp = document.createElement('button');
-			buttonUp.id = 'emotePicker-button-up';
-			buttonUp.className = 'scrollbar-button';
-			buttonUp.textContent = '▲';
-
-			const track = document.createElement('div');
-			track.id = 'emotePicker-track';
-			track.className = 'scrollbar-track';
-
-			const thumb = document.createElement('div');
-			thumb.id = 'emotePicker-thumb';
-			thumb.className = 'scrollbar-thumb';
-
-			track.appendChild(thumb);
-
-			const buttonDown = document.createElement('button');
-			buttonDown.id = 'emotePicker-button-down';
-			buttonDown.className = 'scrollbar-button';
-			buttonDown.textContent = '▼';
-
-			scrollbar.appendChild(buttonUp);
-			scrollbar.appendChild(track);
-			scrollbar.appendChild(buttonDown);
-
+			const scrollbar = buildScrollbar('emotePicker');
 			layoutRow.appendChild(layoutColumn);
-			layoutRow.appendChild(scrollbar);
+			layoutRow.appendChild(scrollbar.scrolldiv);
 
 			const windowBody = popup.querySelector('.window-body');
 			windowBody.appendChild(layoutRow);
 
-			document.body.appendChild(clone);
+			document.body.appendChild(popup);
+		
+			centerPopup(popup);
+			renderPopups(popup);
 
-			const centeredTop = calculateCenterOffset(popup.offsetHeight, window.innerHeight);
-			const centeredLeft = calculateCenterOffset(popup.offsetWidth, window.innerWidth);
-
-			popup.style.top = centeredTop + 'px';
-			popup.style.left = centeredLeft + 'px';
-
-			buildPopupDragListener({popupId: 'emotePicker'});
+			buildPopupDragListener(popup);
+			buildPopupClickListener(popup);
 
 			buildScrollbarListener({
-				containerId: 'emotePicker-viewport',
-				trackId: 'emotePicker-track',
-				thumbId: 'emotePicker-thumb',
-				contentId: 'emotePicker-viewport',
-				btnUpId: 'emotePicker-button-up',
-				btnDownId: 'emotePicker-button-down'
+				container: popupViewport,
+				track: scrollbar.track,
+				thumb: scrollbar.thumb,
+				content: popupViewport,
+				buttonUp: scrollbar.buttonUp,
+				buttonDown: scrollbar.buttonDown
 			});
 		}
 
-		function buildPopupDragListener(config){
-			const popup = document.getElementById(config.popupId);
+		function buildPopupFromTemplate(){
+			const template = document.getElementById('popup-template');
+			const clone = template.content.cloneNode(true);
+			const popup = clone.querySelector('.popup');
+
+			return popup;
+		}
+
+		function centerPopup(popup){
+			const centeredTop = calculateCenterOffset(popup.offsetHeight, window.innerHeight);
+			const centeredLeft = calculateCenterOffset(popup.offsetWidth, window.innerWidth);
+
+			const safePosition = calculateSafePosition(centeredTop, centeredLeft, popup.offsetWidth);
+
+			popup.style.top = safePosition.top + 'px';
+			popup.style.left = safePosition.left + 'px';
+		}
+
+		function renderPopups(popup){
+			const currentIndex = popups.indexOf(popup);
+
+			if(currentIndex !== -1){
+				popups.splice(currentIndex, 1);
+			}
+
+			popups.push(popup);
+
+			popups.forEach((stackedPopup, index) => {
+				stackedPopup.style.zIndex = index + 1;
+			});
+		}
+
+		function buildPopupDragListener(popup){
 			const titleBar = popup.querySelector('.title-bar');
 			const titleBarControls = popup.querySelector('.title-bar-controls');
 
@@ -1829,6 +1904,18 @@
 				};
 
 				mousedownEvent.preventDefault();
+			});
+		}
+
+		function buildPopupClickListener(popup){
+			const titleBarControls = popup.querySelector('.title-bar-controls');
+
+			popup.addEventListener('mousedown', (mousedownEvent) => {
+				if(titleBarControls.contains(mousedownEvent.target)){
+					return;
+				}
+
+				renderPopups(popup);
 			});
 		}
 
@@ -1871,59 +1958,100 @@
 		}
 
 		//Fake scrollbar
-		function buildScrollbarListener(config){
-			const container = document.getElementById(config.containerId);
-			const thumb = document.getElementById(config.thumbId);
-			const track = document.getElementById(config.trackId);
-			const content = document.getElementById(config.contentId);
+		function buildScrollbar(prefix){
+			const scrolldiv = document.createElement('div');
+			scrolldiv.className = 'scrollbar';
+
+			const buttonUp = document.createElement('button');
+			buttonUp.id = `${prefix}-button-up`;
+			buttonUp.className = 'scrollbar-button';
+			buttonUp.textContent = '▲';
+
+			const track = document.createElement('div');
+			track.id = `${prefix}-track`;
+			track.className = 'scrollbar-track';
+
+			const thumb = document.createElement('div');
+			thumb.id = `${prefix}-thumb`;
+			thumb.className = 'scrollbar-thumb';
+			track.appendChild(thumb);
+
+			const buttonDown = document.createElement('button');
+			buttonDown.id = `${prefix}-button-down`;
+			buttonDown.className = 'scrollbar-button';
+			buttonDown.textContent = '▼';
+
+			scrolldiv.appendChild(buttonUp);
+			scrolldiv.appendChild(track);
+			scrolldiv.appendChild(buttonDown);
+
+			const scrollbar = {
+				scrolldiv: scrolldiv,
+				track: track,
+				thumb: thumb,
+				buttonUp: buttonUp,
+				buttonDown: buttonDown
+			};
+			return scrollbar;
+		}
+
+		function buildScrollbarListener(scrollbar){
+			const container = scrollbar.container;
+			const thumb = scrollbar.thumb;
+			const track = scrollbar.track;
+			const content = scrollbar.content;
 
 			//sync thumb position to scroll
 			container.onscroll = function (){
 				const scrollPos = container.scrollTop;
 				const maxScroll = container.scrollHeight - container.clientHeight;
-		
+
 				const clampedScroll = Math.max(0, Math.min(scrollPos, maxScroll));
 
 				const trackSpace = track.clientHeight - thumb.clientHeight;
 				thumb.style.top = (clampedScroll / (maxScroll || 1)) * trackSpace + 'px';
 			};
 
-			if(config.btnUpId){
-				document.getElementById(config.btnUpId).onclick = () =>
+			if(scrollbar.buttonUp){
+				scrollbar.buttonUp.onclick = () =>
 					container.scrollBy(0, -50);
+
 			}
 
-			if(config.btnDownId){
-				document.getElementById(config.btnDownId).onclick = () =>
+			if(scrollbar.buttonDown){
+				scrollbar.buttonDown.onclick = () =>
 					container.scrollBy(0, 50);
 			}
 
-			//dynamic thumb resizing using a self-executing function for the MutationObserver
-			new MutationObserver(() => {
+			function renderThumb(){
 				thumb.style.height =
 					Math.max(
 						(container.clientHeight / container.scrollHeight) * track.clientHeight,
 						20
 					) + 'px';
-			}).observe(content, {childList: true, subtree: true});
+			}
+
+			renderThumb();
+
+			//dynamic thumb resizing using a self-executing function for the MutationObserver
+			new MutationObserver(renderThumb).observe(content, {childList: true, subtree: true});
 
 			//sync resize event
-			window.addEventListener('resize', () => {
-				thumb.style.height =
-					Math.max(
-						(container.clientHeight / container.scrollHeight) * track.clientHeight,
-						20
-					) + 'px';
-			});
+			window.addEventListener('resize', renderThumb);
 
 			//click and drag thumb
-			thumb.addEventListener('mousedown', (e) => {
-				document.onmousemove = (event) => {
-					container.scrollTop =
-						((event.pageY - e.pageY) *
-							(container.scrollHeight / track.clientHeight)) +
-						container.scrollTop;
-					e = event;
+			thumb.addEventListener('mousedown', (mousedownEvent) => {
+				const startingMouseTop = mousedownEvent.pageY;
+				const startingScrollTop = container.scrollTop;
+
+				const maxScroll = container.scrollHeight - container.clientHeight;
+				const trackSpace = track.clientHeight - thumb.clientHeight;
+
+				document.onmousemove = (mousemoveEvent) => {
+					const mouseDeltaTop = mousemoveEvent.pageY - startingMouseTop;
+					const scrollDelta = (mouseDeltaTop / trackSpace) * maxScroll;
+
+					container.scrollTop = startingScrollTop + scrollDelta;
 				};
 
 				document.onmouseup = () => {
@@ -1931,7 +2059,27 @@
 					document.onmouseup = null;
 				};
 
-				e.preventDefault();
+				mousedownEvent.preventDefault();
+			});
+
+			//track click scrolling
+			track.addEventListener('click', (clickEvent) => {
+				if(clickEvent.target === thumb){
+					return;
+				}
+
+				const trackRect = track.getBoundingClientRect();
+				const thumbRect = thumb.getBoundingClientRect();
+
+				const clickPositionInTrack = clickEvent.clientY - trackRect.top;
+				const thumbPositionInTrack = thumbRect.top - trackRect.top;
+
+				if(clickPositionInTrack < thumbPositionInTrack){
+					container.scrollBy(0, -container.clientHeight);
+				}
+				else{
+					container.scrollBy(0, container.clientHeight);
+				}
 			});
 		}
 	</script>
