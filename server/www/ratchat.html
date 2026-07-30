@@ -1194,6 +1194,7 @@
 					case 'clear':
 					case 'clr':{
 						chatList.replaceChildren();
+						deleteAllPopups();
 						input.value = '';
 						return;
 					}
@@ -1283,6 +1284,7 @@
 							mutedEvents = [...eventList];
 							localStorage.setItem('ratMutedEvents', JSON.stringify(mutedEvents));
 							displayClientMessage(`muted events: ${mutedEvents}`, 'textColor-info');
+							deleteAllPopups();
 							input.value = '';
 							return;
 						}
@@ -1294,6 +1296,7 @@
 							else{
 								mutedEvents.push(fullArgs);
 								localStorage.setItem('ratMutedEvents', JSON.stringify(mutedEvents));
+								deletePopups(fullArgs);
 								displayClientMessage(`muted event: ${fullArgs}`, 'textColor-info');
 								input.value = '';
 								return;
@@ -1447,111 +1450,42 @@
 			return false;
 		}
 
-		async function handleGameEvent(message){
+		function handleGameEvent(message){
 			if(mutedEvents.includes(message.event.toLowerCase())){
 				return;
 			}
 
-			if(isDuplicateChat(message)){
-				return;
-			}
-
-			if(isDuplicateEvent(message)){
-				return;
-			}
-
-			const candidates = getPopupsByEvent(message.event);
-			const match = candidates.find(popup => popup.dataset.id === String(message.id));
-
 			let target = null;
-			if(match){
-				match.dataset.timestamp = message.timestamp;
-				target = match.querySelector('.popup-viewport');
-			}
-			else if(toRenderMode[message.event] === 'direct'){
-				target = chatList;
-			}
-			else{
-				const builder = toBuilder[message.event];
-
-				if(!builder){
-					console.warn(`no popup builder registered for event type: ${message.event}`);
+			if(toRenderMode[message.event] === 'direct'){
+				if(isDuplicateChat(message)){
 					return;
 				}
 
-				const popup = builder(message.id);
-
-				const used = candidates.map(candidatePopup => parseInt(candidatePopup.dataset.instance, 10));
-
-				let instance = 1;
-
-				while(used.includes(instance)){
-					instance++;
-				}
-
-				popup.dataset.event = message.event;
-				popup.dataset.id = message.id;
-				popup.dataset.timestamp = message.timestamp;
-				popup.dataset.instance = instance;
-
-				let titleText = message.event;
-
-				if(instance > 1){
-					titleText = `${message.event} (${instance})`;
-				}
-
-				popup.querySelector('.title-bar-text').textContent = titleText;
-
-				if(candidates.length > 0){
-					const reference = candidates[candidates.length - 1];
-					const cascadePosition = calculateCascadePosition(reference.offsetTop, reference.offsetLeft, popup.offsetWidth);
-
-					popup.style.top = cascadePosition.top + 'px';
-					popup.style.left = cascadePosition.left + 'px';
-				}
-
-				target = popup.querySelector('.popup-viewport');
+				target = chatList;
 			}
 
-			const renderMode = toRenderMode[message.event];
-			if(!renderMode){
-				console.warn(`no render mode registered for event type: ${message.event}`);
-				return;
-			}
+			if(!target){
+				if(isDuplicateEvent(message)){
+					return;
+				}
 
-			if(renderMode === 'replace'){
-				target.replaceChildren();
-			}
+				const candidates = getPopupsByEvent(message.event);
+				const match = candidates.find(popup => popup.dataset.id === String(message.id));
 
-			for(let lineIndex = 0; lineIndex < message.content.length; lineIndex++){
-				const line = message.content[lineIndex];
-				const li = document.createElement('li');
-
-				line.forEach(chunk => {
-					const span = document.createElement('span');
-					span.textContent = chunk.text;
-					if(chunk.color !== 'normal'){
-						span.classList.add(`gameColor-${chunk.color}`);
-					}
-					chunk.format.forEach(tag => {
-						span.classList.add(`format-${tag}`);
-					});
-					li.appendChild(span);
-				});
-
-				li.classList.add('chat-item', 'textColor-game');
-
-				if(renderMode === 'direct'){
-					renderMessage(li);
+				if(match){
+					match.dataset.timestamp = message.timestamp;
+					target = match.querySelector('.popup-viewport');
 				}
 				else{
-					target.appendChild(li);
-				}
-
-				if(lineIndex < message.content.length - 1 && message.msdelay > 0){
-					await wait(message.msdelay);
+					const popup = buildPopup(message);
+					if(!popup){
+						return;
+					}
+					target = popup.querySelector('.popup-viewport');
 				}
 			}
+
+			renderGameEvent(message, target);
 		}
 
 		function handleMessage(message){
@@ -1717,6 +1651,52 @@
 			return null;
 		}
 
+		async function renderGameEvent(message, target){
+			const renderMode = toRenderMode[message.event];
+			if(!renderMode){
+				console.warn(`no render mode registered for event type: ${message.event}`);
+				return;
+			}
+
+			if(renderMode === 'replace'){
+				target.replaceChildren();
+			}
+
+			for(let lineIndex = 0; lineIndex < message.content.length; lineIndex++){
+				if(!target.isConnected){
+					return;
+				}
+
+				const line = message.content[lineIndex];
+				const li = document.createElement('li');
+
+				line.forEach(chunk => {
+					const span = document.createElement('span');
+					span.textContent = chunk.text;
+					if(chunk.color !== 'normal'){
+						span.classList.add(`gameColor-${chunk.color}`);
+					}
+					chunk.format.forEach(tag => {
+						span.classList.add(`format-${tag}`);
+					});
+					li.appendChild(span);
+				});
+
+				li.classList.add('chat-item', 'textColor-game');
+
+				if(renderMode === 'direct'){
+					renderMessage(li);
+				}
+				else{
+					target.appendChild(li);
+				}
+
+				if(lineIndex < message.content.length - 1 && message.msdelay > 0){
+					await wait(message.msdelay);
+				}
+			}
+		}
+
 		function renderMessage(li){
 			const messageContainer = document.getElementById('chat-viewport');
 			const isAtBottom = messageContainer.scrollHeight - messageContainer.clientHeight <= messageContainer.scrollTop + 20;
@@ -1837,6 +1817,51 @@
 		}
 
 		//Popup windows
+		function buildPopup(message){
+			const builder = toBuilder[message.event];
+
+			if(!builder){
+				console.warn(`no popup builder registered for event type: ${message.event}`);
+				return null;
+			}
+
+			const popup = builder(message.id);
+
+			const candidates = getPopupsByEvent(message.event);
+			const used = candidates.map(candidatePopup => parseInt(candidatePopup.dataset.instance, 10));
+
+			let instance = 1;
+
+			while(used.includes(instance)){
+				instance++;
+			}
+
+			popup.dataset.event = message.event;
+			popup.dataset.id = message.id;
+			popup.dataset.timestamp = message.timestamp;
+			popup.dataset.instance = instance;
+
+			let titleText = message.event;
+
+			if(instance > 1){
+				titleText = `${message.event} (${instance})`;
+			}
+
+			popup.querySelector('.title-bar-text').textContent = titleText;
+
+			const reference = candidates[candidates.length - 1];
+			if(reference){
+				positionPopup(popup, reference);
+			}
+			else{
+				positionPopup(popup);
+			}
+
+			renderPopups(popup);
+			popup.classList.add('isVisible');
+
+			return popup;
+		}
 
 		//TEST FUNCTION REMOVE
 		function buildTestPopup(id){
@@ -1880,10 +1905,6 @@
 
 			document.body.appendChild(popup);
 
-			centerPopup(popup);
-			renderPopups(popup);
-			popup.classList.add('isVisible');
-
 			buildPopupDragListener(popup);
 			buildPopupClickListener(popup);
 
@@ -1913,6 +1934,10 @@
 		function buildEmotePopup(){
 			const popup = buildPopupFromTemplate();
 			popup.id = 'emotePicker';
+			popup.dataset.event = 'emotePicker';
+			popup.dataset.id = 'emotePicker';
+			popup.dataset.timestamp = Date.now();
+			popup.dataset.instance = 1;
 
 			const popupWindow = popup.querySelector('.window');
 			popupWindow.style.width = '30rem';
@@ -1958,9 +1983,6 @@
 			windowBody.appendChild(layoutRow);
 
 			document.body.appendChild(popup);
-		
-			centerPopup(popup);
-			renderPopups(popup);
 
 			buildPopupDragListener(popup);
 			buildPopupClickListener(popup);
@@ -1973,6 +1995,9 @@
 				buttonUp: scrollbar.buttonUp,
 				buttonDown: scrollbar.buttonDown
 			});
+
+			positionPopup(popup);
+			renderPopups(popup);
 		}
 
 		function buildPopupFromTemplate(){
@@ -1981,6 +2006,65 @@
 			const popup = clone.querySelector('.popup');
 
 			return popup;
+		}
+
+		function deletePopups(event){
+			const candidates = getPopupsByEvent(event);
+
+			candidates.forEach(popup => {
+				popups.delete(popup);
+				popup.remove();
+			});
+		}
+
+		function deleteAllPopups(){
+			deletePopups('testevent');
+			deletePopups('horse');
+			deletePopups('dueling');
+			deletePopups('blackjack');
+			deletePopups('fishing');
+		}
+
+		function savePopupPosition(popup){
+			const positions = JSON.parse(localStorage.getItem('ratPUP')) || {};
+			const coordinates = {top: popup.offsetTop, left: popup.offsetLeft};
+
+			positions[popup.dataset.event] = coordinates;
+			localStorage.setItem('ratPUP', JSON.stringify(positions));
+		}
+
+		function loadPopupPosition(popup){
+			const positions = JSON.parse(localStorage.getItem('ratPUP')) || {};
+			const coordinates = positions[popup.dataset.event];
+
+			if(coordinates){
+				return coordinates;
+			}
+			return null;
+		}
+
+		function positionPopup(popup, reference){
+			if(reference){
+				const cascadePosition = calculateCascadePosition(reference.offsetTop, reference.offsetLeft, popup.offsetWidth);
+
+				popup.style.top = cascadePosition.top + 'px';
+				popup.style.left = cascadePosition.left + 'px';
+
+				return;
+			}
+
+			const loaded = loadPopupPosition(popup);
+
+			if(loaded){
+				const safePosition = calculateSafePosition(loaded.top, loaded.left, popup.offsetWidth);
+
+				popup.style.top = safePosition.top + 'px';
+				popup.style.left = safePosition.left + 'px';
+
+				return;
+			}
+
+			centerPopup(popup);
 		}
 
 		function centerPopup(popup){
@@ -2010,55 +2094,6 @@
 			});
 
 			popup.classList.add('isFocused');
-		}
-
-		function buildPopupDragListener(popup){
-			const titleBar = popup.querySelector('.title-bar');
-			const titleBarControls = popup.querySelector('.title-bar-controls');
-
-			titleBar.addEventListener('mousedown', (mousedownEvent) => {
-				if(titleBarControls.contains(mousedownEvent.target)){
-					return;
-				}
-
-				const startingMouseTop = mousedownEvent.pageY;
-				const startingMouseLeft = mousedownEvent.pageX;
-
-				const startingPositionTop = popup.offsetTop;
-				const startingPositionLeft = popup.offsetLeft;
-
-				document.onmousemove = (mousemoveEvent) => {
-					const mouseDeltaTop = mousemoveEvent.pageY - startingMouseTop;
-					const mouseDeltaLeft = mousemoveEvent.pageX - startingMouseLeft;
-
-					const newTop = startingPositionTop + mouseDeltaTop;
-					const newLeft = startingPositionLeft + mouseDeltaLeft;
-
-					const safePosition = calculateSafePosition(newTop, newLeft, popup.offsetWidth);
-
-					popup.style.top = safePosition.top + 'px';
-					popup.style.left = safePosition.left + 'px';
-				};
-
-				document.onmouseup = () => {
-					document.onmousemove = null;
-					document.onmouseup = null;
-				};
-
-				mousedownEvent.preventDefault();
-			});
-		}
-
-		function buildPopupClickListener(popup){
-			const titleBarControls = popup.querySelector('.title-bar-controls');
-
-			popup.addEventListener('mousedown', (mousedownEvent) => {
-				if(titleBarControls.contains(mousedownEvent.target)){
-					return;
-				}
-
-				renderPopups(popup);
-			});
 		}
 
 		function getPopupsByEvent(event){
@@ -2129,6 +2164,57 @@
 			}
 
 			return clamped;
+		}
+
+		function buildPopupDragListener(popup){
+			const titleBar = popup.querySelector('.title-bar');
+			const titleBarControls = popup.querySelector('.title-bar-controls');
+
+			titleBar.addEventListener('mousedown', (mousedownEvent) => {
+				if(titleBarControls.contains(mousedownEvent.target)){
+					return;
+				}
+
+				const startingMouseTop = mousedownEvent.pageY;
+				const startingMouseLeft = mousedownEvent.pageX;
+
+				const startingPositionTop = popup.offsetTop;
+				const startingPositionLeft = popup.offsetLeft;
+
+				document.onmousemove = (mousemoveEvent) => {
+					const mouseDeltaTop = mousemoveEvent.pageY - startingMouseTop;
+					const mouseDeltaLeft = mousemoveEvent.pageX - startingMouseLeft;
+
+					const newTop = startingPositionTop + mouseDeltaTop;
+					const newLeft = startingPositionLeft + mouseDeltaLeft;
+
+					const safePosition = calculateSafePosition(newTop, newLeft, popup.offsetWidth);
+
+					popup.style.top = safePosition.top + 'px';
+					popup.style.left = safePosition.left + 'px';
+				};
+
+				document.onmouseup = () => {
+					document.onmousemove = null;
+					document.onmouseup = null;
+					savePopupPosition(popup);
+				};
+
+				mousedownEvent.preventDefault();
+			});
+		}
+
+		function buildPopupClickListener(popup){
+			const titleBarControls = popup.querySelector('.title-bar-controls');
+
+			popup.addEventListener('mousedown', (mousedownEvent) => {
+				if(titleBarControls.contains(mousedownEvent.target)){
+					return;
+				}
+
+				renderPopups(popup);
+				savePopupPosition(popup);
+			});
 		}
 
 		//Fake scrollbar
