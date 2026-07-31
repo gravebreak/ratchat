@@ -105,7 +105,7 @@
 							inset -0.125rem -0.125rem #dfdfdf, 
 							inset 0.125rem 0.125rem #808080;
 				padding-top: 0.25rem;
-				padding-bottom: 0.25rem;
+				padding-bottom: 0.375rem;
 				margin-top: 0.25rem;
 				margin-bottom: 0.25rem;
 				display: flex;
@@ -146,6 +146,12 @@
 			}
 			.chat-item.isHidden:hover {
 				cursor: pointer;
+			}
+			.chat-item .chat-item {
+				padding: 0;
+			}
+			.chat-item .chat-item:hover { 
+				background-color: transparent; 
 			}
 
 			/* User Panel */
@@ -350,32 +356,59 @@
 				user-select: text;
 			}
 
+			.popup .window {
+				overflow: hidden;
+			}
 			.popup .window-body {
 				height: auto;
 				max-height: 100%;
+				min-height: 0;
+				flex-grow: 1;
+			}
+			.popup .scrollbar {
+				margin-top: 0;
+				margin-bottom: 0;
+				margin-right: 0;
+			}
+			.popup .layoutRow {
+				min-height: 0;
 			}
 
 			.popup-frame {
-				flex-grow: 1;
 				position: relative;
+				padding: 0.625rem;
 				background-color: #ffffff;
 				box-shadow: inset -0.0625rem -0.0625rem #ffffff,
 							inset 0.0625rem 0.0625rem #0a0a0a,
 							inset -0.125rem -0.125rem #dfdfdf,
 							inset 0.125rem 0.125rem #808080;
+				display: flex;
+				flex-direction: column;
+				flex: 1 1 auto;
+				min-height: 0;
 				overflow: hidden;
 			}
 
 			.popup-viewport {
-				position: absolute;
-				inset: 0.625rem 0.625rem;
+				flex: 1 1 auto;
+				min-height: 0;
 				overflow-y: auto;
+				list-style-type: none;
+				box-sizing: border-box;
+				width: 100%;
+				height: 100%;
 			}
-
-			.popup .scrollbar {
-				margin-top: 0;
-				margin-bottom: 0;
-				margin-right: 0;
+			.popup-viewport .chat-item {
+				padding-left: 0;
+			}
+			.popup-viewport .chat-item:hover {
+				background-color: transparent;
+			}
+			.popup-viewport .format-bold {
+				font-size: 0.625rem;
+			}
+			.popup-viewport .format-mono {
+				font-size: 0.75rem !important;
 			}
 
 			/* Scrollbar */
@@ -599,6 +632,13 @@
 			[data-theme="dark"] .chat-item:hover {
 				background-color: rgba(255, 255, 255, 0.08);
 			}
+			[data-theme="dark"]	.chat-item .chat-item:hover { 
+				background-color: transparent; 
+			}
+
+			[data-theme="dark"] .popup-viewport .chat-item:hover {
+				background-color: transparent;
+			}
 
 			[data-theme="dark"] .footer-button {
 				background: #3a3a3a;
@@ -746,7 +786,9 @@
 
 				<div class="window-body">
 					<div class="popup-frame">
-						<div class="popup-viewport hideDefaultScrollbar"></div>
+						<div class="popup-viewport hideDefaultScrollbar">
+							<div class="popup-content"></div>
+						</div>
 					</div>
 				</div>
 
@@ -838,18 +880,10 @@
 		const toBuilder ={
 			'testevent': buildTestPopup,
 			'horse': buildHorsePopup,
-			'dueling': buildDuelingPopup,
+			'duel': buildDuelingPopup,
 			'blackjack': buildBlackjackPopup,
 			'fishing': buildFishingPopup,
-		};
-
-		const toRenderMode = {
-			'testevent': 'append',
-			'horse': 'append',
-			'dueling': 'append',
-			'blackjack': 'replace',
-			'fishing': 'replace',
-			'leaderboard': 'direct'
+			'info': buildInfoPopup,
 		};
 
 		if(savedBG){
@@ -984,7 +1018,7 @@
 
 		socket.on('toClientEmoteList', (payload) =>{
 			emotes = payload;
-			const container = document.getElementById('emotePicker-viewport');
+			const container = document.getElementById('emotePicker-content');
 		
 			container.replaceChildren();
 
@@ -1064,6 +1098,8 @@
 			handleGameEvent({
 				event: 'testevent',
 				id: TESTINGPOPUPCOUNT,
+				rendermode: 'static',
+				deliverymode: 'append',
 				content: [[{text: 'test event fired', color: 'normal', format: []}]],
 				msdelay: 0
 			});
@@ -1456,7 +1492,8 @@
 			}
 
 			let target = null;
-			if(toRenderMode[message.event] === 'direct'){
+			let viewport = null;
+			if(message.deliverymode === 'direct'){
 				if(isDuplicateChat(message)){
 					return;
 				}
@@ -1469,23 +1506,28 @@
 					return;
 				}
 
-				const candidates = getPopupsByEvent(message.event);
-				const match = candidates.find(popup => popup.dataset.id === String(message.id));
+				let match = null;
+				if(message.id !== null){
+					const candidates = getPopupsByEvent(message.event);
+					match = candidates.find(popup => popup.dataset.id === String(message.id));
+				}
 
 				if(match){
 					match.dataset.timestamp = message.timestamp;
-					target = match.querySelector('.popup-viewport');
+					target = match.querySelector('.popup-content');
+					viewport = match.querySelector('.popup-viewport');
 				}
 				else{
 					const popup = buildPopup(message);
 					if(!popup){
 						return;
 					}
-					target = popup.querySelector('.popup-viewport');
+					target = popup.querySelector('.popup-content');
+					viewport = popup.querySelector('.popup-viewport');
 				}
 			}
 
-			renderGameEvent(message, target);
+			renderGameEvent(message, viewport, target);
 		}
 
 		function handleMessage(message){
@@ -1651,23 +1693,18 @@
 			return null;
 		}
 
-		async function renderGameEvent(message, target){
-			const renderMode = toRenderMode[message.event];
-			if(!renderMode){
-				console.warn(`no render mode registered for event type: ${message.event}`);
+		async function renderGameEvent(message, viewport, target){
+			const deliveryMode = message.deliverymode;
+			if(!deliveryMode){
+				console.warn(`no delivery mode registered for event type: ${message.event}`);
 				return;
 			}
 
-			if(renderMode === 'replace'){
+			if(deliveryMode === 'replace'){
 				target.replaceChildren();
 			}
 
-			for(let lineIndex = 0; lineIndex < message.content.length; lineIndex++){
-				if(!target.isConnected){
-					return;
-				}
-
-				const line = message.content[lineIndex];
+			const lineElements = message.content.map(line => {
 				const li = document.createElement('li');
 
 				line.forEach(chunk => {
@@ -1683,15 +1720,38 @@
 				});
 
 				li.classList.add('chat-item', 'textColor-game');
+				return li;
+			});
 
-				if(renderMode === 'direct'){
-					renderMessage(li);
+			if(deliveryMode === 'direct'){
+				for(let lineIndex = 0; lineIndex < lineElements.length; lineIndex++){
+					if(!target.isConnected){
+						return;
+					}
+
+					renderMessage(lineElements[lineIndex]);
+
+					if(lineIndex < lineElements.length - 1 && message.msdelay > 0){
+						await wait(message.msdelay);
+					}
 				}
-				else{
-					target.appendChild(li);
+				return;
+			}
+
+			for(let lineIndex = 0; lineIndex < lineElements.length; lineIndex++){
+				if(!target.isConnected){
+					return;
 				}
 
-				if(lineIndex < message.content.length - 1 && message.msdelay > 0){
+				const wasAtBottom = viewport.scrollHeight - viewport.clientHeight <= viewport.scrollTop + 20;
+
+				target.appendChild(lineElements[lineIndex]);
+
+				if(wasAtBottom){
+					viewport.scrollTop = viewport.scrollHeight;
+				}
+
+				if(lineIndex < lineElements.length - 1 && message.msdelay > 0){
 					await wait(message.msdelay);
 				}
 			}
@@ -1797,7 +1857,7 @@
 
 		function filterEmotesGrid(filter){
 			const lowerFilter = (filter || '').trim().toLowerCase();
-			document.querySelectorAll('#emotePicker-viewport .emote-selectable').forEach(img => {
+			document.querySelectorAll('#emotePicker-content .emote-selectable').forEach(img => {
 				img.style.display = img.dataset.name.includes(lowerFilter) ? '' : 'none';
 			});
 			document.getElementById('emotePicker-viewport').scrollTop = 0;
@@ -1825,7 +1885,7 @@
 				return null;
 			}
 
-			const popup = builder(message.id);
+			const popup = builder(message);
 
 			const candidates = getPopupsByEvent(message.event);
 			const used = candidates.map(candidatePopup => parseInt(candidatePopup.dataset.instance, 10));
@@ -1864,17 +1924,13 @@
 		}
 
 		//TEST FUNCTION REMOVE
-		function buildTestPopup(id){
+		function buildTestPopup(message){
 			const popup = buildPopupFromTemplate();
 
-			const popupId = `testPopup-${id}`;
+			const popupId = `testPopup-${message.id}`;
 			popup.id = popupId;
 
-			const popupWindow = popup.querySelector('.window');
-			popupWindow.style.width = '20rem';
-			popupWindow.style.maxWidth = 'min(20rem, 80vw)';
-			popupWindow.style.minWidth = '12rem';
-			popupWindow.style.maxHeight = '16rem';
+			sizePopup(popup, message.rendermode, {minWidth: '1rem', maxWidth: '10rem', minHeight: '1rem', maxHeight: '10rem'});
 
 			const closeButton = popup.querySelector('.title-bar-controls button');
 			closeButton.setAttribute('aria-label', 'Close');
@@ -1885,13 +1941,12 @@
 
 			const popupFrame = popup.querySelector('.popup-frame');
 			const popupViewport = popup.querySelector('.popup-viewport');
-			popupFrame.style.height = '12rem';
-			popupFrame.style.maxHeight = '12rem';
 			popupViewport.id = `${popupId}-viewport`;
 
+			const popupContent = popup.querySelector('.popup-content');
 			const placeholderText = document.createElement('p');
 			placeholderText.textContent = 'placeholder text '.repeat(60);
-			popupViewport.appendChild(placeholderText);
+			popupContent.appendChild(placeholderText);
 
 			const layoutRow = document.createElement('div');
 			layoutRow.className = 'layoutRow';
@@ -1912,14 +1967,61 @@
 				container: popupViewport,
 				track: scrollbar.track,
 				thumb: scrollbar.thumb,
-				content: popupViewport,
+				content: popupContent,
 				buttonUp: scrollbar.buttonUp,
 				buttonDown: scrollbar.buttonDown
 			});
 
 			return popup;
 		}
-		function buildHorsePopup(){
+
+		function buildHorsePopup(message){
+			const popup = buildPopupFromTemplate();
+
+			const popupId = `horsePopup-${message.id}`;
+			popup.id = popupId;
+
+			sizePopup(popup, message.rendermode, {minWidth: '1rem', maxWidth: '20rem', minHeight: '1rem', maxHeight: '12rem'});
+
+			const closeButton = popup.querySelector('.title-bar-controls button');
+			closeButton.setAttribute('aria-label', 'Close');
+			closeButton.addEventListener('click', () => {
+				popups.delete(popup);
+				popup.remove();
+			});
+
+			const popupFrame = popup.querySelector('.popup-frame');
+			const popupViewport = popup.querySelector('.popup-viewport');
+			popupViewport.id = `${popupId}-viewport`;
+
+			const popupContent = popup.querySelector('.popup-content');
+
+			const layoutRow = document.createElement('div');
+			layoutRow.className = 'layoutRow';
+			layoutRow.appendChild(popupFrame);
+
+			const scrollbar = buildScrollbar(popupId);
+			layoutRow.appendChild(scrollbar.scrolldiv);
+
+			const windowBody = popup.querySelector('.window-body');
+			windowBody.appendChild(layoutRow);
+
+			document.body.appendChild(popup);
+
+			buildPopupDragListener(popup);
+			buildPopupClickListener(popup);
+
+			buildScrollbarListener({
+				container: popupViewport,
+				track: scrollbar.track,
+				thumb: scrollbar.thumb,
+				content: popupContent,
+				buttonUp: scrollbar.buttonUp,
+				buttonDown: scrollbar.buttonDown,
+				scrolldiv: scrollbar.scrolldiv
+			});
+
+			return popup;
 		}
 
 		function buildDuelingPopup(){
@@ -1928,7 +2030,132 @@
 		function buildBlackjackPopup(){
 		}
 
-		function buildFishingPopup(){
+		function buildFishingPopup(message){
+			const popup = buildPopupFromTemplate();
+
+			const popupId = `fishingPopup-${message.id}`;
+			popup.id = popupId;
+
+			sizePopup(popup, message.rendermode, {minWidth: '1rem', maxWidth: '23rem', minHeight: '1rem', maxHeight: '12rem'});
+
+			const closeButton = popup.querySelector('.title-bar-controls button');
+			closeButton.setAttribute('aria-label', 'Close');
+			closeButton.addEventListener('click', () => {
+				popups.delete(popup);
+				popup.remove();
+			});
+
+			const asciiArt = document.createElement('div');
+			asciiArt.textContent =
+`                                     
+                                    /
+                                   /|
+                                  / |
+                                 /  |
+                                /   J
+                              //     
+                            @//      
+  __________________________//_______
+  \\                                / 
+   \\                              /  
+wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww`;
+			asciiArt.className = 'format-mono';
+			asciiArt.style.margin = '0';
+			asciiArt.style.lineHeight = '1';
+			asciiArt.style.whiteSpace = 'pre';
+			asciiArt.style.wordBreak = 'normal';
+			asciiArt.style.overflow = 'hidden';
+			asciiArt.style.fontSize = '0.75rem';
+			asciiArt.style.flexShrink = '0';
+
+			const popupFrame = popup.querySelector('.popup-frame');
+			popupFrame.style.flexDirection = 'row';
+			popupFrame.appendChild(asciiArt);
+
+			const popupViewport = popup.querySelector('.popup-viewport');
+			popupViewport.id = `${popupId}-viewport`;
+			popupFrame.appendChild(popupViewport);
+
+			const popupContent = popup.querySelector('.popup-content');
+			popupContent.style.paddingLeft = '1rem';
+
+			const layoutRow = document.createElement('div');
+			layoutRow.className = 'layoutRow';
+			layoutRow.appendChild(popupFrame);
+
+			const scrollbar = buildScrollbar(popupId);
+			layoutRow.appendChild(scrollbar.scrolldiv);
+
+			const windowBody = popup.querySelector('.window-body');
+			windowBody.appendChild(layoutRow);
+
+			document.body.appendChild(popup);
+
+			buildPopupDragListener(popup);
+			buildPopupClickListener(popup);
+
+			buildScrollbarListener({
+				container: popupViewport,
+				track: scrollbar.track,
+				thumb: scrollbar.thumb,
+				content: popupContent,
+				buttonUp: scrollbar.buttonUp,
+				buttonDown: scrollbar.buttonDown,
+			});
+
+			return popup;
+		}
+
+		function buildInfoPopup(message){
+			const popup = buildPopupFromTemplate();
+
+			let popupId = 'infoPopup';
+			if(message.id !== null){
+				popupId = `infoPopup-${message.id}`;
+			}
+			popup.id = popupId;
+
+			sizePopup(popup, message.rendermode, {minWidth: '1rem', maxWidth: '10rem', minHeight: '1rem', maxHeight: '10rem'});
+
+			const closeButton = popup.querySelector('.title-bar-controls button');
+			closeButton.setAttribute('aria-label', 'Close');
+			closeButton.addEventListener('click', () => {
+				popups.delete(popup);
+				popup.remove();
+			});
+
+			const popupFrame = popup.querySelector('.popup-frame');
+			const popupViewport = popup.querySelector('.popup-viewport');
+			popupViewport.id = `${popupId}-viewport`;
+
+			const popupContent = popup.querySelector('.popup-content');
+
+			const layoutRow = document.createElement('div');
+			layoutRow.className = 'layoutRow';
+			layoutRow.appendChild(popupFrame);
+
+			const scrollbar = buildScrollbar(popupId);
+			layoutRow.appendChild(scrollbar.scrolldiv);
+
+			const windowBody = popup.querySelector('.window-body');
+			windowBody.appendChild(layoutRow);
+
+			document.body.appendChild(popup);
+
+			buildPopupDragListener(popup);
+			buildPopupClickListener(popup);
+
+			buildScrollbarListener({
+				container: popupViewport,
+				track: scrollbar.track,
+				thumb: scrollbar.thumb,
+				content: popupContent,
+				buttonUp: scrollbar.buttonUp,
+				buttonDown: scrollbar.buttonDown,
+				scrolldiv: scrollbar.scrolldiv
+			});
+
+			return popup;
 		}
 
 		function buildEmotePopup(){
@@ -1956,9 +2183,10 @@
 
 			const popupFrame = popup.querySelector('.popup-frame');
 			const popupViewport = popup.querySelector('.popup-viewport');
-			popupFrame.style.height = '12rem';
-			popupFrame.style.maxHeight = '12rem';
 			popupViewport.id = 'emotePicker-viewport';
+
+			const popupContent = popup.querySelector('.popup-content');
+			popupContent.id = 'emotePicker-content';
 
 			const layoutRow = document.createElement('div');
 			layoutRow.className = 'layoutRow';
@@ -1991,9 +2219,10 @@
 				container: popupViewport,
 				track: scrollbar.track,
 				thumb: scrollbar.thumb,
-				content: popupViewport,
+				content: popupContent,
 				buttonUp: scrollbar.buttonUp,
-				buttonDown: scrollbar.buttonDown
+				buttonDown: scrollbar.buttonDown,
+				scrolldiv: scrollbar.scrolldiv
 			});
 
 			positionPopup(popup);
@@ -2020,9 +2249,10 @@
 		function deleteAllPopups(){
 			deletePopups('testevent');
 			deletePopups('horse');
-			deletePopups('dueling');
+			deletePopups('duel');
 			deletePopups('blackjack');
 			deletePopups('fishing');
+			deletePopups('info');
 		}
 
 		function savePopupPosition(popup){
@@ -2041,6 +2271,26 @@
 				return coordinates;
 			}
 			return null;
+		}
+
+		function sizePopup(popup, rendermode, sizing){
+			let {minWidth, maxWidth, minHeight, maxHeight} = sizing;
+			const popupWindow = popup.querySelector('.window');
+			maxWidth = `min(${maxWidth}, 80vw)`;
+			maxHeight = `min(${maxHeight}, 80vh)`;
+
+			if(rendermode === 'static'){
+				minWidth = maxWidth;
+				minHeight = maxHeight;
+			}
+			else{
+				minWidth = `min(${minWidth}, 80vw)`;
+				minHeight = `min(${minHeight}, 80vh)`;
+			}
+			popupWindow.style.minWidth = minWidth;
+			popupWindow.style.maxWidth = maxWidth;
+			popupWindow.style.minHeight = minHeight;
+			popupWindow.style.maxHeight = maxHeight;
 		}
 
 		function positionPopup(popup, reference){
@@ -2260,6 +2510,7 @@
 			const thumb = scrollbar.thumb;
 			const track = scrollbar.track;
 			const content = scrollbar.content;
+			const scrolldiv = scrollbar.scrolldiv || null;
 
 			//sync thumb position to scroll
 			container.onscroll = function (){
@@ -2282,6 +2533,20 @@
 				scrollbar.buttonDown.onclick = () =>
 					container.scrollBy(0, 50);
 			}
+			function toggleScrollbarVisibility(){
+				if(!scrolldiv){
+					return;
+				}
+
+				const hasOverflow = container.scrollHeight - container.clientHeight > 1;
+				if(hasOverflow){
+					scrolldiv.style.display = 'flex';
+				}
+				else{
+					scrolldiv.style.display = 'none';
+				}
+
+			}
 
 			function renderThumb(){
 				thumb.style.height =
@@ -2292,12 +2557,19 @@
 			}
 
 			renderThumb();
+			toggleScrollbarVisibility();
 
 			//dynamic thumb resizing using a self-executing function for the MutationObserver
-			new MutationObserver(renderThumb).observe(content, {childList: true, subtree: true});
+			new MutationObserver(() => {
+				renderThumb();
+				toggleScrollbarVisibility();
+			}).observe(content, {childList: true, subtree: true});
 
 			//sync resize event
-			window.addEventListener('resize', renderThumb);
+			window.addEventListener('resize', () => {
+				renderThumb();
+				toggleScrollbarVisibility();
+			});
 
 			//click and drag thumb
 			thumb.addEventListener('mousedown', (mousedownEvent) => {

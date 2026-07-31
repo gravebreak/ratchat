@@ -1,4 +1,4 @@
-import {cType, fType, gType, hType} from '../../defs/def-events';
+import {cType, fType, gType, hType, dType, rType} from '../../defs/def-events';
 import {allGames} from '../../defs/def-config';
 import {clearInput, keepInput} from '../../defs/def-input';
 import {tType} from '../../defs/def-moderation';
@@ -20,7 +20,7 @@ import {GameStateService} from './game-state';
 import {AppError, handleError} from '../../utils/errors';
 import {getBaseNick} from '../../utils/format';
 
-import {blankLine, createHorseBetsText, createHorseOddsText} from './game-utils/commentary';
+import {createHorseBetsText, createHorseOddsText} from './game-utils/commentary';
 
 type GameCommandEntry = {
 	enabledFor: GameType[];
@@ -161,7 +161,7 @@ export class GameCommandService {
 					}
 				}
 
-				this.deps.dispatchService.sendGamePayload(ctx.socket, textPayload, gType.horse, 250);
+				this.deps.dispatchService.sendGamePayload(ctx.socket, textPayload, gType.info, 'test', rType.direct, dType.direct, 250);
 
 				return clearInput;
 			}
@@ -190,6 +190,7 @@ export class GameCommandService {
 					}
 
 					const field = this.deps.gameStateService.getFieldHorseSession();
+					const id = `${this.deps.gameStateService.getIdHorseSession()}placed`;
 					const horse = field.find(entry => entry.horsePost === post);
 					if(!horse){
 						throw new AppError(`there is no horse numbered ${post}, use /odds to check the field`, 'user');
@@ -224,7 +225,7 @@ export class GameCommandService {
 					const message: GameTextPayload = createHorseBetsText([placedBet]);
 
 					this.deps.gameIdentityService.setLastGame(ctx.commandUser.playerid, Date.now());
-					this.deps.dispatchService.sendGamePayload(ctx.socket, message, gType.horse);
+					this.deps.dispatchService.sendGamePayload(ctx.socket, message, gType.horse, id, rType.dynamic, dType.replace);
 					return clearInput;
 				}
 				catch(error: unknown){
@@ -246,14 +247,14 @@ export class GameCommandService {
 					}
 
 					const field = this.deps.gameStateService.getFieldHorseSession();
+					const id = `${this.deps.gameStateService.getIdHorseSession()}odds`;
 
 					const message: GameTextPayload = [];
-					message.push(blankLine);
+
 					const oddsText = createHorseOddsText(field);
 					message.push(...oddsText);
-					message.push(blankLine);
 
-					this.deps.dispatchService.sendGamePayload(ctx.socket, message, gType.horse);
+					this.deps.dispatchService.sendGamePayload(ctx.socket, message, gType.horse, id, rType.static, dType.replace);
 					return clearInput;
 				}
 				catch(error: unknown){
@@ -276,9 +277,10 @@ export class GameCommandService {
 						throw new AppError('gotta spend money to make money (no bets placed)', 'user');
 					}
 
+					const id = `${this.deps.gameStateService.getIdHorseSession()}bets`;
 					const message = createHorseBetsText(bets);
 
-					this.deps.dispatchService.sendGamePayload(ctx.socket, message, gType.horse);
+					this.deps.dispatchService.sendGamePayload(ctx.socket, message, gType.horse, id, rType.static, dType.replace);
 					return clearInput;
 				}
 				catch(error: unknown){
@@ -317,12 +319,12 @@ export class GameCommandService {
 						{text: `"${target}"`, color: hType.normal, format: []},
 						{text: '...', color: hType.normal, format: []}
 					];
-					this.deps.dispatchService.sendGamePayload(ctx.socket, [message], gType.fishing);
+					this.deps.dispatchService.sendGamePayload(ctx.socket, [message], gType.fishing, 'fish', rType.static, dType.replace);
 					return clearInput;
 				}
 				else{
 					const message: GameLine = [{text: 'you cast out your line...', color: hType.normal, format: []}];
-					this.deps.dispatchService.sendGamePayload(ctx.socket, [message], gType.fishing);
+					this.deps.dispatchService.sendGamePayload(ctx.socket, [message], gType.fishing, 'fish', rType.static, dType.replace);
 					return clearInput;
 				}
 			}
@@ -340,36 +342,38 @@ export class GameCommandService {
 					const fishResult = this.deps.gameStateService.catchFishingSession(ctx.commandUser.playerid);
 					if(!fishResult){
 						const message: GameLine = [{text: "your hook's empty...", color: hType.normal, format: []}];
-						this.deps.dispatchService.sendGamePayload(ctx.socket, [message], gType.fishing);
+						this.deps.dispatchService.sendGamePayload(ctx.socket, [message], gType.fishing, 'fish', rType.static, dType.append);
 						return clearInput;
 					}
 
 					const weight = fishResult.weight.toLocaleString('en-US', {maximumFractionDigits: 2});
 
-					const message: GameLine = [
+					const line: GameLine = [
 						{text: 'you caught a [', color: hType.normal, format: []},
 						{text: fishResult.name.toLowerCase(), color: fishResult.color, format: []},
 						{text: `] weighing ${weight} ounces. `, color: hType.normal, format: []}
 					];
 
 					if(fishResult.record){
-						message.push({text: 'new server fish record! ', color: hType.normal, format: []});
+						line.push({text: 'new server fish record! ', color: hType.normal, format: []});
 					}
 					if(fishResult.pb){
-						message.push({text: 'new personal best catch! ', color: hType.normal, format: []});
+						line.push({text: 'new personal best catch! ', color: hType.normal, format: []});
 					}
 					if(fishResult.newcatch){
-						message.push({text: "you've never seen one of those before. ", color: hType.normal, format: []});
+						line.push({text: "you've never seen one of those before. ", color: hType.normal, format: []});
 					}
 					if(fishResult.big){
-						message.push({text: "that's a biggun' ", color: hType.normal, format: []});
+						line.push({text: "that's a biggun' ", color: hType.normal, format: []});
 					}
 					if(fishResult.small){
-						message.push({text: "that's a smallun' ", color: hType.normal, format: []});
+						line.push({text: "that's a smallun' ", color: hType.normal, format: []});
 					}
 
-					this.deps.dispatchService.sendGamePayload(ctx.socket, [message], gType.fishing);
-					this.deps.dispatchService.sendSystemChatPayload(ctx.socket, cType.info, fishResult.flavor);
+					const flavor: GameLine = [{text: fishResult.flavor, color: hType.gray, format: [fType.i]}];
+					const message: GameTextPayload = [line, flavor];
+
+					this.deps.dispatchService.sendGamePayload(ctx.socket, message, gType.fishing, 'fish', rType.static, dType.append, 250);
 					if(fishResult.record){
 						const basenick = getBaseNick(ctx.commandUser.fullnick);
 						const announcement: GameLine = [
@@ -378,7 +382,7 @@ export class GameCommandService {
 							{text: fishResult.name.toLowerCase(), color: fishResult.color, format: []},
 							{text: `] weighing ${weight} ounces!`, color: hType.normal, format: []}
 						];
-						this.deps.dispatchService.sendGamePayload(ctx.io, [announcement], gType.fishing);
+						this.deps.dispatchService.sendGamePayload(ctx.io, [announcement], gType.fishing, null, rType.direct, dType.direct);
 					}
 					const points = Math.ceil(fishResult.value);
 					try{
@@ -387,7 +391,7 @@ export class GameCommandService {
 					catch(error: unknown){
 						handleError(error);
 					}
-					this.deps.gameResolutionService.sendUserPoints(ctx.commandUser.playerid, ctx.socket, points, gType.fishing);
+					this.deps.gameResolutionService.sendUserPoints(ctx.commandUser.playerid, ctx.socket, points);
 					return clearInput;
 				}
 				catch(error: unknown){

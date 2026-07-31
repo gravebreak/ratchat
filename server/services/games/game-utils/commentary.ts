@@ -53,7 +53,7 @@ export function createHorseOddsText(field: HorseField): GameTextPayload {
 		const horseNameText = createHorseNameText(horse);
 		const line: GameLine = [
 			...horseNameText,
-			{text: `at ${horse.oddsNum} : ${horse.oddsDen}`, color: hType.normal, format: []},
+			{text: ` at ${horse.oddsNum} : ${horse.oddsDen}`, color: hType.normal, format: []},
 		];
 		gameText.push(line);
 	}
@@ -92,7 +92,7 @@ export function createHorseBetsText(bets: Omit<HorseBet, 'callback'>[]): GameTex
 }
 
 export function createHorseStartCommentary(curr: HorseRaceEntry[]): GameTextPayload {
-	const commentary: GameTextPayload = [blankLine];
+	const commentary: GameTextPayload = [];
 	const openerChosen = pickUniform(commOpeningLines.map(line => line.commentary));
 	const openerLine: GameLine = [{text: openerChosen, color: hType.normal, format: []}];
 	commentary.push(openerLine);
@@ -137,7 +137,6 @@ export function createHorseStartCommentary(curr: HorseRaceEntry[]): GameTextPayl
 		commentary.push(endLine);
 	}
 
-	commentary.push(blankLine);
 	return commentary;
 }
 
@@ -167,7 +166,7 @@ export function createHorseCommentary(curr: HorseRaceEntry[], prev: HorseRaceEnt
 	const leaderGap = curr[0].score - curr[1].score;
 	const locationCandidates = filterCommentaryPool(locationPool, leaderGap, true);
 
-	const commentary: GameTextPayload = [blankLine];
+	const commentary: GameTextPayload = [];
 	const openerChosen = pickUniform(locationCandidates.map(line => line.commentary));
 	const openerLine: GameLine = [{text: openerChosen, color: hType.normal, format: []}];
 	commentary.push(openerLine);
@@ -274,12 +273,11 @@ export function createHorseCommentary(curr: HorseRaceEntry[], prev: HorseRaceEnt
 		commentary.push(endLine);
 	}
 
-	commentary.push(blankLine);
 	return commentary;
 }
 
 export function createHorseEndCommentary(curr: HorseRaceEntry[]): GameTextPayload {
-	const commentary: GameTextPayload = [blankLine];
+	const commentary: GameTextPayload = [];
 
 	const firstGap = curr[0].score - curr[1].score;
 	const firstCandidates = filterCommentaryPool(commFinishFirst, firstGap, true);
@@ -314,7 +312,6 @@ export function createHorseEndCommentary(curr: HorseRaceEntry[]): GameTextPayloa
 		commentary.push(line);
 	}
 
-	commentary.push(blankLine);
 	return commentary;
 }
 

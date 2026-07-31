@@ -1,5 +1,5 @@
-import {fType, gType, hType} from '../../defs/def-events';
-import type {RatServer, RatSocket, GameEventType, GameLine, GameTextPayload} from '../../defs/def-events';
+import {fType, gType, hType, dType, rType} from '../../defs/def-events';
+import type {RatServer, RatSocket, GameLine, GameTextPayload, GamePayload} from '../../defs/def-events';
 import type {FishingResult,HorseBetResult} from '../../defs/def-games';
 import type {GameIdentity} from '../../defs/def-identity';
 
@@ -31,7 +31,7 @@ export class GameResolutionService {
 		this.deps = dependencies;
 	}
 
-	public resolveHorseBet(playerid: GameIdentity['playerid'], results: HorseBetResult[]): void {
+	public resolveHorseBet(playerid: GameIdentity['playerid'], results: HorseBetResult[], id: GamePayload['id']): void {
 		for(const result of results){
 			if(result.playerid !== playerid){
 				throw new AppError('resolveHorseBet received a result for a mismatched playerid', 'internal', 'warn');
@@ -40,6 +40,7 @@ export class GameResolutionService {
 
 		const message: GameTextPayload = [];
 		const jackpots: GameLine[] = [];
+		const popupId = `${id}resolved`;
 		let totalStake = 0;
 		let totalPayout = 0;
 
@@ -131,12 +132,12 @@ export class GameResolutionService {
 		const sockets = this.deps.stateService.getSocketsByPlayer(playerid);
 		const payoutSocket = sockets[0];
 		for(const socket of sockets){
-			this.deps.dispatchService.sendGamePayload(socket, message, gType.horse);
+			this.deps.dispatchService.sendGamePayload(socket, message, gType.horse, popupId, rType.dynamic, dType.append, 100);
 		}
 
 		try{
 			if(jackpots.length > 0){
-				this.deps.dispatchService.sendGamePayload(this.deps.io, jackpots, gType.horse);
+				this.deps.dispatchService.sendGamePayload(this.deps.io, jackpots, gType.horse, null, rType.direct, dType.direct);
 			}
 		}
 		catch(error: unknown){
@@ -145,7 +146,7 @@ export class GameResolutionService {
 
 		if(totalPayout > 0){
 			if(payoutSocket){
-				this.sendUserPoints(playerid, payoutSocket, totalPayout, gType.horse);
+				this.sendUserPoints(playerid, payoutSocket, totalPayout);
 			}
 			else{
 				try{
@@ -167,7 +168,7 @@ export class GameResolutionService {
 		}
 	}
 
-	public sendUserPoints(playerid: GameIdentity['playerid'], socket: RatSocket, points: number, event: GameEventType): void {
+	public sendUserPoints(playerid: GameIdentity['playerid'], socket: RatSocket, points: number): void {
 		try{
 			this.deps.gameIdentityService.addGamePoints(playerid, points);
 			const nicepoints = points.toLocaleString('en-US');
@@ -178,7 +179,7 @@ export class GameResolutionService {
 				{text: name, color: hType.normal, format: [fType.b]},
 				{text: ", don't spend it all in one place", color: hType.normal, format: []}
 			];
-			this.deps.dispatchService.sendGamePayload(socket, [message], event);
+			this.deps.dispatchService.sendGamePayload(socket, [message], gType.info, null, rType.dynamic, dType.replace);
 		}
 		catch(error: unknown){
 			this.deps.dispatchService.sendUserErrorMessage(socket, error, 'Send User Points');
@@ -209,7 +210,7 @@ export class GameResolutionService {
 		const sockets = this.deps.stateService.getSocketsByPlayer(playerid);
 		if(sockets){
 			for(const socket of sockets){
-				this.deps.dispatchService.sendGamePayload(socket, [message], gType.fishing);
+				this.deps.dispatchService.sendGamePayload(socket, [message], gType.fishing, 'fish', rType.static, dType.append);
 			}
 		}
 	}

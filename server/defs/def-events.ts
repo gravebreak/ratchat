@@ -56,7 +56,7 @@ export const gType = {
 	duel: 'duel',
 	blackjack: 'blackjack',
 	fishing: 'fishing',
-	leaderboard: 'leaderboard'
+	info: 'info'
 } as const;
 
 export type FormatType = typeof fType[keyof typeof fType];
@@ -110,12 +110,29 @@ export const GameLineSchema = z.array(GameTextSchema);
 export type GameTextPayload = z.infer<typeof GameTextPayloadSchema>
 export const GameTextPayloadSchema = z.array(GameLineSchema);
 
+export type GameDeliveryMode = typeof dType[keyof typeof dType];
+export const dType = {
+	append: 'append',
+	replace: 'replace',
+	direct: 'direct'
+} as const;
+
+export type GameRenderMode = typeof rType[keyof typeof rType];
+export const rType = {
+	static: 'static',
+	dynamic: 'dynamic',
+	direct: 'direct'
+} as const;
+
 export type GamePayload = z.infer<typeof GamePayloadSchema>;
 export const GamePayloadSchema = z.object({
 	content: GameTextPayloadSchema,
+	event: z.enum(gType),
+	id: z.string().min(1).max(64).nullable(),
+	rendermode: z.enum(rType),
+	deliverymode: z.enum(dType),
 	timestamp: z.number(),
 	msdelay: z.number().int().min(0).max(32768),
-	event: z.enum(gType)
 });
 
 export type ChatPayload = z.infer<typeof ChatPayloadSchema>;

@@ -10,7 +10,7 @@ export const defaultHorseCatalog: HorseCatalogEntry[] = [
 	{horseName: 'My Fat Chud Son'},
 	{horseName: 'Fillyvester Stallion'},
 	{horseName: 'MOPAR Gen 3 6.4L Apache HEMI'},
-	{horseName: 'Miku Miku BEEAAAAAAAAAAAAAAAAAAAM!'},
+	{horseName: 'Miku Miku BEEAAAAAAAAAAAAAAAAAAM!'},
 	{horseName: 'Ocean Pretzel'},
 	{horseName: 'Hoborse II'},
 	{horseName: 'Bossman'},

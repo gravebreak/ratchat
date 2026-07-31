@@ -1,6 +1,6 @@
 import {cType, gType, ChatPayloadSchema} from '../defs/def-events';
 import {MAX_INT} from '../defs/def-config';
-import type {RatServer, RatSocket, ClientEventType, GameEventType, GameTextPayload, FormatType} from '../defs/def-events';
+import type {RatServer, RatSocket, ClientEventType, GameEventType, GameDeliveryMode, GameRenderMode, GameTextPayload, FormatType} from '../defs/def-events';
 import type {ToClient, ChatPayload, GamePayload, IdentityPayload, UserListPayload, EventListPayload, EmoteListPayload, DeleteMessagePayload, DeleteClientLocalDataPayload} from '../defs/def-events';
 import type {Identity} from '../defs/def-identity';
 
@@ -67,12 +67,15 @@ export class DispatchService{
 		this.sendPayload(to, cType.markov, markovChat);
 	}
 
-	public sendGamePayload(to: Target, content: GameTextPayload, event: GameEventType, msdelay = 0): void {
+	public sendGamePayload(to: Target, content: GameTextPayload, event: GameEventType, id: GamePayload['id'], rendermode: GameRenderMode, deliverymode: GameDeliveryMode, msdelay = 0): void {
 		const payload: GamePayload = {
 			content: content,
+			event: event,
+			id: id,
+			rendermode:rendermode,
+			deliverymode: deliverymode,
 			timestamp: Date.now(),
 			msdelay: msdelay,
-			event: event
 		};
 		this.sendPayload(to, cType.game, payload);
 	}
