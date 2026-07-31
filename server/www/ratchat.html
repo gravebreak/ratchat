@@ -2076,7 +2076,8 @@
   \\                                / 
    \\                              /  
 wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww`;
-			asciiArt.className = 'format-mono';
+			asciiArt.classList.add('format-mono');
+			asciiArt.classList.add('gameColor-navy');
 			asciiArt.style.margin = '0';
 			asciiArt.style.lineHeight = '1';
 			asciiArt.style.whiteSpace = 'pre';
@@ -2268,12 +2269,12 @@ wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww`;
 
 		function savePopupPosition(popup){
 			const positions = JSON.parse(localStorage.getItem('ratPUP')) || {};
-			const cordinateRatio = {
+			const coordinateRatio = {
 				top: (popup.offsetTop / window.innerHeight),
 				left: (popup.offsetLeft / window.innerWidth)
 			};
 
-			positions[popup.dataset.event] = cordinateRatio;
+			positions[popup.dataset.event] = coordinateRatio;
 			localStorage.setItem('ratPUP', JSON.stringify(positions));
 		}
 
