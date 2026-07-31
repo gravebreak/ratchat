@@ -1523,7 +1523,7 @@
 				let match = null;
 				if(message.id !== null){
 					const candidates = getPopupsByEvent(message.event);
-					match = candidates.find(popup => popup.dataset.id === String(message.id));
+					match = candidates.find(candidate => candidate.dataset.id === String(message.id));
 				}
 
 				if(match){
@@ -2238,8 +2238,7 @@ wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww`;
 				thumb: scrollbar.thumb,
 				content: popupContent,
 				buttonUp: scrollbar.buttonUp,
-				buttonDown: scrollbar.buttonDown,
-				scrolldiv: scrollbar.scrolldiv
+				buttonDown: scrollbar.buttonDown
 			});
 
 			positionPopup(popup);
@@ -2264,27 +2263,29 @@ wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww`;
 		}
 
 		function deleteAllPopups(){
-			deletePopups('testevent');
-			deletePopups('horse');
-			deletePopups('duel');
-			deletePopups('blackjack');
-			deletePopups('fishing');
-			deletePopups('info');
+			Object.keys(toBuilder).forEach(event => deletePopups(event));
 		}
 
 		function savePopupPosition(popup){
 			const positions = JSON.parse(localStorage.getItem('ratPUP')) || {};
-			const coordinates = {top: popup.offsetTop, left: popup.offsetLeft};
+			const cordinateRatio = {
+				top: (popup.offsetTop / window.innerHeight),
+				left: (popup.offsetLeft / window.innerWidth)
+			};
 
-			positions[popup.dataset.event] = coordinates;
+			positions[popup.dataset.event] = cordinateRatio;
 			localStorage.setItem('ratPUP', JSON.stringify(positions));
 		}
 
 		function loadPopupPosition(popup){
 			const positions = JSON.parse(localStorage.getItem('ratPUP')) || {};
-			const coordinates = positions[popup.dataset.event];
+			const coordinateRatio = positions[popup.dataset.event];
 
-			if(coordinates){
+			if(coordinateRatio){
+				const coordinates = {
+					top: coordinateRatio.top * window.innerHeight,
+					left: coordinateRatio.left * window.innerWidth
+				};
 				return coordinates;
 			}
 			return null;
