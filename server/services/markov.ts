@@ -86,11 +86,11 @@ export class MarkovService{
 					throw new AppError(`${getBaseNick(markovUser.fullnick)} don't know nothin about '${seed}'`, 'user');
 				}
 
-				const weightMap: WeightedCandidates= new Map(
-					startCandidates.map((candidate, candidateIndex) => [String(candidateIndex), candidate.count])
+				const weightMap: WeightedCandidates<StartNeuron> = new Map(
+					startCandidates.map((candidate) => [candidate, candidate.count])
 				);
 
-				const chosenStart = startCandidates[Number(pickWeighted(weightMap))];
+				const chosenStart = pickWeighted<StartNeuron>(weightMap);
 
 				generatedWords.push(chosenStart.word1, chosenStart.word2);
 			}
@@ -101,11 +101,11 @@ export class MarkovService{
 					throw new AppError('no start entries in markov brain', 'internal', 'warn');
 				}
 
-				const weightMap: WeightedCandidates= new Map(
-					startCandidates.map((candidate, candidateIndex) => [String(candidateIndex), candidate.count])
+				const weightMap: WeightedCandidates<StartNeuron> = new Map(
+					startCandidates.map((candidate) => [candidate, candidate.count])
 				);
 
-				const chosenStart = startCandidates[Number(pickWeighted(weightMap))];
+				const chosenStart = pickWeighted<StartNeuron>(weightMap);
 
 				generatedWords.push(chosenStart.word1, chosenStart.word2);
 			}
@@ -119,11 +119,12 @@ export class MarkovService{
 				if(gramCandidates.length === 0){
 					break;
 				}
-				const weightMap: WeightedCandidates= new Map(
-					gramCandidates.map((candidate, candidateIndex) => [String(candidateIndex), candidate.count])
+
+				const weightMap: WeightedCandidates<GramNeuron> = new Map(
+					gramCandidates.map((candidate) => [candidate, candidate.count])
 				);
 
-				const chosenGram = gramCandidates[Number(pickWeighted(weightMap))];
+				const chosenGram = pickWeighted<GramNeuron>(weightMap);
 				const nextWord = chosenGram.word3;
 
 				if(!nextWord || nextWord === '<END>'){
@@ -237,12 +238,8 @@ export class MarkovService{
 
 		const random = Math.random();
 		if(random <= config.formatchance){
-			const raw = pickUniform(Object.keys(fType));
-			const isFTypeKey = (key: string): key is keyof typeof fType => key in fType;
-
-			if (isFTypeKey(raw)) {
-				return [fType[raw]];
-			}
+			const format = pickUniform<FormatType>(Object.values(fType));
+			return [format];
 		}
 
 		return [];

@@ -93,14 +93,14 @@ export function createHorseBetsText(bets: Omit<HorseBet, 'callback'>[]): GameTex
 
 export function createHorseStartCommentary(curr: HorseRaceEntry[]): GameTextPayload {
 	const commentary: GameTextPayload = [];
-	const openerChosen = pickUniform(commOpeningLines.map(line => line.commentary));
+	const openerChosen = pickUniform<CommentaryLine['commentary']>(commOpeningLines.map(line => line.commentary));
 	const openerLine: GameLine = [{text: openerChosen, color: hType.normal, format: []}];
 	commentary.push(openerLine);
 	commentary.push(blankLine);
 
 	const leaderGap = curr[0].score - curr[1].score;
 	const leaderCandidates = filterCommentaryPool(commLeadStart, leaderGap, true);
-	const leaderChosen = pickUniform(leaderCandidates.map(line => line.commentary));
+	const leaderChosen = pickUniform<CommentaryLine['commentary']>(leaderCandidates.map(line => line.commentary));
 	const leaderLabel = {horseName: curr[0].horseName, horseColor: curr[0].horseColor, horsePost: curr[0].horsePost};
 	const leaderName = appendHorseNames([leaderLabel]);
 	const leaderLine: GameLine = [...leaderName, {text: leaderChosen, color: hType.normal, format: []}];
@@ -167,7 +167,7 @@ export function createHorseCommentary(curr: HorseRaceEntry[], prev: HorseRaceEnt
 	const locationCandidates = filterCommentaryPool(locationPool, leaderGap, true);
 
 	const commentary: GameTextPayload = [];
-	const openerChosen = pickUniform(locationCandidates.map(line => line.commentary));
+	const openerChosen = pickUniform<CommentaryLine['commentary']>(locationCandidates.map(line => line.commentary));
 	const openerLine: GameLine = [{text: openerChosen, color: hType.normal, format: []}];
 	commentary.push(openerLine);
 	commentary.push(blankLine);
@@ -196,7 +196,7 @@ export function createHorseCommentary(curr: HorseRaceEntry[], prev: HorseRaceEnt
 		}
 	}
 	const leaderCandidates = filterCommentaryPool(leaderPool, leaderGap, true);
-	const leaderChosen = pickUniform(leaderCandidates.map(line => line.commentary));
+	const leaderChosen = pickUniform<CommentaryLine['commentary']>(leaderCandidates.map(line => line.commentary));
 	const leaderLabel = {horseName: curr[0].horseName, horseColor: curr[0].horseColor, horsePost: curr[0].horsePost};
 	const leaderName = appendHorseNames([leaderLabel]);
 	let leaderLine: GameLine;
@@ -281,7 +281,7 @@ export function createHorseEndCommentary(curr: HorseRaceEntry[]): GameTextPayloa
 
 	const firstGap = curr[0].score - curr[1].score;
 	const firstCandidates = filterCommentaryPool(commFinishFirst, firstGap, true);
-	const firstChosen = pickUniform(firstCandidates.map(line => line.commentary));
+	const firstChosen = pickUniform<CommentaryLine['commentary']>(firstCandidates.map(line => line.commentary));
 	const firstLabel = {horseName: curr[0].horseName, horseColor: curr[0].horseColor, horsePost: curr[0].horsePost};
 	const firstName = appendHorseNames([firstLabel]);
 	const firstLine: GameLine = [...firstName, {text: firstChosen, color: hType.gold, format: [fType.b]}];
@@ -289,7 +289,7 @@ export function createHorseEndCommentary(curr: HorseRaceEntry[]): GameTextPayloa
 
 	const secondGap = curr[0].score - curr[1].score;
 	const secondCandidates = filterCommentaryPool(commFinishSecond, secondGap, true);
-	const secondChosen = pickUniform(secondCandidates.map(line => line.commentary));
+	const secondChosen = pickUniform<CommentaryLine['commentary']>(secondCandidates.map(line => line.commentary));
 	const secondLabel = {horseName: curr[1].horseName, horseColor: curr[1].horseColor, horsePost: curr[1].horsePost};
 	const secondName = appendHorseNames([secondLabel]);
 	const secondLine: GameLine = [...secondName, {text: secondChosen, color: hType.silver, format: []}];
@@ -297,7 +297,7 @@ export function createHorseEndCommentary(curr: HorseRaceEntry[]): GameTextPayloa
 
 	const thirdGap = curr[1].score - curr[2].score;
 	const thirdCandidates = filterCommentaryPool(commFinishThird, thirdGap, true);
-	const thirdChosen = pickUniform(thirdCandidates.map(line => line.commentary));
+	const thirdChosen = pickUniform<CommentaryLine['commentary']>(thirdCandidates.map(line => line.commentary));
 	const thirdLabel = {horseName: curr[2].horseName, horseColor: curr[2].horseColor, horsePost: curr[2].horsePost};
 	const thirdName = appendHorseNames([thirdLabel]);
 	const thirdLine: GameLine = [...thirdName, {text: thirdChosen, color: hType.bronze, format: []}];
@@ -354,7 +354,7 @@ function createClusterCommentary(input: HorseRaceEntry[], gap: number, type: Clu
 	const singular = input.length < 2;
 	const candidates = filterCommentaryPool(pool, gap, singular);
 
-	const chosen = pickUniform(candidates.map(line => line.commentary));
+	const chosen = pickUniform<CommentaryLine['commentary']>(candidates.map(line => line.commentary));
 	const names = appendHorseNames(input);
 	const line: GameLine = [...names, {text: chosen, color: hType.normal, format: []}];
 	return line;
@@ -362,7 +362,7 @@ function createClusterCommentary(input: HorseRaceEntry[], gap: number, type: Clu
 
 function createSurgeCommentary(entry: HorseMovement, nextCluster: HorseMovement[]): GameLine {
 	const surgeCandidates = filterCommentaryPool(commSurgeLines, 0, true);
-	const chosen = pickUniform(surgeCandidates.map(line => line.commentary));
+	const chosen = pickUniform<CommentaryLine['commentary']>(surgeCandidates.map(line => line.commentary));
 
 	let passedNames: GameText[];
 	if(nextCluster.length === 0){
@@ -379,7 +379,7 @@ function createSurgeCommentary(entry: HorseMovement, nextCluster: HorseMovement[
 
 function createFallCommentary(entry: HorseMovement): GameLine {
 	const fallCandidates = filterCommentaryPool(commFallLines, 0, true);
-	const chosen = pickUniform(fallCandidates.map(line => line.commentary));
+	const chosen = pickUniform<CommentaryLine['commentary']>(fallCandidates.map(line => line.commentary));
 	const horseLabel = {horseName: entry.horseName, horseColor: entry.horseColor, horsePost: entry.horsePost};
 	const horse = appendHorseNames([horseLabel]);
 	const line: GameLine = [...horse, {text: chosen, color: hType.normal, format: []}];

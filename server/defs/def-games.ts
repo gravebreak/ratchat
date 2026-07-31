@@ -67,6 +67,37 @@ export type CommentaryLine = {
 	big: boolean;
 };
 
+export type BlackjackCardRank = typeof cardRank[keyof typeof cardRank];
+export const cardRank = {
+	ace: 'A',
+	two: '2',
+	three: '3',
+	four: '4',
+	five: '5',
+	six: '6',
+	seven: '7',
+	eight: '8',
+	nine: '9',
+	ten: 'T',
+	jack: 'J',
+	queen: 'Q',
+	king: 'K'
+} as const;
+
+export type BlackjackCardSuit = typeof cardSuit[keyof typeof cardSuit];
+export const cardSuit = {
+	spades: '♠',
+	diamonds: '♦',
+	clubs: '♣',
+	hearts: '♥',
+} as const;
+
+export type BlackjackCard = {
+	rank: BlackjackCardRank;
+	suit: BlackjackCardSuit;
+};
+export type BlackjackShoe = BlackjackCard[];
+
 export type FishCatch = {
 	name: FishRecordEntry['fishName'];
 	flavor: FishRecordEntry['fishFlavor'];

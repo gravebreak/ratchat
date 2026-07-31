@@ -33,8 +33,8 @@ export function createCatch(target: string | null, records: PrivateFishRecordLis
 }
 
 function pickRandomFish(records: PrivateFishRecordList): FishRecordEntry {
-	const allFishNames: UniformCandidates = records.map(entry => entry.fishName);
-	const pickedName = pickUniform(allFishNames);
+	const allFishNames: UniformCandidates<FishRecordEntry['fishName']> = records.map(entry => entry.fishName);
+	const pickedName = pickUniform<FishRecordEntry['fishName']>(allFishNames);
 	const fish = records.find(entry => entry.fishName === pickedName);
 
 	if(!fish){
@@ -56,8 +56,7 @@ function pickTargetFish(target: string, records: PrivateFishRecordList): FishRec
 }
 
 function pickFishWeight(fish: FishRecordEntry): number {
-	const gaussianCandidate = {candidate: fish.fishName, baseline: fish.baseline};
-	const rawWeight = pickGaussian(gaussianCandidate);
+	const rawWeight = pickGaussian(fish.baseline);
 	const roundedWeight = Math.round(rawWeight * 100) / 100;
 	const clampedWeight = Math.max(roundedWeight, 0.01);
 

@@ -1,7 +1,6 @@
-export type WeightedCandidates = Map<Candidate, Weight>;
-export type UniformCandidates = Candidate[];
-export type GaussianCandidate = {candidate: Candidate, baseline: Baseline};
+export type WeightedCandidates<CandidateType> = Map<CandidateType, Weight>;
+export type UniformCandidates<CandidateType> = CandidateType[];
+export type GaussianCandidate<CandidateType> = {candidate: CandidateType, baseline: Baseline};
 
-export type Candidate = string;
 export type Weight = number;
 export type Baseline = number;

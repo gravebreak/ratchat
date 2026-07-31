@@ -1,7 +1,7 @@
 import {allowedHorseColors} from '../../../defs/def-games';
 import type {HorseOdds, HorseLabel, HorseColor, HorseField, HorseFieldEntry, HorseRaceEntry, HorseRaceResult, HorseStandings, HorseBet, HorseBetResult} from '../../../defs/def-games';
-import type {Candidate, WeightedCandidates} from '../../../defs/def-random';
-import type {PrivateHorseRecordList} from '../../../defs/def-record';
+import type {WeightedCandidates} from '../../../defs/def-random';
+import type {PrivateHorseRecordList, HorseRecordEntry} from '../../../defs/def-record';
 
 import {AppError} from '../../../utils/errors';
 import {pickUniformExclusive, randomInt, randomIntArray} from '../../../utils/random';
@@ -55,8 +55,8 @@ export function createHorseBetResult(bet: HorseBet, standings: HorseStandings): 
 export function createHorseRaceResult(records: PrivateHorseRecordList): HorseRaceResult{
 	const fieldSize = randomInt(MIN_FIELD_SIZE, MAX_FIELD_SIZE);
 
-	const candidateHorses = records.map(entry => entry.horseName);
-	const selectedHorses = pickUniformExclusive(candidateHorses, fieldSize);
+	const candidateHorses: HorseRecordEntry['horseName'][] = records.map(entry => entry.horseName);
+	const selectedHorses = pickUniformExclusive<HorseRecordEntry['horseName']>(candidateHorses, fieldSize);
 	const weightedHorses = createHorseWeights(selectedHorses);
 	const horsePosts = randomIntArray(1, 16);
 	const colors = createHorseColors(fieldSize);
@@ -131,9 +131,9 @@ export function createHorseRaceResult(records: PrivateHorseRecordList): HorseRac
 	return result;
 }
 
-function createHorseWeights(candidates: Candidate[]): WeightedCandidates {
+function createHorseWeights(candidates: HorseRecordEntry['horseName'][]): WeightedCandidates<HorseRecordEntry['horseName']> {
 	let remaining = 1;
-	const weighted: WeightedCandidates = new Map();
+	const weighted: WeightedCandidates<HorseRecordEntry['horseName']> = new Map();
 	for(let i = 0; i < candidates.length; i++){
 		if(i === candidates.length - 1){
 			let finalWeight: number;
@@ -156,7 +156,7 @@ function createHorseWeights(candidates: Candidate[]): WeightedCandidates {
 	return normalized;
 }
 
-function normalizeHorseWeights(weighted: WeightedCandidates): WeightedCandidates {
+function normalizeHorseWeights(weighted: WeightedCandidates<HorseRecordEntry['horseName']>): WeightedCandidates<HorseRecordEntry['horseName']> {
 	let total = 0;
 	for(const weight of weighted.values()){
 		total += weight;
@@ -257,21 +257,10 @@ function normalizeHorseScores(race: HorseRaceEntry[]): HorseRaceEntry[] {
 }
 
 function createHorseColors(count: number): HorseColor[] {
-	const colorPool: string[] = Object.values(allowedHorseColors);
+	const colorPool = Object.values(allowedHorseColors);
+	const pickedColors: HorseColor[] = pickUniformExclusive<HorseColor>(colorPool, count);
 
-	const isHorseColor = (color: string): color is HorseColor => colorPool.includes(color);
-
-	const picks = pickUniformExclusive(colorPool, count);
-	const verifiedColors: HorseColor[] = [];
-
-	for(const pick of picks){
-		if(!isHorseColor(pick)){
-			throw new AppError('pickUniformExclusive returned an invalid horse color', 'bug');
-		}
-		verifiedColors.push(pick);
-	}
-
-	return verifiedColors;
+	return pickedColors;
 }
 
 function createHorseField(race: HorseRaceEntry[]): HorseField {
