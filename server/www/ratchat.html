@@ -1112,6 +1112,7 @@
 
 		window.addEventListener('resize', () => {
 			remPixels = parseFloat(getComputedStyle(document.documentElement).fontSize);
+			repositionPopups();
 		});
 
 		document.getElementById('footer-button-users').addEventListener('click', () => {
@@ -1230,7 +1231,6 @@
 					case 'clear':
 					case 'clr':{
 						chatList.replaceChildren();
-						deleteAllPopups();
 						input.value = '';
 						return;
 					}
@@ -1268,6 +1268,18 @@
 							localStorage.setItem('ratMode', 'dark');
 							displayClientMessage('system: bravo 6, going dark', 'textColor-info');
 						}
+						input.value = '';
+						return;
+					}
+
+					case 'close':{
+						const emotePickerPopup = document.getElementById('emotePicker');
+						if(emotePickerPopup.classList.contains('isVisible')){
+							emotePickerPopup.classList.remove('isVisible');
+						}
+
+						deleteAllPopups();
+
 						input.value = '';
 						return;
 					}
@@ -1492,7 +1504,9 @@
 			}
 
 			let target = null;
+			let popup = null;
 			let viewport = null;
+
 			if(message.deliverymode === 'direct'){
 				if(isDuplicateChat(message)){
 					return;
@@ -1516,9 +1530,12 @@
 					match.dataset.timestamp = message.timestamp;
 					target = match.querySelector('.popup-content');
 					viewport = match.querySelector('.popup-viewport');
+					popup = match;
+
+					renderPopups(popup);
 				}
 				else{
-					const popup = buildPopup(message);
+					popup = buildPopup(message);
 					if(!popup){
 						return;
 					}
@@ -1527,7 +1544,7 @@
 				}
 			}
 
-			renderGameEvent(message, viewport, target);
+			renderGameEvent(message, popup, viewport, target);
 		}
 
 		function handleMessage(message){
@@ -1693,7 +1710,7 @@
 			return null;
 		}
 
-		async function renderGameEvent(message, viewport, target){
+		async function renderGameEvent(message, popup, viewport, target){
 			const deliveryMode = message.deliverymode;
 			if(!deliveryMode){
 				console.warn(`no delivery mode registered for event type: ${message.event}`);
@@ -2325,6 +2342,15 @@ wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww`;
 
 			popup.style.top = safePosition.top + 'px';
 			popup.style.left = safePosition.left + 'px';
+		}
+
+		function repositionPopups(){
+			popups.forEach(popup => {
+				const safePosition = calculateSafePosition(popup.offsetTop, popup.offsetLeft, popup.offsetWidth);
+
+				popup.style.top = safePosition.top + 'px';
+				popup.style.left = safePosition.left + 'px';
+			});
 		}
 
 		function renderPopups(popup){
