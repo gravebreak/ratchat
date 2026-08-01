@@ -167,7 +167,7 @@ export class MarkovService{
 		throw new AppError(`no valid text generated after ${MAX_RETRY_ATTEMPTS} attempts`, 'user');
 	}
 
-	public async learnMarkovText(message: string): Promise<void> {
+	public async incrementMarkovText(message: string): Promise<void> {
 		if(!this.deps.configService.getMarkovConfig().learning){
 			return;
 		}
@@ -321,7 +321,7 @@ export class MarkovService{
 		let drops = 0;
 
 		for(const row of rows){
-			if(!this.isValidStartNeuron(row)){
+			if(!this.isStartNeuron(row)){
 				drops++;
 				continue;
 			}
@@ -351,7 +351,7 @@ export class MarkovService{
 		let drops = 0;
 
 		for(const row of rows){
-			if(!this.isValidGramNeuron(row)){
+			if(!this.isGramNeuron(row)){
 				drops++;
 				continue;
 			}
@@ -365,7 +365,7 @@ export class MarkovService{
 		return results;
 	}
 
-	private isValidStartNeuron(input: unknown): input is StartNeuron {
+	private isStartNeuron(input: unknown): input is StartNeuron {
 		if(typeof input !== 'object' || input === null){
 			return false;
 		}
@@ -381,7 +381,7 @@ export class MarkovService{
 		return true;
 	}
 
-	private isValidGramNeuron(input: unknown): input is GramNeuron {
+	private isGramNeuron(input: unknown): input is GramNeuron {
 		if(typeof input !== 'object' || input === null){
 			return false;
 		}
@@ -404,7 +404,7 @@ export class MarkovService{
 		try{
 			this.db = new DatabaseSync(this.deps.brainPath);
 			const tableNames = this.fetchBrain(this.deps.brainPath);
-			const validTableNames = this.resolveBrain(tableNames);
+			const validTableNames = this.parseBrainTables(tableNames);
 			this.startTables = validTableNames;
 			this.assignDictionary();
 			console.log(`Loaded ${this.dictionary.size} start entries`);
@@ -420,7 +420,7 @@ export class MarkovService{
 		}
 
 		if(!existsSync(path)){
-			console.log('building markov brain....');
+			console.log('creating markov brain....');
 			const allLetters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ_';
 			const startSchema = 'CREATE TABLE IF NOT EXISTS %TABLE% (word1 TEXT, word2 TEXT, count INTEGER, PRIMARY KEY (word1, word2));';
 			const gramSchema = 'CREATE TABLE IF NOT EXISTS %TABLE% (word1 TEXT,	word2 TEXT,	word3 TEXT, count INTEGER, PRIMARY KEY (word1, word2, word3));';
@@ -446,7 +446,7 @@ export class MarkovService{
 		return startTablesNames.all();
 	}
 
-	private resolveBrain(input: unknown[]): Neuron['table'][]{
+	private parseBrainTables(input: unknown[]): Neuron['table'][]{
 		const results: Neuron['table'][] = [];
 		let drops = 0;
 
@@ -465,7 +465,7 @@ export class MarkovService{
 		}
 
 		if(drops > 0){
-			console.warn(`${drops} dropped table entries on resolveBrain, check brain db integrity`);
+			console.warn(`${drops} dropped table entries on parseBrainTables, check brain db integrity`);
 		}
 
 		return results;

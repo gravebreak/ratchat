@@ -41,7 +41,7 @@ export class ModerationService {
 		if(!this.startup){
 			throw new AppError('No longer starting up, illegal appendBaseNickFilter call', 'bug');
 		}
-		const added = this.buildPattern(commands, '^', '$');
+		const added = this.createRegexPattern(commands, '^', '$');
 		this.basenickFilter.push(...added);
 		this.startup = false;
 	}
@@ -225,7 +225,7 @@ export class ModerationService {
 		return str as SafeString;
 	}
 
-	private buildPattern(entries: string[], prepend: string, append: string): RegExp[]{
+	private createRegexPattern(entries: string[], prepend: string, append: string): RegExp[]{
 		const patterns: RegExp[] = [];
 		for(const entry of entries){
 			const pattern = prepend + entry + append;
@@ -237,7 +237,7 @@ export class ModerationService {
 	private initializeProfanityFilter(): void {
 		try{
 			const raw = this.fetchFilter(this.deps.profFilterPath);
-			const profPatterns = this.resolveFilter(raw, 'profanity');
+			const profPatterns = this.mergeFilter(raw, 'profanity');
 			this.profFilter = profPatterns;
 		}
 		catch(error: unknown){
@@ -249,16 +249,16 @@ export class ModerationService {
 	private initializeBaseNickFilter(): void {
 		try{
 			const raw = this.fetchFilter(this.deps.basenickFilterPath);
-			const basenickPatterns = this.resolveFilter(raw, 'basenick');
+			const basenickPatterns = this.mergeFilter(raw, 'basenick');
 
-			const clientCommandPatterns = this.buildPattern(this.deps.clientCommands, '^', '$');
-			const clientSubCommandPatterns = this.buildPattern(this.deps.clientSubCommands, '^', '$');
-			const configPatterns = this.buildPattern(this.deps.configService.getServerConfig().baseNickRes, '^', '$');
+			const clientCommandPatterns = this.createRegexPattern(this.deps.clientCommands, '^', '$');
+			const clientSubCommandPatterns = this.createRegexPattern(this.deps.clientSubCommands, '^', '$');
+			const configPatterns = this.createRegexPattern(this.deps.configService.getServerConfig().baseNickRes, '^', '$');
 
 			let markovPatterns: RegExp[] = [];
 			if(this.deps.configService.getMarkovConfig().enabled){
 				const markovBaseNick = this.deps.configService.getMarkovConfig().basenick;
-				markovPatterns = this.buildPattern([markovBaseNick], '^', '$');
+				markovPatterns = this.createRegexPattern([markovBaseNick], '^', '$');
 			}
 
 			this.basenickFilter = [
@@ -290,7 +290,7 @@ export class ModerationService {
 		}
 	}
 
-	private resolveFilter(input: unknown, type: 'profanity' | 'basenick'): RegExp[]{
+	private mergeFilter(input: unknown, type: 'profanity' | 'basenick'): RegExp[]{
 		if(!isUnknownArray(input)){
 			console.warn(`${type} filter data was not an array, starting fresh`);
 			return [];
@@ -304,16 +304,16 @@ export class ModerationService {
 				const escaped = validEntries
 					.filter(item => item.tags.includes('racial') && item.severity > 2)
 					.map(item => item.match.split('*').map((seg) => seg.replace(/([a-zA-Z0-9.])(?=[a-zA-Z0-9.])/g, '$1[\\s\\-_.]*')).join('[^a-zA-Z0-9]*'));
-				compiledFilter = this.buildPattern(escaped, '\\b', '\\b');
+				compiledFilter = this.createRegexPattern(escaped, '\\b', '\\b');
 				break;
 			}
 			case 'basenick':{
 				const validEntries = input.filter(entry => typeof entry === 'string');
-				compiledFilter = this.buildPattern(validEntries, '^', '$');
+				compiledFilter = this.createRegexPattern(validEntries, '^', '$');
 				break;
 			}
 			default:{
-				throw new AppError('resolveFilter called without appropriate label', 'bug');
+				throw new AppError('mergeFilter called without appropriate label', 'bug');
 			}
 		}
 

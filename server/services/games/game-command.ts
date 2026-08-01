@@ -14,7 +14,7 @@ import {DispatchService} from '../dispatch';
 import {ModerationService} from '../moderation';
 import {GameIdentityService} from './game-identity';
 import {IdentityService} from '../identity';
-import {GameResolutionService} from './game-resolution';
+import {GameSettlementService} from './game-settlement';
 import {GameStateService} from './game-state';
 
 import {AppError, handleError} from '../../utils/errors';
@@ -33,7 +33,7 @@ export interface GameCommandServiceDependencies {
 	moderationService: ModerationService;
 	gameIdentityService: GameIdentityService;
 	identityService: IdentityService;
-	gameResolutionService: GameResolutionService;
+	gameSettlementService: GameSettlementService;
 	gameStateService: GameStateService;
 }
 
@@ -339,7 +339,7 @@ export class GameCommandService {
 					return clearInput;
 				}
 				try{
-					const fishResult = this.deps.gameStateService.catchFishingSession(ctx.commandUser.playerid);
+					const fishResult = this.deps.gameStateService.consumeFishingSession(ctx.commandUser.playerid);
 					if(!fishResult){
 						const message: GameLine = [{text: "your hook's empty...", color: hType.normal, format: []}];
 						this.deps.dispatchService.sendGamePayload(ctx.socket, [message], gType.fishing, 'fish', rType.static, dType.append);
@@ -391,7 +391,7 @@ export class GameCommandService {
 					catch(error: unknown){
 						handleError(error);
 					}
-					this.deps.gameResolutionService.sendUserPoints(ctx.commandUser.playerid, ctx.socket, points);
+					this.deps.gameSettlementService.sendUserPoints(ctx.commandUser.playerid, ctx.socket, points);
 					return clearInput;
 				}
 				catch(error: unknown){

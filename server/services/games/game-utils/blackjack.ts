@@ -1,10 +1,10 @@
 import {cardRank, cardSuit} from '../../../defs/def-games';
 import type {BlackjackCard, BlackjackShoe} from '../../../defs/def-games';
-import {randomOrder} from '../../../utils/random';
+import {shuffle} from '../../../utils/random';
 
 const SHOE_SIZE_DECKS = 4;
 
-export function buildBlackjackShoe(): BlackjackShoe {
+export function createBlackjackShoe(): BlackjackShoe {
 	const shoe: BlackjackShoe = [];
 
 	for(let deckIndex = 0; deckIndex < SHOE_SIZE_DECKS; deckIndex++){
@@ -15,7 +15,7 @@ export function buildBlackjackShoe(): BlackjackShoe {
 		}
 	}
 
-	const randomized = randomOrder<BlackjackCard>(shoe);
+	const randomized = shuffle<BlackjackCard>(shoe);
 
 	return randomized;
 }

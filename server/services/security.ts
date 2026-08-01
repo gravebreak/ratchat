@@ -109,7 +109,7 @@ export class SecurityService{
 
 	private initializeBans(): void {
 		const loadedbans = this.fetchBans();
-		const validbans = this.resolveBans(loadedbans);
+		const validbans = this.mergeBans(loadedbans);
 		this.assignBans(validbans);
 	}
 
@@ -129,7 +129,7 @@ export class SecurityService{
 		}
 	}
 
-	private resolveBans(input: unknown): BanEntry[]{
+	private mergeBans(input: unknown): BanEntry[]{
 		if(!isUnknownArray(input)){
 			console.error('Ban data was not an array, starting fresh');
 			return [];

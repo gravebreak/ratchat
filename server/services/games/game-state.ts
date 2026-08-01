@@ -16,13 +16,13 @@ import {CacheService} from '../cache';
 import {DispatchService} from '../dispatch';
 import {GameIdentityService} from './game-identity';
 import {IdentityService} from '../identity';
-import {GameResolutionService} from './game-resolution';
+import {GameSettlementService} from './game-settlement';
 
 import {handleError, AppError} from '../../utils/errors';
 import {getOrdinalSuffix} from '../../utils/format';
 import {mergeRecordDefaults, isUnknownArray} from '../../utils/parse';
 import {createSaveQueue, wait} from '../../utils/queue';
-import {randomInt} from '../../utils/random';
+import {createRandomInt} from '../../utils/random';
 import {assertSafeStartup, getRepairPath} from '../../utils/repair';
 import {createJsonFile, existsFile, readJsonFile, writeJsonFile} from '../../utils/serialize';
 
@@ -43,7 +43,7 @@ type FishingSession = {
 	playerid: GameIdentity['playerid'];
 	fish: FishCatch | null;
 	biting: boolean;
-	biteTimer: NodeJS.Timeout;
+	readyTimer: NodeJS.Timeout;
 	expireTimer: NodeJS.Timeout | null;
 };
 
@@ -85,7 +85,7 @@ export interface GameStateServiceDependencies{
 	dispatchService: DispatchService;
 	gameIdentityService: GameIdentityService;
 	identityService: IdentityService;
-	gameResolutionService: GameResolutionService;
+	gameSettlementService: GameSettlementService;
 
 	fishingRecordsPath: string;
 	horseRecordsPath: string;
@@ -204,7 +204,7 @@ export class GameStateService {
 			};
 			this.activeRace = session;
 
-			const announcement = this.createHorseSessionAnnouncement(raceResult.field, racenumber);
+			const announcement = this.createAnnouncementHorseSession(raceResult.field, racenumber);
 			this.deps.dispatchService.sendGamePayload(this.deps.io, announcement, gType.horse, session.id, rType.static, dType.replace, HORSE_TEXT_DELAY);
 
 			const staticid = `${session.id}reminder`;
@@ -250,7 +250,7 @@ export class GameStateService {
 			session.phase = 5;
 			this.deps.dispatchService.sendGamePayload(this.deps.io, raceResult.finalStretch, gType.horse, session.id, rType.static, dType.append, HORSE_TEXT_DELAY);
 
-			const raceOverWait = randomInt(HORSE_MIN_RACEOVER_WAIT, HORSE_MAX_RACEOVER_WAIT);
+			const raceOverWait = createRandomInt(HORSE_MIN_RACEOVER_WAIT, HORSE_MAX_RACEOVER_WAIT);
 			await wait(raceOverWait * 1000);
 			session.phase = 6;
 			const resultId = `${session.id}results`;
@@ -275,7 +275,7 @@ export class GameStateService {
 				for(const bet of playerbets){
 					results.push(createHorseBetResult(bet, raceResult.standings));
 				}
-				this.deps.gameResolutionService.resolveHorseBet(playerbets[0].playerid, results, session.id);
+				this.deps.gameSettlementService.settleHorseBet(playerbets[0].playerid, results, session.id);
 
 				for(const bet of playerbets){
 					const betIndex = session.bets.indexOf(bet);
@@ -320,7 +320,7 @@ export class GameStateService {
 		}
 	}
 
-	private createHorseSessionAnnouncement(field: HorseField, racenumber: number): GameTextPayload {
+	private createAnnouncementHorseSession(field: HorseField, racenumber: number): GameTextPayload {
 		const commentary: GameTextPayload = [];
 		const welcome: GameLine =[
 			{text: 'the ', color: hType.normal, format: []},
@@ -372,33 +372,33 @@ export class GameStateService {
 
 		let castDuration: number;
 		if(!fishCatch){
-			castDuration = randomInt(FISH_MIN_WAIT_BAD_TARGET, FISH_MAX_WAIT_BAD_TARGET);
+			castDuration = createRandomInt(FISH_MIN_WAIT_BAD_TARGET, FISH_MAX_WAIT_BAD_TARGET);
 		}
 		else if(target){
-			castDuration = randomInt(FISH_MIN_WAIT_TARGET, FISH_MAX_WAIT_TARGET);
+			castDuration = createRandomInt(FISH_MIN_WAIT_TARGET, FISH_MAX_WAIT_TARGET);
 		}
 		else{
-			castDuration = randomInt(FISH_MIN_WAIT, FISH_MAX_WAIT);
+			castDuration = createRandomInt(FISH_MIN_WAIT, FISH_MAX_WAIT);
 		}
 
-		const biteTimer = setTimeout(() => {
-			this.advanceFishingSession(playerid);
+		const readyTimer = setTimeout(() => {
+			this.onReadyFishingSession(playerid);
 		}, castDuration * 1000);
 
 		const session: FishingSession = {
 			playerid: playerid,
 			fish: fishCatch,
 			biting: false,
-			biteTimer: biteTimer,
+			readyTimer: readyTimer,
 			expireTimer: null,
 		};
 
 		this.activeFishing.set(playerid, session);
 	}
 
-	public catchFishingSession(playerid: GameIdentity['playerid']): FishResult | null {
-		assertGamesEnabled(this.deps.configService, 'catchFishingSession');
-		assertFishingEnabled(this.deps.configService, 'catchFishingSession');
+	public consumeFishingSession(playerid: GameIdentity['playerid']): FishResult | null {
+		assertGamesEnabled(this.deps.configService, 'consumeFishingSession');
+		assertFishingEnabled(this.deps.configService, 'consumeFishingSession');
 		const session = this.activeFishing.get(playerid);
 
 		if(!session){
@@ -406,7 +406,7 @@ export class GameStateService {
 		}
 
 		if(!session.biting || !session.fish){
-			clearTimeout(session.biteTimer);
+			clearTimeout(session.readyTimer);
 			this.activeFishing.delete(playerid);
 			return null;
 		}
@@ -465,30 +465,30 @@ export class GameStateService {
 		return fishResult;
 	}
 
-	private advanceFishingSession(playerid: GameIdentity['playerid']): void {
+	private onReadyFishingSession(playerid: GameIdentity['playerid']): void {
 		const session = this.activeFishing.get(playerid);
 		if(!session){
 			return;
 		}
 		if(!session.fish){
 			this.activeFishing.delete(playerid);
-			this.deps.gameResolutionService.resolveFishingCatch(playerid, 'nothing');
+			this.deps.gameSettlementService.settleFishingCatch(playerid, 'nothing');
 			return;
 		}
 
 		session.biting = true;
-		this.deps.gameResolutionService.resolveFishingCatch(playerid, 'bite');
+		this.deps.gameSettlementService.settleFishingCatch(playerid, 'bite');
 
 		const catchWindow = FISH_MAX_CATCH_WINDOW - ((session.fish.value / 100) * (FISH_MAX_CATCH_WINDOW - FISH_MIN_CATCH_WINDOW));
 
 		const expireTimer = setTimeout(() => {
-			this.expireFishingSession(playerid);
+			this.onExpireFishingSession(playerid);
 		}, catchWindow * 1000);
 
 		session.expireTimer = expireTimer;
 	}
 
-	private expireFishingSession(playerid: GameIdentity['playerid']): void {
+	private onExpireFishingSession(playerid: GameIdentity['playerid']): void {
 		const session = this.activeFishing.get(playerid);
 
 		if(!session){
@@ -496,7 +496,7 @@ export class GameStateService {
 		}
 
 		this.activeFishing.delete(playerid);
-		this.deps.gameResolutionService.resolveFishingCatch(playerid, 'expired');
+		this.deps.gameSettlementService.settleFishingCatch(playerid, 'expired');
 	}
 
 	public getLeaderboard(): PublicOverallLeaderboard;
@@ -517,23 +517,23 @@ export class GameStateService {
 
 		switch(label){
 			case 'blackjack':{
-				return this.buildPublicLeaderboard(fullEntries, 'blackjack');
+				return this.createPublicLeaderboard(fullEntries, 'blackjack');
 			}
 
 			case 'dueling':{
-				return this.buildPublicLeaderboard(fullEntries, 'dueling');
+				return this.createPublicLeaderboard(fullEntries, 'dueling');
 			}
 
 			case 'fishing':{
-				return this.buildPublicLeaderboard(fullEntries, 'fishing');
+				return this.createPublicLeaderboard(fullEntries, 'fishing');
 			}
 
 			case 'horse':{
-				return this.buildPublicLeaderboard(fullEntries, 'horse');
+				return this.createPublicLeaderboard(fullEntries, 'horse');
 			}
 
 			default:{
-				return this.buildPublicLeaderboard(fullEntries);
+				return this.createPublicLeaderboard(fullEntries);
 			}
 		}
 	}
@@ -542,7 +542,7 @@ export class GameStateService {
 		let fishChanged = false;
 		for(const record of this.fishRecords){
 			if(record.playerid !== null && !this.deps.gameIdentityService.existsGameUser(record.playerid)){
-				Object.assign(record, this.buildDefaultFishRecordEntry());
+				Object.assign(record, this.createDefaultFishRecordEntry());
 				fishChanged = true;
 			}
 		}
@@ -586,12 +586,12 @@ export class GameStateService {
 		}));
 	}
 
-	private buildPublicLeaderboard(entries: FullLeaderboard): PublicOverallLeaderboard;
-	private buildPublicLeaderboard(entries: FullLeaderboard, label: 'blackjack'): PublicBlackjackLeaderboard;
-	private buildPublicLeaderboard(entries: FullLeaderboard, label: 'dueling'): PublicDuelingLeaderboard;
-	private buildPublicLeaderboard(entries: FullLeaderboard, label: 'fishing'): PublicFishingLeaderboard;
-	private buildPublicLeaderboard(entries: FullLeaderboard, label: 'horse'): PublicHorseLeaderboard;
-	private buildPublicLeaderboard(entries: FullLeaderboard, label?: 'blackjack' | 'dueling' | 'fishing' | 'horse'): PublicLeaderboard {
+	private createPublicLeaderboard(entries: FullLeaderboard): PublicOverallLeaderboard;
+	private createPublicLeaderboard(entries: FullLeaderboard, label: 'blackjack'): PublicBlackjackLeaderboard;
+	private createPublicLeaderboard(entries: FullLeaderboard, label: 'dueling'): PublicDuelingLeaderboard;
+	private createPublicLeaderboard(entries: FullLeaderboard, label: 'fishing'): PublicFishingLeaderboard;
+	private createPublicLeaderboard(entries: FullLeaderboard, label: 'horse'): PublicHorseLeaderboard;
+	private createPublicLeaderboard(entries: FullLeaderboard, label?: 'blackjack' | 'dueling' | 'fishing' | 'horse'): PublicLeaderboard {
 		switch(label){
 			case 'blackjack':{
 				return entries.map((entry) => ({
@@ -636,7 +636,7 @@ export class GameStateService {
 		}
 	}
 
-	private buildDefaultFishRecordEntry(): DefaultFishRecordEntry{
+	private createDefaultFishRecordEntry(): DefaultFishRecordEntry{
 		return{
 			weight: null,
 			playerid: null,
@@ -645,7 +645,7 @@ export class GameStateService {
 		};
 	}
 
-	private buildDefaultHorseRecordEntry(): DefaultHorseRecordEntry{
+	private createDefaultHorseRecordEntry(): DefaultHorseRecordEntry{
 		return{
 			finishes: {first: 0, second: 0, third: 0}
 		};
@@ -673,19 +673,19 @@ export class GameStateService {
 	private initializeFishRecords(): void {
 		try{
 			const raw = this.fetchRecords(this.deps.fishingRecordsPath, 'fish');
-			const [resolvedRecords, failures] = this.resolveRecords(raw, 'fish');
+			const [mergedRecords, failures] = this.mergeRecords(raw, 'fish');
 
 			if(failures.length > 0){
 				console.error(`Load Fish Records found ${failures.length} field failure(s) across all records, writing repair file`);
 				createJsonFile(getRepairPath(this.deps.fishingRecordsPath), failures);
 			}
 
-			this.fishRecords = resolvedRecords;
+			this.fishRecords = mergedRecords;
 			this.fishQueue.chain();
 		}
 		catch(error: unknown){
 			handleError(error, 'Fish Records Load (Startup)');
-			const defaultRecords = this.buildFishRecords();
+			const defaultRecords = this.createFishRecords();
 			this.fishRecords = defaultRecords;
 
 		}
@@ -694,19 +694,19 @@ export class GameStateService {
 	private initializeHorseRecords(): void {
 		try{
 			const raw = this.fetchRecords(this.deps.horseRecordsPath, 'horse');
-			const [resolvedRecords, failures] = this.resolveRecords(raw, 'horse');
+			const [mergedRecords, failures] = this.mergeRecords(raw, 'horse');
 
 			if(failures.length > 0){
 				console.error(`Load Horse Records found ${failures.length} field failure(s) across all records, writing repair file`);
 				createJsonFile(getRepairPath(this.deps.horseRecordsPath), failures);
 			}
 
-			this.horseRecords = resolvedRecords;
+			this.horseRecords = mergedRecords;
 			this.horseQueue.chain();
 		}
 		catch(error: unknown){
 			handleError(error, 'Horse Records Load (Startup)');
-			const defaultRecords = this.buildHorseRecords();
+			const defaultRecords = this.createHorseRecords();
 			this.horseRecords = defaultRecords;
 		}
 	}
@@ -719,11 +719,11 @@ export class GameStateService {
 
 			switch(label){
 				case 'fish':{
-					defaultRecords = this.buildFishRecords();
+					defaultRecords = this.createFishRecords();
 					break;
 				}
 				case 'horse':{
-					defaultRecords = this.buildHorseRecords();
+					defaultRecords = this.createHorseRecords();
 					break;
 				}
 				default:{
@@ -739,46 +739,46 @@ export class GameStateService {
 		return raw;
 	}
 
-	private buildFishRecords(): PrivateFishRecordList {
+	private createFishRecords(): PrivateFishRecordList {
 		return defaultFishCatalog.map((catalogEntry) => ({
 			...catalogEntry,
-			...this.buildDefaultFishRecordEntry()
+			...this.createDefaultFishRecordEntry()
 		}));
 	}
 
-	private buildHorseRecords(): PrivateHorseRecordList {
+	private createHorseRecords(): PrivateHorseRecordList {
 		return defaultHorseCatalog.map((catalogEntry) => ({
 			...catalogEntry,
-			...this.buildDefaultHorseRecordEntry()
+			...this.createDefaultHorseRecordEntry()
 		}));
 	}
 
-	private resolveRecords(input: unknown, label: 'fish'): [PrivateFishRecordList, KeyedParseFailureRecord[]];
-	private resolveRecords(input: unknown, label: 'horse'): [PrivateHorseRecordList, KeyedParseFailureRecord[]];
-	private resolveRecords(input: unknown, label: 'fish' | 'horse'): [PrivateFishRecordList, KeyedParseFailureRecord[]] | [PrivateHorseRecordList, KeyedParseFailureRecord[]]{
+	private mergeRecords(input: unknown, label: 'fish'): [PrivateFishRecordList, KeyedParseFailureRecord[]];
+	private mergeRecords(input: unknown, label: 'horse'): [PrivateHorseRecordList, KeyedParseFailureRecord[]];
+	private mergeRecords(input: unknown, label: 'fish' | 'horse'): [PrivateFishRecordList, KeyedParseFailureRecord[]] | [PrivateHorseRecordList, KeyedParseFailureRecord[]]{
 		switch(label){
 			case 'fish':{
-				return this.genericResolveRecords(input, 'fish', (entry) => mergeRecordDefaults(entry, aType.gfish, this.buildDefaultFishRecordEntry(), FishRecordEntrySchema));
+				return this.mergeRecordEntries(input, 'fish', (entry) => mergeRecordDefaults(entry, aType.gfish, this.createDefaultFishRecordEntry(), FishRecordEntrySchema));
 			}
 			case 'horse':{
-				return this.genericResolveRecords(input, 'horse', (entry) => mergeRecordDefaults(entry, aType.ghorse, this.buildDefaultHorseRecordEntry(), HorseRecordEntrySchema));
+				return this.mergeRecordEntries(input, 'horse', (entry) => mergeRecordDefaults(entry, aType.ghorse, this.createDefaultHorseRecordEntry(), HorseRecordEntrySchema));
 			}
 			default:{
-				throw new AppError('resolveRecords called without appropriate label', 'bug');
+				throw new AppError('mergeRecords called without appropriate label', 'bug');
 			}
 		}
 	}
 
-	private genericResolveRecords<RecordEntry>(input: unknown, label: string, resolveEntry: (entry: unknown) => [RecordEntry | null, ParseFailureRecord[]]): [RecordEntry[], KeyedParseFailureRecord[]]{
+	private mergeRecordEntries<RecordEntry>(input: unknown, label: string, mergeEntry: (entry: unknown) => [RecordEntry | null, ParseFailureRecord[]]): [RecordEntry[], KeyedParseFailureRecord[]]{
 		if(!isUnknownArray(input)){
 			throw new AppError(`${label} record file did not contain an array`, 'internal', 'warn');
 		}
 
 		const failures: KeyedParseFailureRecord[] = [];
-		const resolvedRecords: RecordEntry[] = [];
+		const mergedRecords: RecordEntry[] = [];
 
 		for(const [index, entry] of input.entries()){
-			const [record, mergeFailures] = resolveEntry(entry);
+			const [record, mergeFailures] = mergeEntry(entry);
 
 			for(const failure of mergeFailures){
 				failures.push({...failure, recordKey: `index ${index}`});
@@ -786,10 +786,10 @@ export class GameStateService {
 			if(record === null){
 				continue;
 			}
-			resolvedRecords.push(record);
+			mergedRecords.push(record);
 		}
 
-		return [resolvedRecords, failures];
+		return [mergedRecords, failures];
 	}
 
 	private startHorseTimer(): void {

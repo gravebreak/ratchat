@@ -51,7 +51,7 @@ export class IdentityService {
 			guid: newGuid,
 			playerid: newPlayerid,
 			fullnick: ('#000000') + basenick,
-			...this.buildDefaultIdentity()
+			...this.createDefaultIdentity()
 		};
 
 		this.users.set(newIdentity.guid, newIdentity);
@@ -263,9 +263,9 @@ export class IdentityService {
 	public reloadUsers(): number{
 		try{
 			const raw = this.fetchUsersStrict();
-			const resolvedUsers = this.resolveUsersStrict(raw);
-			this.assignUsers(resolvedUsers);
-			return resolvedUsers.size;
+			const mergedUsers = this.mergeUsersStrict(raw);
+			this.assignUsers(mergedUsers);
+			return mergedUsers.size;
 		}
 		catch(error: unknown){
 			if(error instanceof AppError){
@@ -278,7 +278,7 @@ export class IdentityService {
 		}
 	}
 
-	private buildDefaultIdentity(): DefaultIdentity{
+	private createDefaultIdentity(): DefaultIdentity{
 		return{
 			status: 'online',
 			lastMessage: new Date(0),
@@ -295,13 +295,13 @@ export class IdentityService {
 		return readJsonFile(this.deps.usersPath);
 	}
 
-	private resolveUsersStrict(input: unknown): Map<Identity['guid'], Identity>{
+	private mergeUsersStrict(input: unknown): Map<Identity['guid'], Identity>{
 		if(!isUnknownArray(input)){
 			throw new AppError('user data was not an array, refusing to reload', 'internal', 'warn');
 		}
 
-		const resolvedUsers = new Map<Identity['guid'], Identity>();
-		const defaultId = this.buildDefaultIdentity();
+		const mergedUsers = new Map<Identity['guid'], Identity>();
+		const defaultId = this.createDefaultIdentity();
 
 		for(const entry of input){
 			if(!isUnknownArray(entry) || entry.length !== 2 || typeof entry[0] !== 'string'){
@@ -315,23 +315,23 @@ export class IdentityService {
 				throw new AppError('user record failed validation, refusing to reload', 'internal', 'warn');
 			}
 
-			resolvedUsers.set(identity.guid, identity);
+			mergedUsers.set(identity.guid, identity);
 		}
 
-		return resolvedUsers;
+		return mergedUsers;
 	}
 
-	private assignUsers(resolvedUsers: Map<Identity['guid'], Identity>): void {
+	private assignUsers(mergedUsers: Map<Identity['guid'], Identity>): void {
 		const basenickIndex = new Map<string, Identity['guid']>();
 		const playeridIndex = new Map<Identity['playerid'], Identity['guid']>();
 
-		for(const [guid, identity] of resolvedUsers){
+		for(const [guid, identity] of mergedUsers){
 			const baseNick = getBaseNick(identity.fullnick);
 			basenickIndex.set(baseNick.toLowerCase(), guid);
 			playeridIndex.set(identity.playerid, guid);
 		}
 
-		this.users = resolvedUsers;
+		this.users = mergedUsers;
 		this.basenickIndex = basenickIndex;
 		this.playeridIndex = playeridIndex;
 		this.userQueue.chain();
@@ -349,17 +349,17 @@ export class IdentityService {
 	private initializeUsers(): void {
 		try{
 			const raw = this.fetchUsers();
-			const [resolvedUsers, resolveFailures] = this.resolveUsers(raw);
-			const auditFailures = this.auditUsers(resolvedUsers);
-			const allFailures = [...resolveFailures, ...auditFailures];
+			const [mergedUsers, mergeFailures] = this.mergeUsers(raw);
+			const auditFailures = this.auditUsers(mergedUsers);
+			const allFailures = [...mergeFailures, ...auditFailures];
 
 			if(allFailures.length > 0){
 				console.error(`Load Users found ${allFailures.length} field failure(s) across all records, writing repair file`);
 				createJsonFile(getRepairPath(this.deps.usersPath), allFailures);
 			}
 
-			this.assignUsers(resolvedUsers);
-			console.log(`${resolvedUsers.size} users loaded from disk.`);
+			this.assignUsers(mergedUsers);
+			console.log(`${mergedUsers.size} users loaded from disk.`);
 		}
 		catch(error: unknown){
 			handleError(error, 'Load Users (Startup)');
@@ -384,16 +384,16 @@ export class IdentityService {
 		}
 	}
 
-	private resolveUsers(input: unknown): [Map<Identity['guid'], Identity>, KeyedParseFailureRecord[]]{
-		const resolvedUsers = new Map<Identity['guid'], Identity>();
+	private mergeUsers(input: unknown): [Map<Identity['guid'], Identity>, KeyedParseFailureRecord[]]{
+		const mergedUsers = new Map<Identity['guid'], Identity>();
 		const failures: KeyedParseFailureRecord[] = [];
 
 		if(!isUnknownArray(input)){
 			console.warn('User data was not an array, starting fresh');
-			return [resolvedUsers, failures];
+			return [mergedUsers, failures];
 		}
 
-		const defaultId = this.buildDefaultIdentity();
+		const defaultId = this.createDefaultIdentity();
 
 		for(const entry of input){
 			if(!isUnknownArray(entry) || entry.length !== 2 || typeof entry[0] !== 'string'){
@@ -429,7 +429,7 @@ export class IdentityService {
 					continue;
 				}
 
-				resolvedUsers.set(identity.guid, identity);
+				mergedUsers.set(identity.guid, identity);
 			}
 			catch(error: unknown){
 				handleError(error, `Load Users (Record ${guid})`);
@@ -437,7 +437,7 @@ export class IdentityService {
 			}
 		}
 
-		return [resolvedUsers, failures];
+		return [mergedUsers, failures];
 	}
 
 	private auditUsers(users: Map<Identity['guid'], Identity>): KeyedParseFailureRecord[] {

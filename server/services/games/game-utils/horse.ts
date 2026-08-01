@@ -4,7 +4,7 @@ import type {WeightedCandidates} from '../../../defs/def-random';
 import type {PrivateHorseRecordList, HorseRecordEntry} from '../../../defs/def-record';
 
 import {AppError} from '../../../utils/errors';
-import {pickUniformExclusive, randomInt, randomIntArray} from '../../../utils/random';
+import {pickUniformExclusive, createRandomInt, createRandomIntArray} from '../../../utils/random';
 
 import {createHorseStartCommentary, createHorseCommentary, createHorseEndCommentary} from './commentary';
 
@@ -53,12 +53,12 @@ export function createHorseBetResult(bet: HorseBet, standings: HorseStandings): 
 }
 
 export function createHorseRaceResult(records: PrivateHorseRecordList): HorseRaceResult{
-	const fieldSize = randomInt(MIN_FIELD_SIZE, MAX_FIELD_SIZE);
+	const fieldSize = createRandomInt(MIN_FIELD_SIZE, MAX_FIELD_SIZE);
 
 	const candidateHorses: HorseRecordEntry['horseName'][] = records.map(entry => entry.horseName);
 	const selectedHorses = pickUniformExclusive<HorseRecordEntry['horseName']>(candidateHorses, fieldSize);
 	const weightedHorses = createHorseWeights(selectedHorses);
-	const horsePosts = randomIntArray(1, 16);
+	const horsePosts = createRandomIntArray(1, 16);
 	const colors = createHorseColors(fieldSize);
 	let index = 0;
 
@@ -92,7 +92,7 @@ export function createHorseRaceResult(records: PrivateHorseRecordList): HorseRac
 	}
 
 	const gateScores = createHorseScoresPhase(raceField, 1, 0);
-	const gateSqueeze = squeezeHorseScores(gateScores, .5, .5);
+	const gateSqueeze = transformLinearHorseScores(gateScores, .5, .5);
 	const gates = createHorseStartCommentary(gateSqueeze);
 
 	const checkpoint1Scores = createHorseScoresPhase(gateScores, 0.7, 0.3);
@@ -230,7 +230,7 @@ function createHorseScore(raceEntry: HorseRaceEntry, weightWeight: number, score
 	return newScore;
 }
 
-function squeezeHorseScores(race: HorseRaceEntry[], mult: number, add: number): HorseRaceEntry[] {
+function transformLinearHorseScores(race: HorseRaceEntry[], mult: number, add: number): HorseRaceEntry[] {
 	for(const raceEntry of race){
 		raceEntry.score = raceEntry.score * mult + add;
 	}

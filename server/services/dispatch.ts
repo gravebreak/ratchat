@@ -137,10 +137,10 @@ export class DispatchService{
 		return copy;
 	}
 
-	public async restoreChatHistory(): Promise<void> {
+	public async fetchChatHistory(): Promise<void> {
 		const config = this.deps.configService.getServerConfig();
 		if(config.msgArrayLen === 0){
-			console.log('msgArrayLen is 0, skipping chat history restore');
+			console.log('msgArrayLen is 0, skipping chat history fetch');
 			return;
 		}
 
@@ -175,7 +175,7 @@ export class DispatchService{
 		}
 	}
 
-	public async restoreMessageCounter(): Promise<void> {
+	public async fetchMessageCounter(): Promise<void> {
 		if(!this.deps.cacheService.existsRedisClient()){
 			return;
 		}

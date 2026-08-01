@@ -49,11 +49,11 @@ export class ConfigService {
 	private initializeServerConfig(): void {
 		try{
 			const raw = this.fetchConfigFile(this.deps.serverConfigPath, defaultServerConfig, aType.sconfig);
-			const resolved = this.resolveConfig(raw, this.deps.serverConfigPath, {label: aType.sconfig, fallback: defaultServerConfig, schema: ServerConfigSchema});
-			if(resolved.gdprcontact === 'admin@email.here'){
+			const merged = this.mergeConfig(raw, this.deps.serverConfigPath, {label: aType.sconfig, fallback: defaultServerConfig, schema: ServerConfigSchema});
+			if(merged.gdprcontact === 'admin@email.here'){
 				console.warn('No GDPR contact info set. If hosting publicly please set gdprcontact in config.json');
 			}
-			this.serverConfig = resolved;
+			this.serverConfig = merged;
 			Object.freeze(this.serverConfig.baseNickRes);
 			Object.freeze(this.serverConfig);
 			console.log('LOADED SERVER CONFIG:', this.serverConfig);
@@ -70,8 +70,8 @@ export class ConfigService {
 	private initializeMarkovConfig(): void {
 		try{
 			const raw = this.fetchConfigFile(this.deps.markovConfigPath, defaultMarkovConfig, aType.mconfig);
-			const resolved = this.resolveConfig(raw, this.deps.markovConfigPath, {label: aType.mconfig, fallback: defaultMarkovConfig, schema: MarkovConfigSchema});
-			this.markovConfig = resolved;
+			const merged = this.mergeConfig(raw, this.deps.markovConfigPath, {label: aType.mconfig, fallback: defaultMarkovConfig, schema: MarkovConfigSchema});
+			this.markovConfig = merged;
 			Object.freeze(this.markovConfig);
 			console.log('LOADED MARKOV CONFIG:', this.markovConfig);
 		}
@@ -86,8 +86,8 @@ export class ConfigService {
 	private initializeGameConfig(): void {
 		try{
 			const raw = this.fetchConfigFile(this.deps.gameConfigPath, defaultGameConfig, aType.gconfig);
-			const resolved = this.resolveConfig(raw, this.deps.gameConfigPath, {label: aType.gconfig, fallback: defaultGameConfig, schema: GameConfigSchema});
-			this.gameConfig = resolved;
+			const merged = this.mergeConfig(raw, this.deps.gameConfigPath, {label: aType.gconfig, fallback: defaultGameConfig, schema: GameConfigSchema});
+			this.gameConfig = merged;
 			Object.freeze(this.gameConfig);
 			console.log('LOADED GAME CONFIG:', this.gameConfig);
 		}
@@ -120,10 +120,10 @@ export class ConfigService {
 		}
 	}
 
-	private resolveConfig(input: unknown, path: string, params: ServerConfigParams): ServerConfig;
-	private resolveConfig(input: unknown, path: string, params: MarkovConfigParams): MarkovConfig;
-	private resolveConfig(input: unknown, path: string, params: GameConfigParams): GameConfig;
-	private resolveConfig(input: unknown, path: string, params: ConfigParams): Config {
+	private mergeConfig(input: unknown, path: string, params: ServerConfigParams): ServerConfig;
+	private mergeConfig(input: unknown, path: string, params: MarkovConfigParams): MarkovConfig;
+	private mergeConfig(input: unknown, path: string, params: GameConfigParams): GameConfig;
+	private mergeConfig(input: unknown, path: string, params: ConfigParams): Config {
 		let merged: Config;
 		let failures: ParseFailureRecord[];
 
@@ -144,7 +144,7 @@ export class ConfigService {
 			}
 
 			default:{
-				throw new AppError('resolveConfig called without appropriate label', 'bug');
+				throw new AppError('mergeConfig called without appropriate label', 'bug');
 			}
 		}
 
@@ -155,7 +155,7 @@ export class ConfigService {
 		}
 
 		if(merged === null || merged === undefined){
-			throw new AppError('config null/undefined, resolve config', 'bug');
+			throw new AppError('config null/undefined, merge config', 'bug');
 		}
 		return merged;
 	}

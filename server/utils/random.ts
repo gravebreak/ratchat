@@ -79,20 +79,20 @@ export function pickGaussian(baseline: Baseline): number {
 	return clamped;
 }
 
-export function randomInt(min: number, max: number): number {
+export function createRandomInt(min: number, max: number): number {
 	if(min > max){
-		throw new AppError('randomInt called with min greater than max', 'bug');
+		throw new AppError('createRandomInt called with min greater than max', 'bug');
 	}
 
 	return Math.floor(Math.random() * (max - min + 1)) + min;
 }
 
-export function randomIntArray(min: number, max: number): number[] {
+export function createRandomIntArray(min: number, max: number): number[] {
 	const minInt = Math.ceil(min);
 	const maxInt = Math.floor(max);
 
 	if(minInt > maxInt){
-		throw new AppError('randomIntArray called with min greater than max', 'bug');
+		throw new AppError('createRandomIntArray called with min greater than max', 'bug');
 	}
 
 	const pool: number[] = [];
@@ -110,7 +110,7 @@ export function randomIntArray(min: number, max: number): number[] {
 	return picks;
 }
 
-export function randomOrder<CandidateType>(candidates: UniformCandidates<CandidateType>): CandidateType[] {
+export function shuffle<CandidateType>(candidates: UniformCandidates<CandidateType>): CandidateType[] {
 	const shuffled = [...candidates];
 
 	for(let i = 0; i < shuffled.length - 1; i++){

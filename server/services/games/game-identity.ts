@@ -57,7 +57,7 @@ export class GameIdentityService {
 		}
 		const newGameIdentity : GameIdentity = {
 			playerid: newplayerid,
-			...this.buildDefaultGameIdentity()
+			...this.createDefaultGameIdentity()
 		};
 		this.gameUsers.set(newplayerid, newGameIdentity);
 		this.gameUserQueue.chain();
@@ -86,9 +86,9 @@ export class GameIdentityService {
 	public reloadGameUsers(): number{
 		try{
 			const raw = this.fetchGameUsersStrict();
-			const resolvedGameUsers = this.resolveGameUsersStrict(raw);
-			this.assignGameUsers(resolvedGameUsers);
-			return resolvedGameUsers.size;
+			const mergedGameUsers = this.mergeGameUsersStrict(raw);
+			this.assignGameUsers(mergedGameUsers);
+			return mergedGameUsers.size;
 		}
 		catch(error: unknown){
 			if(error instanceof AppError){
@@ -306,7 +306,7 @@ export class GameIdentityService {
 		return gameId;
 	}
 
-	private buildDefaultGameIdentity(): DefaultGameIdentity{
+	private createDefaultGameIdentity(): DefaultGameIdentity{
 		return{
 			gamePoints: Math.round(this.deps.configService.getGameConfig().pointStartAmt),
 			lastGame: new Date(0),
@@ -333,13 +333,13 @@ export class GameIdentityService {
 		return readJsonFile(this.deps.gameUsersPath);
 	}
 
-	private resolveGameUsersStrict(input: unknown): Map<GameIdentity['playerid'], GameIdentity>{
+	private mergeGameUsersStrict(input: unknown): Map<GameIdentity['playerid'], GameIdentity>{
 		if(!isUnknownArray(input)){
 			throw new AppError('game user data was not an array, refusing to reload', 'internal', 'warn');
 		}
 
-		const resolvedGameUsers = new Map<GameIdentity['playerid'], GameIdentity>();
-		const defaultGameId = this.buildDefaultGameIdentity();
+		const mergedGameUsers = new Map<GameIdentity['playerid'], GameIdentity>();
+		const defaultGameId = this.createDefaultGameIdentity();
 
 		for(const entry of input){
 			if(!isUnknownArray(entry) || entry.length !== 2 || typeof entry[0] !== 'string'){
@@ -353,14 +353,14 @@ export class GameIdentityService {
 				throw new AppError('game user record failed validation, refusing to reload', 'internal', 'warn');
 			}
 
-			resolvedGameUsers.set(playerid, gameIdentity);
+			mergedGameUsers.set(playerid, gameIdentity);
 		}
 
-		return resolvedGameUsers;
+		return mergedGameUsers;
 	}
 
-	private assignGameUsers(resolvedGameUsers: Map<GameIdentity['playerid'], GameIdentity>): void {
-		this.gameUsers = resolvedGameUsers;
+	private assignGameUsers(mergedGameUsers: Map<GameIdentity['playerid'], GameIdentity>): void {
+		this.gameUsers = mergedGameUsers;
 		this.gameUserQueue.chain();
 	}
 
@@ -376,15 +376,15 @@ export class GameIdentityService {
 	private initializeGameUsers(): void {
 		try{
 			const raw = this.fetchGameUsers();
-			const [resolvedGameUsers, resolveFailures] = this.resolveGameUsers(raw);
+			const [mergedGameUsers, mergeFailures] = this.mergeGameUsers(raw);
 
-			if(resolveFailures.length > 0){
-				console.error(`Load Game Users found ${resolveFailures.length} field failure(s) across all records, writing repair file`);
-				createJsonFile(getRepairPath(this.deps.gameUsersPath), resolveFailures);
+			if(mergeFailures.length > 0){
+				console.error(`Load Game Users found ${mergeFailures.length} field failure(s) across all records, writing repair file`);
+				createJsonFile(getRepairPath(this.deps.gameUsersPath), mergeFailures);
 			}
 
-			this.assignGameUsers(resolvedGameUsers);
-			console.log(`${resolvedGameUsers.size} game users loaded from disk.`);
+			this.assignGameUsers(mergedGameUsers);
+			console.log(`${mergedGameUsers.size} game users loaded from disk.`);
 		}
 		catch(error: unknown){
 			handleError(error, 'Load Game Users (Startup)');
@@ -407,16 +407,16 @@ export class GameIdentityService {
 		}
 	}
 
-	private resolveGameUsers(input: unknown): [Map<GameIdentity['playerid'], GameIdentity>, KeyedParseFailureRecord[]]{
-		const resolvedGameUsers = new Map<GameIdentity['playerid'], GameIdentity>();
+	private mergeGameUsers(input: unknown): [Map<GameIdentity['playerid'], GameIdentity>, KeyedParseFailureRecord[]]{
+		const mergedGameUsers = new Map<GameIdentity['playerid'], GameIdentity>();
 		const failures: KeyedParseFailureRecord[] = [];
 
 		if(!isUnknownArray(input)){
 			console.warn('Game user data was not an array, starting fresh');
-			return [resolvedGameUsers, failures];
+			return [mergedGameUsers, failures];
 		}
 
-		const defaultGameId = this.buildDefaultGameIdentity();
+		const defaultGameId = this.createDefaultGameIdentity();
 
 		for(const entry of input){
 			if(!isUnknownArray(entry) || entry.length !== 2 || typeof entry[0] !== 'string'){
@@ -464,7 +464,7 @@ export class GameIdentityService {
 					continue;
 				}
 
-				resolvedGameUsers.set(playerid, gameIdentity);
+				mergedGameUsers.set(playerid, gameIdentity);
 			}
 			catch(error: unknown){
 				handleError(error, `Load Game Users (Record ${playerid})`);
@@ -472,6 +472,6 @@ export class GameIdentityService {
 			}
 		}
 
-		return [resolvedGameUsers, failures];
+		return [mergedGameUsers, failures];
 	}
 }

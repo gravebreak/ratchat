@@ -144,7 +144,7 @@
 			.chat-item:hover {
 				background-color: rgba(0, 0, 0, 0.05);
 			}
-			.chat-item.isHidden:hover {
+			.chat-item.isCollapsed:hover {
 				cursor: pointer;
 			}
 			.chat-item .chat-item {
@@ -877,13 +877,13 @@
 			'toClientMarkov': '',
 		};
 
-		const toBuilder ={
-			'testevent': buildTestPopup,
-			'horse': buildHorsePopup,
-			'duel': buildDuelingPopup,
-			'blackjack': buildBlackjackPopup,
-			'fishing': buildFishingPopup,
-			'info': buildInfoPopup,
+		const toConstructor ={
+			'testevent': createTestPopup,
+			'horse': createHorsePopup,
+			'duel': createDuelingPopup,
+			'blackjack': createBlackjackPopup,
+			'fishing': createFishingPopup,
+			'info': createInfoPopup,
 		};
 
 		if(savedBG){
@@ -898,7 +898,7 @@
 		}
 
 		//Main window
-		buildScrollbarListener({
+		createScrollbarListener({
 			container: document.getElementById('chat-viewport'),
 			track: document.getElementById('chat-track'),
 			thumb: document.getElementById('chat-thumb'),
@@ -907,7 +907,7 @@
 			buttonDown: document.getElementById('chat-button-down')
 		});
 
-		buildEmotePopup();
+		createEmotePopup();
 
 		socket.on('toClientChat', handleMessage);
 		socket.on('toClientInfo', handleMessage);
@@ -935,7 +935,7 @@
 
 			let lurkerData = null;
 
-			//build consolidated listing
+			//create consolidated listing
 			const consolidate = new Map();
 			uList.forEach(user =>{
 				if(user.fullnick.startsWith('#NONVAL')){
@@ -969,7 +969,7 @@
 					displayCount = `${user.count}`;
 				}
 		
-				let status = emotify(user.status);
+				let status = createEmoteText(user.status);
 				if(!status || user.status === 'online'){
 					status = '';
 				}
@@ -1082,8 +1082,8 @@
 			}
 			localStorage.clear();
 			console.log('Local storage cleared');
-			displayClientMessage('Your local data has been cleared.', 'textColor-info');
-			setTimeout(() => { displayClientMessage('reloading...', 'textColor-info'); }, 200);
+			renderClientMessage('Your local data has been cleared.', 'textColor-info');
+			setTimeout(() => { renderClientMessage('reloading...', 'textColor-info'); }, 200);
 			setTimeout(() => { window.location.reload(); }, 2000);
 		});
 
@@ -1112,7 +1112,7 @@
 
 		window.addEventListener('resize', () => {
 			remPixels = parseFloat(getComputedStyle(document.documentElement).fontSize);
-			repositionPopups();
+			layoutPopups();
 		});
 
 		document.getElementById('footer-button-users').addEventListener('click', () => {
@@ -1153,7 +1153,7 @@
 						localStorage.setItem('ratBG', imageData);
 					}
 					catch{
-						displayClientMessage("system: oh fuk it's too big", 'textColor-error');
+						renderClientMessage("system: oh fuk it's too big", 'textColor-error');
 						console.warn('image too large for localStorage');
 					}
 				};
@@ -1207,7 +1207,7 @@
 				return;
 			}
 
-			appendSentHistory(val);
+			pushSentHistory(val);
 
 			if(val.startsWith('/')){
 				const args = val.slice(1).trim().split(/ +/);
@@ -1218,12 +1218,12 @@
 					case 'export':{
 						const GUID = localStorage.getItem('ratGUID');
 						if(!GUID){
-							displayClientMessage("system: couldn't find local ID.", 'textColor-error');
+							renderClientMessage("system: couldn't find local ID.", 'textColor-error');
 							input.value = '';
 							return;
 						}
-						displayClientMessage(`Your GUID is: ${GUID}`, 'textColor-info');
-						displayClientMessage('don\'t share it, save it! you can use this with /import to reload your identity if necessary.', 'textColor-info');
+						renderClientMessage(`Your GUID is: ${GUID}`, 'textColor-info');
+						renderClientMessage('don\'t share it, save it! you can use this with /import to reload your identity if necessary.', 'textColor-info');
 						input.value = '';
 						return;
 					}
@@ -1238,7 +1238,7 @@
 					case 'background':
 					case 'bg':{
 						document.getElementById('bgUpload').click();
-						displayClientMessage('pick a file', 'textColor-info');
+						renderClientMessage('pick a file', 'textColor-info');
 						input.value = '';
 						return;
 					}
@@ -1248,12 +1248,12 @@
 							localStorage.removeItem('ratBG');
 							document.getElementById('chat-frame').style.backgroundImage = '';
 							document.getElementById('chat-frame').classList.remove('hasBg');
-							displayClientMessage('background reset', 'textColor-info');
+							renderClientMessage('background reset', 'textColor-info');
 							input.value = '';
 							return;
 						}
 						else{
-							displayClientMessage('system: no background to reset', 'textColor-error');
+							renderClientMessage('system: no background to reset', 'textColor-error');
 							return;
 						}
 					}
@@ -1262,11 +1262,11 @@
 						if(document.documentElement.hasAttribute('data-theme')){
 							document.documentElement.removeAttribute('data-theme');
 							localStorage.setItem('ratMode', 'light');
-							displayClientMessage('system: think fast chucklenuts', 'textColor-info');
+							renderClientMessage('system: think fast chucklenuts', 'textColor-info');
 						} else {
 							document.documentElement.setAttribute('data-theme', 'dark');
 							localStorage.setItem('ratMode', 'dark');
-							displayClientMessage('system: bravo 6, going dark', 'textColor-info');
+							renderClientMessage('system: bravo 6, going dark', 'textColor-info');
 						}
 						input.value = '';
 						return;
@@ -1287,7 +1287,7 @@
 					case 'mute':
 					case 'm':{
 						if (eventList.length === 0) {
-							displayClientMessage('fetching event list...', 'textColor-info');
+							renderClientMessage('fetching event list...', 'textColor-info');
 
 							await Promise.race([
 								new Promise(resolve => socket.emit('toServerEventList', resolve)),
@@ -1295,71 +1295,71 @@
 							]);
 
 							if (eventList.length === 0) {
-								displayClientMessage('system: could not fetch event list, try again later', 'textColor-error');
+								renderClientMessage('system: could not fetch event list, try again later', 'textColor-error');
 								return;
 							}
 						}
 						if(!fullArgs || fullArgs.trim().length === 0){
-							displayClientMessage('system: no mute target provided', 'textColor-error');
+							renderClientMessage('system: no mute target provided', 'textColor-error');
 							return;
 						}
 						else if(fullArgs.includes(' ')){
-							displayClientMessage('system: mute target cannot contain spaces', 'textColor-error');
+							renderClientMessage('system: mute target cannot contain spaces', 'textColor-error');
 							return;
 						}
 						else if(fullArgs === 'system'){
-							displayClientMessage("system: nice try, but you can't mute ME!", 'textColor-error');
+							renderClientMessage("system: nice try, but you can't mute ME!", 'textColor-error');
 							input.value = '';
 							return;
 						}
 						else if(fullArgs === 'list'){
-							displayClientMessage(`users muted: ${mutedUsers}`, 'textColor-info');
-							displayClientMessage(`events muted: ${mutedEvents}`, 'textColor-info');
+							renderClientMessage(`users muted: ${mutedUsers}`, 'textColor-info');
+							renderClientMessage(`events muted: ${mutedEvents}`, 'textColor-info');
 							input.value = '';
 							return;
 						}
 						else if(fullArgs === 'eventlist'){
-							displayClientMessage(`muteable events: ${eventList}`, 'textColor-info');
+							renderClientMessage(`muteable events: ${eventList}`, 'textColor-info');
 							input.value = '';
 							return;
 						}
 						else if(fullArgs === 'all'){
-							displayClientMessage('system: Hahahahahahahaha How The Fuck Is Cyber Bullying Real Hahahaha Just Walk Away From The Screen Like Close Your Eyes Haha', 'textColor-error');
+							renderClientMessage('system: Hahahahahahahaha How The Fuck Is Cyber Bullying Real Hahahaha Just Walk Away From The Screen Like Close Your Eyes Haha', 'textColor-error');
 							input.value = '';
 							return;
 						}
 						else if(fullArgs === 'allevents'){
 							mutedEvents = [...eventList];
 							localStorage.setItem('ratMutedEvents', JSON.stringify(mutedEvents));
-							displayClientMessage(`muted events: ${mutedEvents}`, 'textColor-info');
+							renderClientMessage(`muted events: ${mutedEvents}`, 'textColor-info');
 							deleteAllPopups();
 							input.value = '';
 							return;
 						}
 						else if(eventList.includes(fullArgs)){
 							if(mutedEvents.includes(fullArgs)){
-								displayClientMessage(`${fullArgs} event is already muted, did you mean to /unmute?`, 'textColor-info');
+								renderClientMessage(`${fullArgs} event is already muted, did you mean to /unmute?`, 'textColor-info');
 								return;
 							}
 							else{
 								mutedEvents.push(fullArgs);
 								localStorage.setItem('ratMutedEvents', JSON.stringify(mutedEvents));
 								deletePopups(fullArgs);
-								displayClientMessage(`muted event: ${fullArgs}`, 'textColor-info');
+								renderClientMessage(`muted event: ${fullArgs}`, 'textColor-info');
 								input.value = '';
 								return;
 							}
 						}
 						else{
 							if(mutedUsers.includes(fullArgs)){
-								displayClientMessage(`${fullArgs} is already muted, did you mean to /unmute?`, 'textColor-info');
+								renderClientMessage(`${fullArgs} is already muted, did you mean to /unmute?`, 'textColor-info');
 								return;
 							}
 							else{
 								mutedUsers.push(fullArgs);
 								localStorage.setItem('ratMutedUsers', JSON.stringify(mutedUsers));
-								muteMessageHistory(fullArgs);
-								displayClientMessage(`muted user: ${fullArgs}`, 'textColor-info');
+								collapseMessageHistory(fullArgs);
+								renderClientMessage(`muted user: ${fullArgs}`, 'textColor-info');
 								input.value = '';
 								return;
 							}
@@ -1368,7 +1368,7 @@
 
 					case 'unmute':{
 						if (eventList.length === 0) {
-							displayClientMessage('fetching event list...', 'textColor-info');
+							renderClientMessage('fetching event list...', 'textColor-info');
 
 							await Promise.race([
 								new Promise(resolve => socket.emit('toServerEventList', resolve)),
@@ -1376,73 +1376,73 @@
 							]);
 
 							if (eventList.length === 0) {
-								displayClientMessage('system: could not fetch event list, try again later', 'textColor-error');
+								renderClientMessage('system: could not fetch event list, try again later', 'textColor-error');
 								return;
 							}
 						}
 						if(!fullArgs || fullArgs.trim().length === 0){
-							displayClientMessage('system: no unmute target provided', 'textColor-error');
+							renderClientMessage('system: no unmute target provided', 'textColor-error');
 							return;
 						}
 						else if(fullArgs.includes(' ')){
-							displayClientMessage('system: unmute target cannot contain spaces', 'textColor-error');
+							renderClientMessage('system: unmute target cannot contain spaces', 'textColor-error');
 							return;
 						}
 						else if(fullArgs === 'system'){
-							displayClientMessage('system: wow, thanks. it was getting really stuffy in that data center.', 'textColor-info');
+							renderClientMessage('system: wow, thanks. it was getting really stuffy in that data center.', 'textColor-info');
 							input.value = '';
 							return;
 						}
 						else if(fullArgs === 'list'){
-							displayClientMessage(`users muted: ${mutedUsers}`, 'textColor-info');
-							displayClientMessage(`events muted: ${mutedEvents}`, 'textColor-info');
+							renderClientMessage(`users muted: ${mutedUsers}`, 'textColor-info');
+							renderClientMessage(`events muted: ${mutedEvents}`, 'textColor-info');
 							return;
 						}
 						else if(fullArgs === 'eventlist'){
-							displayClientMessage(`muteable events: ${eventList}`, 'textColor-info');
+							renderClientMessage(`muteable events: ${eventList}`, 'textColor-info');
 							input.value = '';
 							return;
 						}
 						else if(fullArgs === 'all'){
-							mutedUsers.forEach(basenick => unmuteMessageHistory(basenick));
+							mutedUsers.forEach(basenick => expandMessageHistory(basenick));
 							mutedUsers = [];
 							mutedEvents = [];
 							localStorage.setItem('ratMutedUsers', JSON.stringify(mutedUsers));
 							localStorage.setItem('ratMutedEvents', JSON.stringify(mutedEvents));
-							displayClientMessage('all mutes cleared', 'textColor-info');
+							renderClientMessage('all mutes cleared', 'textColor-info');
 							input.value = '';
 							return;
 						}
 						else if(fullArgs === 'allevents'){
 							mutedEvents = [];
 							localStorage.setItem('ratMutedEvents', JSON.stringify(mutedEvents));
-							displayClientMessage('unmuted all events', 'textColor-info');
+							renderClientMessage('unmuted all events', 'textColor-info');
 							input.value = '';
 							return;
 						}
 						else if(eventList.includes(fullArgs)){
 							if(!mutedEvents.includes(fullArgs)){
-								displayClientMessage(`${fullArgs} event is not muted`, 'textColor-info');
+								renderClientMessage(`${fullArgs} event is not muted`, 'textColor-info');
 								return;
 							}
 							else{
 								mutedEvents.splice(mutedEvents.indexOf(fullArgs), 1);
 								localStorage.setItem('ratMutedEvents', JSON.stringify(mutedEvents));
-								displayClientMessage(`unmuted event: ${fullArgs}`, 'textColor-info');
+								renderClientMessage(`unmuted event: ${fullArgs}`, 'textColor-info');
 								input.value = '';
 								return;
 							}
 						}
 						else{
 							if(!mutedUsers.includes(fullArgs)){
-								displayClientMessage(`${fullArgs} is not muted`, 'textColor-info');
+								renderClientMessage(`${fullArgs} is not muted`, 'textColor-info');
 								return;
 							}
 							else{
 								mutedUsers.splice(mutedUsers.indexOf(fullArgs), 1);
 								localStorage.setItem('ratMutedUsers', JSON.stringify(mutedUsers));
-								unmuteMessageHistory(fullArgs);
-								displayClientMessage(`unmuted user: ${fullArgs}`, 'textColor-info');
+								expandMessageHistory(fullArgs);
+								renderClientMessage(`unmuted user: ${fullArgs}`, 'textColor-info');
 								input.value = '';
 								return;
 							}
@@ -1468,7 +1468,7 @@
 		});
 
 		//FUNCTIONS//
-		function displayClientMessage(string, className){
+		function renderClientMessage(string, className){
 			const li = document.createElement('li');
 			li.classList.add('chat-item');
 			if(className){
@@ -1535,7 +1535,7 @@
 					renderPopups(popup);
 				}
 				else{
-					popup = buildPopup(message);
+					popup = createPopup(message);
 					if(!popup){
 						return;
 					}
@@ -1555,7 +1555,7 @@
 			}
 
 			const className = toClass[message.type];
-			const li = buildMessage(message, className);
+			const li = createMessage(message, className);
 			if(message.spoiler){
 				li.dataset.spoiler = 'true';
 			}
@@ -1563,10 +1563,10 @@
 			if(message.author && mutedUsers.includes(message.author.substring(7).toLowerCase())){
 				let wrapper = null;
 				if(message.spoiler){
-					wrapper = hideMessage(li, '[a muted user sent a spoiler. click to reveal]', '[MUTED][SPOILER]', message.id, message.timestamp);
+					wrapper = collapseMessage(li, '[a muted user sent a spoiler. click to reveal]', '[MUTED][SPOILER]', message.id, message.timestamp);
 				}
 				else{
-					wrapper = hideMessage(li, '[a muted user said something. click to reveal]', '[MUTED]', message.id, message.timestamp);
+					wrapper = collapseMessage(li, '[a muted user said something. click to reveal]', '[MUTED]', message.id, message.timestamp);
 				}
 
 				renderMessage(wrapper);
@@ -1574,7 +1574,7 @@
 			}
 		
 			if(message.author && message.spoiler){
-				const wrapper = hideMessage(li, `[${message.author.substring(7)} sent a spoiler — click to reveal]`, '[SPOILER]', message.id, message.timestamp);
+				const wrapper = collapseMessage(li, `[${message.author.substring(7)} sent a spoiler — click to reveal]`, '[SPOILER]', message.id, message.timestamp);
 				renderMessage(wrapper);
 				return;
 			}
@@ -1582,7 +1582,7 @@
 			renderMessage(li);
 		}
 
-		function buildMessage(message, className){
+		function createMessage(message, className){
 			const li = document.createElement('li');
 			li.classList.add('chat-item');
 			const contentSpan = document.createElement('span');
@@ -1632,7 +1632,7 @@
 			}
 
 			if(window.DOMPurify && message.id >= 0){
-				const emoted = emotify(raw);
+				const emoted = createEmoteText(raw);
 				contentSpan.innerHTML = DOMPurify.sanitize(emoted);
 			}
 			else{
@@ -1650,9 +1650,9 @@
 			return li;
 		}
 
-		function hideMessage(li, placeholderText, helperText, id, timestamp){
+		function collapseMessage(li, placeholderText, helperText, id, timestamp){
 			const wrapper = document.createElement('li');
-			let revealed = false;
+			let expanded = false;
 
 			li.title += ' — click to hide';
 			li.style.display = 'none';
@@ -1667,7 +1667,7 @@
 			const placeholder = document.createElement('span');
 			placeholder.textContent = placeholderText;
 
-			wrapper.classList.add('chat-item', 'textColor-info', 'isHidden');
+			wrapper.classList.add('chat-item', 'textColor-info', 'isCollapsed');
 			wrapper.setAttribute('data-id', id);
 			wrapper.setAttribute('data-timestamp', timestamp);
 			wrapper.title = `Message ID: ${id} — click to reveal`;
@@ -1675,26 +1675,26 @@
 			wrapper.appendChild(li);
 
 			wrapper.addEventListener('click', () => {
-				if(!revealed){
+				if(!expanded){
 					placeholder.style.display = 'none';
 					li.style.display = '';
 					wrapper.classList.remove('textColor-info');
 					wrapper.title = `Message ID: ${id} — click to hide`;
-					revealed = true;
+					expanded = true;
 				}
 				else{
 					placeholder.style.display = '';
 					li.style.display = 'none';
 					wrapper.classList.add('textColor-info');
 					wrapper.title = `Message ID: ${id} — click to reveal`;
-					revealed = false;
+					expanded = false;
 				}
 			});
 
 			return wrapper;
 		}
 
-		function unhideMessage(wrapper){
+		function expandMessage(wrapper){
 			const inner = wrapper.querySelector('[data-inside="true"]');
 			if(inner){
 				const helperSpan = inner.querySelector('.helper-span');
@@ -1786,11 +1786,11 @@
 			}
 		}
 
-		function muteMessageHistory(basenick){
+		function collapseMessageHistory(basenick){
 			const candidates = Array.from(chatList.children);
 			const matches = candidates.filter(li => {
 				//defensive check to prevent muting a muted message
-				if(li.classList.contains('isHidden')){
+				if(li.classList.contains('isCollapsed')){
 					const inner = li.querySelector('[data-inside="true"]');
 					if(!inner || inner.dataset.spoiler !== 'true'){
 						return false;
@@ -1809,8 +1809,8 @@
 				let target = null;
 				let wrapper = null;
 
-				if(li.classList.contains('isHidden')){
-					target = unhideMessage(li);
+				if(li.classList.contains('isCollapsed')){
+					target = expandMessage(li);
 					if(!target){
 						return;
 					}
@@ -1821,10 +1821,10 @@
 
 				const clone = target.cloneNode(true);
 				if(clone.dataset.spoiler === 'true'){
-					wrapper = hideMessage(clone, '[a muted user sent a spoiler. click to reveal]', '[MUTED][SPOILER]', clone.dataset.id, clone.dataset.timestamp);
+					wrapper = collapseMessage(clone, '[a muted user sent a spoiler. click to reveal]', '[MUTED][SPOILER]', clone.dataset.id, clone.dataset.timestamp);
 				}
 				else{
-					wrapper = hideMessage(clone, '[a muted user said something. click to reveal]', '[MUTED]', clone.dataset.id, clone.dataset.timestamp);
+					wrapper = collapseMessage(clone, '[a muted user said something. click to reveal]', '[MUTED]', clone.dataset.id, clone.dataset.timestamp);
 				}
 
 				if(wrapper){
@@ -1833,11 +1833,11 @@
 			});
 		}
 
-		function unmuteMessageHistory(basenick){
+		function expandMessageHistory(basenick){
 			const candidates = Array.from(chatList.children);
 			const matches = candidates.filter(wrapper =>{
 				const authorSpan = wrapper.querySelector('.message-author');
-				if(!wrapper.classList.contains('isHidden')){
+				if(!wrapper.classList.contains('isCollapsed')){
 					return false;
 				}
 				if(!authorSpan){
@@ -1848,14 +1848,14 @@
 			});
 
 			matches.forEach(wrapper => {
-				const inner = unhideMessage(wrapper);
+				const inner = expandMessage(wrapper);
 				if(!inner){
 					return;
 				}
 
 				if(inner.dataset.spoiler === 'true'){
 					const userName = inner.querySelector('.message-author')?.textContent.trimEnd().slice(0, -1) || 'someone';
-					wrapper.replaceWith(hideMessage(inner, `[${userName} sent a spoiler — click to reveal]`, '[SPOILER]', inner.dataset.id, inner.dataset.timestamp));
+					wrapper.replaceWith(collapseMessage(inner, `[${userName} sent a spoiler — click to reveal]`, '[SPOILER]', inner.dataset.id, inner.dataset.timestamp));
 				}
 				else{
 					wrapper.replaceWith(inner);
@@ -1863,7 +1863,7 @@
 			});
 		}
 
-		function emotify(text){
+		function createEmoteText(text){
 			return text.split(' ').map(word => {
 				if(emotes[word]){
 					return `<img src="${emotes[word]}" title="${word}" alt="${word}" class="emote" crossorigin="anonymous">`;
@@ -1880,7 +1880,7 @@
 			document.getElementById('emotePicker-viewport').scrollTop = 0;
 		}
 
-		function appendSentHistory(text){
+		function pushSentHistory(text){
 			sentHistory.unshift(text);
 			if(sentHistory.length > 50){
 				sentHistory.pop();
@@ -1894,15 +1894,15 @@
 		}
 
 		//Popup windows
-		function buildPopup(message){
-			const builder = toBuilder[message.event];
+		function createPopup(message){
+			const constructor = toConstructor[message.event];
 
-			if(!builder){
-				console.warn(`no popup builder registered for event type: ${message.event}`);
+			if(!constructor){
+				console.warn(`no popup constructor registered for event type: ${message.event}`);
 				return null;
 			}
 
-			const popup = builder(message);
+			const popup = constructor(message);
 
 			const candidates = getPopupsByEvent(message.event);
 			const used = candidates.map(candidatePopup => parseInt(candidatePopup.dataset.instance, 10));
@@ -1928,10 +1928,10 @@
 
 			const reference = candidates[candidates.length - 1];
 			if(reference){
-				positionPopup(popup, reference);
+				layoutPopup(popup, reference);
 			}
 			else{
-				positionPopup(popup);
+				layoutPopup(popup);
 			}
 
 			renderPopups(popup);
@@ -1941,13 +1941,13 @@
 		}
 
 		//TEST FUNCTION REMOVE
-		function buildTestPopup(message){
-			const popup = buildPopupFromTemplate();
+		function createTestPopup(message){
+			const popup = createPopupFromTemplate();
 
 			const popupId = `testPopup-${message.id}`;
 			popup.id = popupId;
 
-			sizePopup(popup, message.rendermode, {minWidth: '1rem', maxWidth: '10rem', minHeight: '1rem', maxHeight: '10rem'});
+			resizePopup(popup, message.rendermode, {minWidth: '1rem', maxWidth: '10rem', minHeight: '1rem', maxHeight: '10rem'});
 
 			const closeButton = popup.querySelector('.title-bar-controls button');
 			closeButton.setAttribute('aria-label', 'Close');
@@ -1969,7 +1969,7 @@
 			layoutRow.className = 'layoutRow';
 			layoutRow.appendChild(popupFrame);
 
-			const scrollbar = buildScrollbar(popupId);
+			const scrollbar = createScrollbar(popupId);
 			layoutRow.appendChild(scrollbar.scrolldiv);
 
 			const windowBody = popup.querySelector('.window-body');
@@ -1977,10 +1977,10 @@
 
 			document.body.appendChild(popup);
 
-			buildPopupDragListener(popup);
-			buildPopupClickListener(popup);
+			createPopupDragListener(popup);
+			createPopupClickListener(popup);
 
-			buildScrollbarListener({
+			createScrollbarListener({
 				container: popupViewport,
 				track: scrollbar.track,
 				thumb: scrollbar.thumb,
@@ -1992,13 +1992,13 @@
 			return popup;
 		}
 
-		function buildHorsePopup(message){
-			const popup = buildPopupFromTemplate();
+		function createHorsePopup(message){
+			const popup = createPopupFromTemplate();
 
 			const popupId = `horsePopup-${message.id}`;
 			popup.id = popupId;
 
-			sizePopup(popup, message.rendermode, {minWidth: '1rem', maxWidth: '20rem', minHeight: '1rem', maxHeight: '12rem'});
+			resizePopup(popup, message.rendermode, {minWidth: '1rem', maxWidth: '20rem', minHeight: '1rem', maxHeight: '12rem'});
 
 			const closeButton = popup.querySelector('.title-bar-controls button');
 			closeButton.setAttribute('aria-label', 'Close');
@@ -2017,7 +2017,7 @@
 			layoutRow.className = 'layoutRow';
 			layoutRow.appendChild(popupFrame);
 
-			const scrollbar = buildScrollbar(popupId);
+			const scrollbar = createScrollbar(popupId);
 			layoutRow.appendChild(scrollbar.scrolldiv);
 
 			const windowBody = popup.querySelector('.window-body');
@@ -2025,10 +2025,10 @@
 
 			document.body.appendChild(popup);
 
-			buildPopupDragListener(popup);
-			buildPopupClickListener(popup);
+			createPopupDragListener(popup);
+			createPopupClickListener(popup);
 
-			buildScrollbarListener({
+			createScrollbarListener({
 				container: popupViewport,
 				track: scrollbar.track,
 				thumb: scrollbar.thumb,
@@ -2041,19 +2041,19 @@
 			return popup;
 		}
 
-		function buildDuelingPopup(){
+		function createDuelingPopup(){
 		}
 
-		function buildBlackjackPopup(){
+		function createBlackjackPopup(){
 		}
 
-		function buildFishingPopup(message){
-			const popup = buildPopupFromTemplate();
+		function createFishingPopup(message){
+			const popup = createPopupFromTemplate();
 
 			const popupId = `fishingPopup-${message.id}`;
 			popup.id = popupId;
 
-			sizePopup(popup, message.rendermode, {minWidth: '1rem', maxWidth: '23rem', minHeight: '1rem', maxHeight: '12rem'});
+			resizePopup(popup, message.rendermode, {minWidth: '1rem', maxWidth: '23rem', minHeight: '1rem', maxHeight: '12rem'});
 
 			const closeButton = popup.querySelector('.title-bar-controls button');
 			closeButton.setAttribute('aria-label', 'Close');
@@ -2101,7 +2101,7 @@ wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww`;
 			layoutRow.className = 'layoutRow';
 			layoutRow.appendChild(popupFrame);
 
-			const scrollbar = buildScrollbar(popupId);
+			const scrollbar = createScrollbar(popupId);
 			layoutRow.appendChild(scrollbar.scrolldiv);
 
 			const windowBody = popup.querySelector('.window-body');
@@ -2109,10 +2109,10 @@ wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww`;
 
 			document.body.appendChild(popup);
 
-			buildPopupDragListener(popup);
-			buildPopupClickListener(popup);
+			createPopupDragListener(popup);
+			createPopupClickListener(popup);
 
-			buildScrollbarListener({
+			createScrollbarListener({
 				container: popupViewport,
 				track: scrollbar.track,
 				thumb: scrollbar.thumb,
@@ -2124,8 +2124,8 @@ wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww`;
 			return popup;
 		}
 
-		function buildInfoPopup(message){
-			const popup = buildPopupFromTemplate();
+		function createInfoPopup(message){
+			const popup = createPopupFromTemplate();
 
 			let popupId = 'infoPopup';
 			if(message.id !== null){
@@ -2133,7 +2133,7 @@ wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww`;
 			}
 			popup.id = popupId;
 
-			sizePopup(popup, message.rendermode, {minWidth: '1rem', maxWidth: '10rem', minHeight: '1rem', maxHeight: '10rem'});
+			resizePopup(popup, message.rendermode, {minWidth: '1rem', maxWidth: '10rem', minHeight: '1rem', maxHeight: '10rem'});
 
 			const closeButton = popup.querySelector('.title-bar-controls button');
 			closeButton.setAttribute('aria-label', 'Close');
@@ -2152,7 +2152,7 @@ wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww`;
 			layoutRow.className = 'layoutRow';
 			layoutRow.appendChild(popupFrame);
 
-			const scrollbar = buildScrollbar(popupId);
+			const scrollbar = createScrollbar(popupId);
 			layoutRow.appendChild(scrollbar.scrolldiv);
 
 			const windowBody = popup.querySelector('.window-body');
@@ -2160,10 +2160,10 @@ wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww`;
 
 			document.body.appendChild(popup);
 
-			buildPopupDragListener(popup);
-			buildPopupClickListener(popup);
+			createPopupDragListener(popup);
+			createPopupClickListener(popup);
 
-			buildScrollbarListener({
+			createScrollbarListener({
 				container: popupViewport,
 				track: scrollbar.track,
 				thumb: scrollbar.thumb,
@@ -2176,8 +2176,8 @@ wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww`;
 			return popup;
 		}
 
-		function buildEmotePopup(){
-			const popup = buildPopupFromTemplate();
+		function createEmotePopup(){
+			const popup = createPopupFromTemplate();
 			popup.id = 'emotePicker';
 			popup.dataset.event = 'emotePicker';
 			popup.dataset.id = 'emotePicker';
@@ -2221,7 +2221,7 @@ wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww`;
 			layoutColumn.appendChild(searchInput);
 			layoutColumn.appendChild(popupFrame);
 
-			const scrollbar = buildScrollbar('emotePicker');
+			const scrollbar = createScrollbar('emotePicker');
 			layoutRow.appendChild(layoutColumn);
 			layoutRow.appendChild(scrollbar.scrolldiv);
 
@@ -2230,10 +2230,10 @@ wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww`;
 
 			document.body.appendChild(popup);
 
-			buildPopupDragListener(popup);
-			buildPopupClickListener(popup);
+			createPopupDragListener(popup);
+			createPopupClickListener(popup);
 
-			buildScrollbarListener({
+			createScrollbarListener({
 				container: popupViewport,
 				track: scrollbar.track,
 				thumb: scrollbar.thumb,
@@ -2242,11 +2242,11 @@ wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww`;
 				buttonDown: scrollbar.buttonDown
 			});
 
-			positionPopup(popup);
+			layoutPopup(popup);
 			renderPopups(popup);
 		}
 
-		function buildPopupFromTemplate(){
+		function createPopupFromTemplate(){
 			const template = document.getElementById('popup-template');
 			const clone = template.content.cloneNode(true);
 			const popup = clone.querySelector('.popup');
@@ -2264,7 +2264,7 @@ wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww`;
 		}
 
 		function deleteAllPopups(){
-			Object.keys(toBuilder).forEach(event => deletePopups(event));
+			Object.keys(toConstructor).forEach(event => deletePopups(event));
 		}
 
 		function savePopupPosition(popup){
@@ -2292,7 +2292,7 @@ wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww`;
 			return null;
 		}
 
-		function sizePopup(popup, rendermode, sizing){
+		function resizePopup(popup, rendermode, sizing){
 			let {minWidth, maxWidth, minHeight, maxHeight} = sizing;
 			const popupWindow = popup.querySelector('.window');
 			maxWidth = `min(${maxWidth}, 80vw)`;
@@ -2312,7 +2312,7 @@ wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww`;
 			popupWindow.style.maxHeight = maxHeight;
 		}
 
-		function positionPopup(popup, reference){
+		function layoutPopup(popup, reference){
 			if(reference){
 				const cascadePosition = calculateCascadePosition(reference.offsetTop, reference.offsetLeft, popup.offsetWidth);
 
@@ -2333,10 +2333,10 @@ wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww`;
 				return;
 			}
 
-			centerPopup(popup);
+			layoutPopupCenter(popup);
 		}
 
-		function centerPopup(popup){
+		function layoutPopupCenter(popup){
 			const centeredTop = calculateCenterOffset(popup.offsetHeight, window.innerHeight);
 			const centeredLeft = calculateCenterOffset(popup.offsetWidth, window.innerWidth);
 
@@ -2346,7 +2346,7 @@ wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww`;
 			popup.style.left = safePosition.left + 'px';
 		}
 
-		function repositionPopups(){
+		function layoutPopups(){
 			popups.forEach(popup => {
 				const safePosition = calculateSafePosition(popup.offsetTop, popup.offsetLeft, popup.offsetWidth);
 
@@ -2444,7 +2444,7 @@ wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww`;
 			return clamped;
 		}
 
-		function buildPopupDragListener(popup){
+		function createPopupDragListener(popup){
 			const titleBar = popup.querySelector('.title-bar');
 			const titleBarControls = popup.querySelector('.title-bar-controls');
 
@@ -2482,7 +2482,7 @@ wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww`;
 			});
 		}
 
-		function buildPopupClickListener(popup){
+		function createPopupClickListener(popup){
 			const titleBarControls = popup.querySelector('.title-bar-controls');
 
 			popup.addEventListener('mousedown', (mousedownEvent) => {
@@ -2496,7 +2496,7 @@ wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww`;
 		}
 
 		//Fake scrollbar
-		function buildScrollbar(prefix){
+		function createScrollbar(prefix){
 			const scrolldiv = document.createElement('div');
 			scrolldiv.className = 'scrollbar';
 
@@ -2533,7 +2533,7 @@ wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww`;
 			return scrollbar;
 		}
 
-		function buildScrollbarListener(scrollbar){
+		function createScrollbarListener(scrollbar){
 			const container = scrollbar.container;
 			const thumb = scrollbar.thumb;
 			const track = scrollbar.track;

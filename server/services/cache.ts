@@ -16,9 +16,9 @@ export class CacheService{
 		return `ratchat:${str}` as RedisKey;
 	}
 
-	public async startRedisClient(): Promise<void> {
+	public async connectRedisClient(): Promise<void> {
 		if(!process.env.REDIS_URL){
-			throw new AppError('startRedisClient called without REDIS_URL set', 'bug');
+			throw new AppError('connectRedisClient called without REDIS_URL set', 'bug');
 		}
 
 		const client: RedisClientType = createClient({url: process.env.REDIS_URL});

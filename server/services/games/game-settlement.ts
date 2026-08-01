@@ -14,7 +14,7 @@ import {getBaseNick} from '../../utils/format';
 
 import {createHorseNameText} from './game-utils/commentary';
 
-export interface GameResolutionServiceDependencies {
+export interface GameSettlementServiceDependencies {
 	configService: ConfigService;
 	dispatchService: DispatchService;
 	gameIdentityService: GameIdentityService;
@@ -24,17 +24,17 @@ export interface GameResolutionServiceDependencies {
 	io: RatServer;
 }
 
-export class GameResolutionService {
-	private deps: GameResolutionServiceDependencies;
+export class GameSettlementService {
+	private deps: GameSettlementServiceDependencies;
 
-	constructor(dependencies: GameResolutionServiceDependencies){
+	constructor(dependencies: GameSettlementServiceDependencies){
 		this.deps = dependencies;
 	}
 
-	public resolveHorseBet(playerid: GameIdentity['playerid'], results: HorseBetResult[], id: GamePayload['id']): void {
+	public settleHorseBet(playerid: GameIdentity['playerid'], results: HorseBetResult[], id: GamePayload['id']): void {
 		for(const result of results){
 			if(result.playerid !== playerid){
-				throw new AppError('resolveHorseBet received a result for a mismatched playerid', 'internal', 'warn');
+				throw new AppError('settleHorseBet received a result for a mismatched playerid', 'internal', 'warn');
 			}
 		}
 
@@ -186,7 +186,7 @@ export class GameResolutionService {
 		}
 	}
 
-	public resolveFishingCatch(playerid: GameIdentity['playerid'], event: FishingResult): void {
+	public settleFishingCatch(playerid: GameIdentity['playerid'], event: FishingResult): void {
 		let message: GameLine;
 
 		switch(event){

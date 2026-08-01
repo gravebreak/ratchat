@@ -96,7 +96,7 @@ export class StateService {
 			let size: number = 0;
 			let drops: number = 0;
 			data.emotes.forEach(emote => {
-				if(!this.isValidEmoteEntry(emote)){
+				if(!this.isEmoteEntry(emote)){
 					drops++;
 					return;
 				}
@@ -149,7 +149,7 @@ export class StateService {
 			let deleteCount: number = 0;
 			let drops : number = 0;
 			data.emotes.forEach((emote) => {
-				if(!this.isValidEmoteEntry(emote)){
+				if(!this.isEmoteEntry(emote)){
 					drops++;
 					return;
 				}
@@ -301,9 +301,9 @@ export class StateService {
 		return this.markovSleep;
 	}
 
-	public async restoreMarkovSleep(): Promise<void> {
+	public async fetchMarkovSleep(): Promise<void> {
 		if(!this.deps.configService.getMarkovConfig().enabled){
-			console.log('markov bot disabled skipping markov toggle restore');
+			console.log('markov bot disabled skipping markov toggle fetch');
 			return;
 		}
 
@@ -350,7 +350,7 @@ export class StateService {
 		this.announcementQueue.chain();
 	}
 
-	public async restoreAnnouncement(): Promise<void> {
+	public async fetchAnnouncement(): Promise<void> {
 		if(!this.deps.cacheService.existsRedisClient()){
 			return;
 		}
@@ -413,7 +413,7 @@ export class StateService {
 		this.signupPromise.clear();
 		this.signupTimer = null;
 	}
-	private isValidEmoteEntry(input: unknown): input is EmoteEntry {
+	private isEmoteEntry(input: unknown): input is EmoteEntry {
 		if(typeof input !== 'object' || input === null){
 			return false;
 		}

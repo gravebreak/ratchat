@@ -38,7 +38,7 @@ export class MessageService {
 				const markov = this.deps.markovService;
 				queueMicrotask(async () => {
 					try{
-						await markov.learnMarkovText(safe);
+						await markov.incrementMarkovText(safe);
 					}
 					catch(error: unknown){
 						handleError(error, 'handleChat Learn Markov');

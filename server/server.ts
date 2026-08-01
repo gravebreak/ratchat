@@ -17,7 +17,7 @@ import {SecurityService} from './services/security';
 import {GameIdentityService} from './services/games/game-identity';
 import {IdentityService} from './services/identity';
 import {StateService} from './services/state';
-import {GameResolutionService} from './services/games/game-resolution';
+import {GameSettlementService} from './services/games/game-settlement';
 import {GameStateService} from './services/games/game-state';
 import {MarkovService} from './services/markov';
 import {MessageService} from './services/message';
@@ -62,7 +62,7 @@ async function main(): Promise<void> {
 
 	const cacheService = new CacheService();
 	if(process.env.REDIS_URL){
-		await cacheService.startRedisClient();
+		await cacheService.connectRedisClient();
 	}
 	else{
 		console.warn('WARNING: REDIS_URL environment variable is not set. Restart persistence is not available.');
@@ -116,7 +116,7 @@ async function main(): Promise<void> {
 		io: io
 	});
 
-	const gameResolutionService = new GameResolutionService({
+	const gameSettlementService = new GameSettlementService({
 		configService: configService,
 		dispatchService: dispatchService,
 		gameIdentityService: gameIdentityService,
@@ -132,7 +132,7 @@ async function main(): Promise<void> {
 		dispatchService: dispatchService,
 		gameIdentityService: gameIdentityService,
 		identityService: identityService,
-		gameResolutionService: gameResolutionService,
+		gameSettlementService: gameSettlementService,
 
 		fishingRecordsPath: fishingRecordsPath,
 		horseRecordsPath: horseRecordsPath,
@@ -141,11 +141,11 @@ async function main(): Promise<void> {
 
 	//Redis history load
 	if(cacheService.existsRedisClient()){
-		await dispatchService.restoreChatHistory();
-		await dispatchService.restoreMessageCounter();
-		await stateService.restoreAnnouncement();
+		await dispatchService.fetchChatHistory();
+		await dispatchService.fetchMessageCounter();
+		await stateService.fetchAnnouncement();
 		if(configService.getMarkovConfig().enabled){
-			await stateService.restoreMarkovSleep();
+			await stateService.fetchMarkovSleep();
 		}
 	}
 
@@ -180,7 +180,7 @@ async function main(): Promise<void> {
 		moderationService: moderationService,
 		gameIdentityService: gameIdentityService,
 		identityService: identityService,
-		gameResolutionService: gameResolutionService,
+		gameSettlementService: gameSettlementService,
 		gameStateService: gameStateService,
 
 	});
