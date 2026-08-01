@@ -91,23 +91,23 @@ export function createHorseRaceResult(records: PrivateHorseRecordList): HorseRac
 		raceField.push(raceEntry);
 	}
 
-	const gateScores = createHorseScoresPhase(raceField, 1, 0);
+	const gateScores = calculateHorseScoresPhase(raceField, 1, 0);
 	const gateSqueeze = transformLinearHorseScores(gateScores, .5, .5);
 	const gates = createHorseStartCommentary(gateSqueeze);
 
-	const checkpoint1Scores = createHorseScoresPhase(gateScores, 0.7, 0.3);
+	const checkpoint1Scores = calculateHorseScoresPhase(gateScores, 0.7, 0.3);
 	const checkpoint1 = createHorseCommentary(checkpoint1Scores, gateScores, 2);
 
-	const checkpoint2Scores = createHorseScoresPhase(checkpoint1Scores, 0.5, 0.5);
+	const checkpoint2Scores = calculateHorseScoresPhase(checkpoint1Scores, 0.5, 0.5);
 	const checkpoint2 = createHorseCommentary(checkpoint2Scores, checkpoint1Scores, 3);
 
-	const checkpoint3Scores = createHorseScoresPhase(checkpoint2Scores, 0.3, 0.7);
+	const checkpoint3Scores = calculateHorseScoresPhase(checkpoint2Scores, 0.3, 0.7);
 	const checkpoint3 = createHorseCommentary(checkpoint3Scores, checkpoint2Scores, 4);
 
-	const finalStretchScores = createHorseScoresPhase(checkpoint3Scores, 0.2, 0.8);
+	const finalStretchScores = calculateHorseScoresPhase(checkpoint3Scores, 0.2, 0.8);
 	const finalStretch = createHorseCommentary(finalStretchScores, checkpoint3Scores, 5);
 
-	const endScores = createHorseScoresPhase(finalStretchScores, 0.1, 0.9);
+	const endScores = calculateHorseScoresPhase(finalStretchScores, 0.1, 0.9);
 	const end = createHorseEndCommentary(endScores);
 
 	const field = createHorseField(raceField);
@@ -208,11 +208,11 @@ function createHorseOdds(weight: number): HorseOdds {
 	return odds;
 }
 
-function createHorseScoresPhase(race: HorseRaceEntry[], weightWeight: number, scoreWeight: number): HorseRaceEntry[] {
+function calculateHorseScoresPhase(race: HorseRaceEntry[], weightWeight: number, scoreWeight: number): HorseRaceEntry[] {
 	const scores: HorseRaceEntry[] = [];
 
 	for(const raceEntry of race){
-		const newScore = createHorseScore(raceEntry, weightWeight, scoreWeight);
+		const newScore = calculateHorseScore(raceEntry, weightWeight, scoreWeight);
 		const updatedEntry: HorseRaceEntry = {...raceEntry, score: newScore};
 		scores.push(updatedEntry);
 	}
@@ -223,7 +223,7 @@ function createHorseScoresPhase(race: HorseRaceEntry[], weightWeight: number, sc
 	return sorted;
 }
 
-function createHorseScore(raceEntry: HorseRaceEntry, weightWeight: number, scoreWeight: number): number {
+function calculateHorseScore(raceEntry: HorseRaceEntry, weightWeight: number, scoreWeight: number): number {
 	const blend = (weightWeight * raceEntry.weight + scoreWeight * raceEntry.score);
 	const random = ((Math.random() - 0.5) * 0.3);
 	const newScore = Math.max(blend + random, 0.01);

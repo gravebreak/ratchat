@@ -250,9 +250,9 @@ export class GameIdentityService {
 		return gameId;
 	}
 
-	public addFishingFishCaught(playerid: GameIdentity['playerid'], fishCaught: string): GameIdentity{
-		assertGamesEnabled(this.deps.configService, 'addFishingFishCaught');
-		assertFishingEnabled(this.deps.configService, 'addFishingFishCaught');
+	public pushFishingFishCaught(playerid: GameIdentity['playerid'], fishCaught: string): GameIdentity{
+		assertGamesEnabled(this.deps.configService, 'pushFishingFishCaught');
+		assertFishingEnabled(this.deps.configService, 'pushFishingFishCaught');
 
 		const gameId = this.gameUsers.get(playerid);
 		if(!gameId){

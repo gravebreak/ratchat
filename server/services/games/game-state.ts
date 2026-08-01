@@ -442,7 +442,7 @@ export class GameStateService {
 
 		const newcatch = !gameUser.fishingFishCaught.includes(fishCatch.name);
 		if(newcatch){
-			this.deps.gameIdentityService.addFishingFishCaught(gameUser.playerid, fishCatch.name);
+			this.deps.gameIdentityService.pushFishingFishCaught(gameUser.playerid, fishCatch.name);
 		}
 
 		const big = fishCatch.value > FISH_BIG_THRESHOLD;

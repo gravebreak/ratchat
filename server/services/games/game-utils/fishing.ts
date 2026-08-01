@@ -19,7 +19,7 @@ export function createCatch(target: string | null, records: PrivateFishRecordLis
 	}
 
 	const weight = pickFishWeight(fish);
-	const value = pickFishValue(weight, fish.baseline);
+	const value = calculateFishValue(weight, fish.baseline);
 
 	const fishCatch = {
 		name: fish.fishName,
@@ -63,7 +63,7 @@ function pickFishWeight(fish: FishRecordEntry): number {
 	return clampedWeight;
 }
 
-function pickFishValue(weight: number, baseline: number): number {
+function calculateFishValue(weight: number, baseline: number): number {
 	const rawValue = (weight / (baseline * 2)) * 100;
 	const roundedValue = Math.round(rawValue * 100) / 100;
 	const clampedValue = Math.min(Math.max(roundedValue, 0.01), 99.99);
