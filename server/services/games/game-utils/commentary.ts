@@ -91,6 +91,53 @@ export function createHorseBetsText(bets: Omit<HorseBet, 'callback'>[]): GameTex
 	return gameText;
 }
 
+export function createHorseAnnouncementCommentary(field: HorseField, racenumber: number, preraceseconds: number): GameTextPayload {
+	const commentary: GameTextPayload = [];
+	const welcome: GameLine =[
+		{text: 'the ', color: hType.normal, format: []},
+		{text: `${racenumber}${getOrdinalSuffix(racenumber)} `, color: hType.normal, format: [fType.b]},
+		{text: 'semi-annual horse race begins in ', color: hType.normal, format: []},
+		{text: `${preraceseconds/60} `, color: hType.normal, format: []},
+		{text: 'minutes!', color: hType.normal, format: []},
+	];
+	commentary.push(welcome);
+
+	commentary.push(blankLine);
+	const oddsIntro: GameLine = [{text: 'the betting line is as follows:', color: hType.normal, format: []}];
+	commentary.push(oddsIntro);
+	commentary.push(blankLine);
+	const oddsText = createHorseOddsText(field);
+	oddsText[0].push({text: ', the favorite!', color: hType.normal, format: []});
+	oddsText[oddsText.length - 1].push({text: ', the longshot!', color: hType.normal, format: []});
+	commentary.push(...oddsText);
+	commentary.push(blankLine);
+
+	const outro1: GameLine = [{text: 'what a beautiful day for a horse race!', color: hType.normal, format: []}];
+	const outro2: GameLine = [{text: 'get your bets in now for a 2x multiplier on your payout!', color: hType.normal, format: []}];
+	const outro3: GameLine = [
+		{text: 'reminder, the race starts in ', color: hType.normal, format: []},
+		{text: `${preraceseconds/60} `, color: hType.normal, format: []},
+		{text: 'minutes! see you there!', color: hType.normal, format: []}
+	];
+	commentary.push(outro1,outro2,outro3);
+
+	return commentary;
+}
+
+export function createHorseReminderCommentary(racenumber: number, seconds: number): GameTextPayload {
+	const reminder: GameTextPayload = [
+		[
+			{text: 'the ', color: hType.normal, format: []},
+			{text: `${racenumber}${getOrdinalSuffix(racenumber)} `, color: hType.normal, format: [fType.b]},
+			{text: 'semi annual race starts in ', color: hType.normal, format: []},
+			{text: `${seconds / 60} `, color: hType.normal, format: []},
+			{text: 'minute!', color: hType.normal, format: []}
+		],
+		[{text: 'make sure to get your bets in for a 2x multiplier on your payout!', color: hType.normal, format: []}]
+	];
+	return reminder;
+}
+
 export function createHorseStartCommentary(curr: HorseRaceEntry[]): GameTextPayload {
 	const commentary: GameTextPayload = [];
 	const openerChosen = pickUniform<CommentaryLine['commentary']>(commOpeningLines.map(line => line.commentary));

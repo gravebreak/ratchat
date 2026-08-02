@@ -19,15 +19,15 @@ import {IdentityService} from '../identity';
 import {GameSettlementService} from './game-settlement';
 
 import {handleError, AppError} from '../../utils/errors';
-import {getOrdinalSuffix} from '../../utils/format';
+
 import {mergeRecordDefaults, isUnknownArray} from '../../utils/parse';
-import {createSaveQueue, wait} from '../../utils/queue';
+import {createSaveQueue} from '../../utils/queue';
 import {createRandomInt} from '../../utils/random';
 import {assertSafeStartup, getRepairPath} from '../../utils/repair';
 import {createJsonFile, existsFile, readJsonFile, writeJsonFile} from '../../utils/serialize';
 
 import {assertFishingEnabled, assertGamesEnabled, assertHorseRacingEnabled} from './game-utils/checks';
-import {blankLine, createHorseOddsText} from './game-utils/commentary';
+import {createHorseAnnouncementCommentary, createHorseReminderCommentary} from './game-utils/commentary';
 import {createCatch} from './game-utils/fishing';
 import {createHorseRaceResult, createHorseBetResult} from './game-utils/horse';
 
@@ -43,8 +43,7 @@ type FishingSession = {
 	playerid: GameIdentity['playerid'];
 	fish: FishCatch | null;
 	biting: boolean;
-	readyTimer: NodeJS.Timeout;
-	expireTimer: NodeJS.Timeout | null;
+	timer: NodeJS.Timeout;
 };
 
 type HorseSession = {
@@ -52,9 +51,10 @@ type HorseSession = {
 	id: GamePayload['id'];
 	results: HorseRaceResult;
 	field: HorseField;
-	phase: number;
+	stage: number;
 	betting: boolean;
 	bets: HorseBet[];
+	timer: NodeJS.Timeout
 }
 
 const FISH_MIN_WAIT = 5;
@@ -156,7 +156,7 @@ export class GameStateService {
 			throw new AppError('betting is closed for this race', 'user');
 		}
 
-		if(this.activeRace.phase === 0){
+		if(this.activeRace.stage === 0){
 			bet.prerace = true;
 		}
 
@@ -187,115 +187,144 @@ export class GameStateService {
 	private async createHorseSession(): Promise<void> {
 		assertGamesEnabled(this.deps.configService, 'createHorseSession');
 		assertHorseRacingEnabled(this.deps.configService, 'createHorseSession');
-		let session: HorseSession | null = null;
+		const results = createHorseRaceResult(this.horseRecords);
+		this.raceCounter++;
+		const racenumber = this.raceCounter;
+		const timer = this.createTimerHorseSession(HORSE_PRERACE_DURATION - 10);
+
+		const session = {
+			racenumber: racenumber,
+			id: uuidv4(),
+			results: results,
+			field: results.field,
+			stage: 0,
+			betting: true,
+			bets: [],
+			timer: timer
+		};
+		this.activeRace = session;
+
+		const announcement = createHorseAnnouncementCommentary(session.field, racenumber, HORSE_PRERACE_DURATION);
+		this.deps.dispatchService.sendGamePayload(this.deps.io, announcement, gType.horse, session.id, rType.static, dType.replace, HORSE_TEXT_DELAY);
+		const reminder = createHorseReminderCommentary(racenumber, HORSE_BET_REMINDER_AT);
+		const staticid = `${session.id}reminder`;
+		setTimeout(() => {
+			this.deps.dispatchService.sendGamePayload(this.deps.io, reminder, gType.horse, staticid, rType.dynamic, dType.replace);
+		}, HORSE_BET_REMINDER_AT * 1000);
+	}
+
+	private createTimerHorseSession(seconds: number): NodeJS.Timeout {
+		const timer = setTimeout(() => {
+			this.handleHorseSession();
+		}, seconds * 1000);
+		return timer;
+	}
+
+	private handleHorseSession(): void {
+		const session = this.activeRace;
 		try{
-			const raceResult = createHorseRaceResult(this.horseRecords);
-			this.raceCounter++;
-			const racenumber = this.raceCounter;
-
-			session = {
-				racenumber: racenumber,
-				id: uuidv4(),
-				results: raceResult,
-				field: raceResult.field,
-				phase: 0,
-				betting: true,
-				bets: []
-			};
-			this.activeRace = session;
-
-			const announcement = this.createAnnouncementHorseSession(raceResult.field, racenumber);
-			this.deps.dispatchService.sendGamePayload(this.deps.io, announcement, gType.horse, session.id, rType.static, dType.replace, HORSE_TEXT_DELAY);
-
-			const staticid = `${session.id}reminder`;
-			setTimeout(() => {
-				const reminder: GameTextPayload = [
-					[
-						{text: 'the ', color: hType.normal, format: []},
-						{text: `${racenumber}${getOrdinalSuffix(racenumber)} `, color: hType.normal, format: [fType.b]},
-						{text: 'semi annual race starts in ', color: hType.normal, format: []},
-						{text: `${HORSE_BET_REMINDER_AT / 60} `, color: hType.normal, format: []},
-						{text: 'minute!', color: hType.normal, format: []}
-					],
-					[{text: 'make sure to get your bets in for a 2x multiplier on your payout!', color: hType.normal, format: []}]
-				];
-				this.deps.dispatchService.sendGamePayload(this.deps.io, reminder, gType.horse, staticid, rType.dynamic, dType.replace);
-			}, HORSE_BET_REMINDER_AT * 1000);
-
-			await wait((HORSE_PRERACE_DURATION -10)* 1000);
-			const tenSecondWarning: GameLine = [{text: 'the race begins in 10 seconds!', color: hType.normal, format: []}];
-			this.deps.dispatchService.sendGamePayload(this.deps.io, [tenSecondWarning], gType.horse, session.id, rType.static, dType.append);
-
-			await wait(10 * 1000);
-			session.phase = 1;
-			this.deps.dispatchService.sendGamePayload(this.deps.io, raceResult.gates, gType.horse, session.id, rType.static, dType.append, HORSE_TEXT_DELAY);
-
-			await wait(HORSE_CHECKPOINT_1_WAIT * 1000);
-			session.phase = 2;
-			this.deps.dispatchService.sendGamePayload(this.deps.io, raceResult.checkpoint1, gType.horse, session.id, rType.static, dType.append, HORSE_TEXT_DELAY);
-
-			await wait(HORSE_CHECKPOINT_2_WAIT * 1000);
-			session.phase = 3;
-			this.deps.dispatchService.sendGamePayload(this.deps.io, raceResult.checkpoint2, gType.horse, session.id, rType.static, dType.append, HORSE_TEXT_DELAY);
-
-			await wait(HORSE_CHECKPOINT_3_WAIT * 1000);
-			session.phase = 4;
-			session.betting = false;
-			const betsClosed: GameTextPayload= [[{text: 'bets are closed!', color: hType.normal, format: [fType.i]}]];
-			const closedId = `${session.id}closed`;
-			this.deps.dispatchService.sendGamePayload(this.deps.io, betsClosed, gType.horse, closedId, rType.dynamic, dType.replace);
-			this.deps.dispatchService.sendGamePayload(this.deps.io, raceResult.checkpoint3, gType.horse, session.id, rType.static, dType.append, HORSE_TEXT_DELAY);
-
-			await wait(HORSE_FINAL_STRETCH_WAIT * 1000);
-			session.phase = 5;
-			this.deps.dispatchService.sendGamePayload(this.deps.io, raceResult.finalStretch, gType.horse, session.id, rType.static, dType.append, HORSE_TEXT_DELAY);
-
-			const raceOverWait = createRandomInt(HORSE_MIN_RACEOVER_WAIT, HORSE_MAX_RACEOVER_WAIT);
-			await wait(raceOverWait * 1000);
-			session.phase = 6;
-			const resultId = `${session.id}results`;
-			this.deps.dispatchService.sendGamePayload(this.deps.io, raceResult.end, gType.horse, resultId, rType.static, dType.append, HORSE_TEXT_END_DELAY);
-
-			await wait((raceResult.end.length * HORSE_TEXT_END_DELAY) + HORSE_TEXT_DELAY);
-			const resolvingBets = [...session.bets];
-			const betsGrouped = new Map<GameIdentity['playerid'], HorseBet[]>();
-
-			for(const bet of resolvingBets){
-				const existing = betsGrouped.get(bet.playerid);
-				if(existing){
-					existing.push(bet);
+			if(!session){
+				throw new AppError('handleHorseSession called with no active session', 'bug');
+			}
+			switch(session.stage){
+				case 0: {
+					const tenSecondWarning: GameLine = [{text: 'the race begins in 10 seconds!', color: hType.normal, format: []}];
+					this.deps.dispatchService.sendGamePayload(this.deps.io, [tenSecondWarning], gType.horse, session.id, rType.static, dType.append);
+					const timer = this.createTimerHorseSession(10);
+					session.timer = timer;
+					session.stage++;
+					return;
 				}
-				else{
-					betsGrouped.set(bet.playerid, [bet]);
+				case 1: {
+					this.deps.dispatchService.sendGamePayload(this.deps.io, session.results.gates, gType.horse, session.id, rType.static, dType.append, HORSE_TEXT_DELAY);
+					const timer = this.createTimerHorseSession(HORSE_CHECKPOINT_1_WAIT);
+					session.timer = timer;
+					session.stage++;
+					return;
+				}
+				case 2: {
+					this.deps.dispatchService.sendGamePayload(this.deps.io, session.results.checkpoint1, gType.horse, session.id, rType.static, dType.append, HORSE_TEXT_DELAY);
+					const timer = this.createTimerHorseSession(HORSE_CHECKPOINT_2_WAIT);
+					session.timer = timer;
+					session.stage++;
+					return;
+				}
+				case 3: {
+					this.deps.dispatchService.sendGamePayload(this.deps.io, session.results.checkpoint2, gType.horse, session.id, rType.static, dType.append, HORSE_TEXT_DELAY);
+					const timer = this.createTimerHorseSession(HORSE_CHECKPOINT_3_WAIT);
+					session.timer = timer;
+					session.stage++;
+					return;
+				}
+				case 4: {
+					this.deps.dispatchService.sendGamePayload(this.deps.io, session.results.checkpoint3, gType.horse, session.id, rType.static, dType.append, HORSE_TEXT_DELAY);
+					const betsClosed: GameTextPayload= [[{text: 'bets are closed!', color: hType.normal, format: [fType.i]}]];
+					const closedId = `${session.id}closed`;
+					this.deps.dispatchService.sendGamePayload(this.deps.io, betsClosed, gType.horse, closedId, rType.dynamic, dType.replace);
+					session.betting = false;
+					const timer = this.createTimerHorseSession(HORSE_FINAL_STRETCH_WAIT);
+					session.timer = timer;
+					session.stage++;
+					return;
+				}
+				case 5: {
+					this.deps.dispatchService.sendGamePayload(this.deps.io, session.results.finalStretch, gType.horse, session.id, rType.static, dType.append, HORSE_TEXT_DELAY);
+					const raceOverWait = createRandomInt(HORSE_MIN_RACEOVER_WAIT, HORSE_MAX_RACEOVER_WAIT);
+					const timer = this.createTimerHorseSession(raceOverWait);
+					session.timer = timer;
+					session.stage++;
+					return;
+				}
+				case 6: {
+					this.deps.dispatchService.sendGamePayload(this.deps.io, session.results.end, gType.horse, session.id, rType.static, dType.append, HORSE_TEXT_END_DELAY);
+					const betsWait = ((session.results.end.length * HORSE_TEXT_END_DELAY) + HORSE_TEXT_DELAY) / 1000;
+					const timer = this.createTimerHorseSession(betsWait);
+					session.timer = timer;
+					session.stage++;
+					return;
+				}
+				case 7: {
+					const resolvingBets = [...session.bets];
+					const betsGrouped = new Map<GameIdentity['playerid'], HorseBet[]>();
+
+					for(const bet of resolvingBets){
+						const existing = betsGrouped.get(bet.playerid);
+						if(existing){
+							existing.push(bet);
+						}
+						else{
+							betsGrouped.set(bet.playerid, [bet]);
+						}
+					}
+
+					for(const playerbets of betsGrouped.values()){
+						const results: HorseBetResult[] = [];
+						for(const bet of playerbets){
+							results.push(createHorseBetResult(bet, session.results.standings));
+						}
+						this.deps.gameSettlementService.settleHorseBet(playerbets[0].playerid, results, session.id);
+
+						for(const bet of playerbets){
+							const betIndex = session.bets.indexOf(bet);
+							session.bets.splice(betIndex, 1);
+						}
+					}
+
+					try{
+						this.incrementHorseRecord(session.results.standings[0].horseName, 'first');
+						this.incrementHorseRecord(session.results.standings[1].horseName, 'second');
+						this.incrementHorseRecord(session.results.standings[2].horseName, 'third');
+					}
+					catch(error: unknown){
+						handleError(error);
+					}
+
+					this.activeRace = null;
 				}
 			}
-
-			for(const playerbets of betsGrouped.values()){
-				const results: HorseBetResult[] = [];
-				for(const bet of playerbets){
-					results.push(createHorseBetResult(bet, raceResult.standings));
-				}
-				this.deps.gameSettlementService.settleHorseBet(playerbets[0].playerid, results, session.id);
-
-				for(const bet of playerbets){
-					const betIndex = session.bets.indexOf(bet);
-					session.bets.splice(betIndex, 1);
-				}
-			}
-
-			try{
-				this.incrementHorseRecord(raceResult.standings[0].horseName, 'first');
-				this.incrementHorseRecord(raceResult.standings[1].horseName, 'second');
-				this.incrementHorseRecord(raceResult.standings[2].horseName, 'third');
-			}
-			catch(error: unknown){
-				handleError(error);
-			}
-
-			this.activeRace = null;
 		}
 		catch(error: unknown){
-			handleError(error, 'Create Horse Session');
+			handleError(error, 'Handle Horse Session');
 			const line: GameLine = [{text: 'the race has been cancelled due to an unexpected error.', color: hType.normal, format: []}];
 			this.deps.dispatchService.sendGamePayload(this.deps.io, [line], gType.info, null, rType.direct, dType.direct);
 
@@ -312,45 +341,18 @@ export class GameStateService {
 				}
 
 				if(refundCount > 0){
-					const refundLine: GameLine = [{text: `${refundCount} bets have been successfully returned.`, color: hType.normal, format: []}];
-					this.deps.dispatchService.sendGamePayload(this.deps.io, [refundLine], gType.info, null, rType.direct, dType.direct);
+					try{
+						const refundLine: GameLine = [{text: `${refundCount} bets have been successfully returned.`, color: hType.normal, format: []}];
+						this.deps.dispatchService.sendGamePayload(this.deps.io, [refundLine], gType.info, null, rType.direct, dType.direct);
+					}
+					catch(error: unknown){
+						handleError(error, 'Announce Refund Count');
+					}
 				}
+
+				this.activeRace = null;
 			}
-			this.activeRace = null;
 		}
-	}
-
-	private createAnnouncementHorseSession(field: HorseField, racenumber: number): GameTextPayload {
-		const commentary: GameTextPayload = [];
-		const welcome: GameLine =[
-			{text: 'the ', color: hType.normal, format: []},
-			{text: `${racenumber}${getOrdinalSuffix(racenumber)} `, color: hType.normal, format: [fType.b]},
-			{text: 'semi-annual horse race begins in ', color: hType.normal, format: []},
-			{text: `${HORSE_PRERACE_DURATION/60} `, color: hType.normal, format: []},
-			{text: 'minutes!', color: hType.normal, format: []},
-		];
-		commentary.push(welcome);
-
-		commentary.push(blankLine);
-		const oddsIntro: GameLine = [{text: 'the betting line is as follows:', color: hType.normal, format: []}];
-		commentary.push(oddsIntro);
-		commentary.push(blankLine);
-		const oddsText = createHorseOddsText(field);
-		oddsText[0].push({text: ', the favorite!', color: hType.normal, format: []});
-		oddsText[oddsText.length - 1].push({text: ', the longshot!', color: hType.normal, format: []});
-		commentary.push(...oddsText);
-		commentary.push(blankLine);
-
-		const outro1: GameLine = [{text: 'what a beautiful day for a horse race!', color: hType.normal, format: []}];
-		const outro2: GameLine = [{text: 'get your bets in now for a 2x multiplier on your payout!', color: hType.normal, format: []}];
-		const outro3: GameLine = [
-			{text: 'reminder, the race starts in ', color: hType.normal, format: []},
-			{text: `${HORSE_PRERACE_DURATION/60} `, color: hType.normal, format: []},
-			{text: 'minutes! see you there!', color: hType.normal, format: []}
-		];
-		commentary.push(outro1,outro2,outro3);
-
-		return commentary;
 	}
 
 	public existsFishingSession(playerid: GameIdentity['playerid']): boolean {
@@ -381,16 +383,13 @@ export class GameStateService {
 			castDuration = createRandomInt(FISH_MIN_WAIT, FISH_MAX_WAIT);
 		}
 
-		const readyTimer = setTimeout(() => {
-			this.onReadyFishingSession(playerid);
-		}, castDuration * 1000);
+		const timer = this.createTimerFishingSession(playerid, castDuration);
 
 		const session: FishingSession = {
 			playerid: playerid,
 			fish: fishCatch,
 			biting: false,
-			readyTimer: readyTimer,
-			expireTimer: null,
+			timer: timer
 		};
 
 		this.activeFishing.set(playerid, session);
@@ -406,15 +405,12 @@ export class GameStateService {
 		}
 
 		if(!session.biting || !session.fish){
-			clearTimeout(session.readyTimer);
+			clearTimeout(session.timer);
 			this.activeFishing.delete(playerid);
 			return null;
 		}
+		clearTimeout(session.timer);
 		const fishCatch = session.fish;
-
-		if(session.expireTimer){
-			clearTimeout(session.expireTimer);
-		}
 		this.activeFishing.delete(playerid);
 		const currentRecord = this.fishRecords.find(entry => entry.fishName === fishCatch.name);
 
@@ -465,7 +461,14 @@ export class GameStateService {
 		return fishResult;
 	}
 
-	private onReadyFishingSession(playerid: GameIdentity['playerid']): void {
+	private createTimerFishingSession(playerid: GameIdentity['playerid'], seconds: number): NodeJS.Timeout{
+		const timer = setTimeout(() => {
+			this.handleFishingSession(playerid);
+		}, seconds * 1000);
+		return timer;
+	}
+
+	private handleFishingSession(playerid: GameIdentity['playerid']): void {
 		const session = this.activeFishing.get(playerid);
 		if(!session){
 			return;
@@ -476,27 +479,19 @@ export class GameStateService {
 			return;
 		}
 
-		session.biting = true;
-		this.deps.gameSettlementService.settleFishingCatch(playerid, 'bite');
+		if(!session.biting){
+			session.biting = true;
+			this.deps.gameSettlementService.settleFishingCatch(playerid, 'bite');
 
-		const catchWindow = FISH_MAX_CATCH_WINDOW - ((session.fish.value / 100) * (FISH_MAX_CATCH_WINDOW - FISH_MIN_CATCH_WINDOW));
+			const catchWindow = FISH_MAX_CATCH_WINDOW - ((session.fish.value / 100) * (FISH_MAX_CATCH_WINDOW - FISH_MIN_CATCH_WINDOW));
+			const timer = this.createTimerFishingSession(playerid, catchWindow);
 
-		const expireTimer = setTimeout(() => {
-			this.onExpireFishingSession(playerid);
-		}, catchWindow * 1000);
-
-		session.expireTimer = expireTimer;
-	}
-
-	private onExpireFishingSession(playerid: GameIdentity['playerid']): void {
-		const session = this.activeFishing.get(playerid);
-
-		if(!session){
-			return;
+			session.timer = timer;
 		}
-
-		this.activeFishing.delete(playerid);
-		this.deps.gameSettlementService.settleFishingCatch(playerid, 'expired');
+		else{
+			this.activeFishing.delete(playerid);
+			this.deps.gameSettlementService.settleFishingCatch(playerid, 'expired');
+		}
 	}
 
 	public getLeaderboard(): PublicOverallLeaderboard;
