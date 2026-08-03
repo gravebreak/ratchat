@@ -587,12 +587,7 @@ export class GameStateService {
 		clearTimeout(session.timer);
 		this.activeFishing.delete(playerid);
 		const fishCatch = session.fish;
-		const records = this.deps.gameRecordService.getFishRecords();
-		const currentRecord = records.find(entry => entry.fishName === fishCatch.name);
-
-		if(!currentRecord){
-			throw new AppError('no matching fish record found for caught fish', 'bug');
-		}
+		const currentRecord = this.deps.gameRecordService.getFishRecord(fishCatch.name);
 
 		let record = false;
 		if(!currentRecord.weight || fishCatch.weight > currentRecord.weight){

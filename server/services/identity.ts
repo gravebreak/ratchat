@@ -133,13 +133,13 @@ export class IdentityService {
 		return user;
 	}
 
-	public setAfk(guid: Identity['guid']): Identity{
+	public setAfk(guid: Identity['guid'], status: Identity['isAfk']): Identity{
 		const user = this.users.get(guid);
 		if(!user){
 			throw new AppError('set afk: no matching user found to GUID', 'internal', 'warn');
 		}
 		if(!user.isAfk){
-			user.isAfk = true;
+			user.isAfk = status;
 			this.userQueue.chain();
 		}
 		return user;

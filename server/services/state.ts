@@ -489,7 +489,7 @@ export class StateService {
 
 				if(now - lastMessage > afkTime && now - lastChanged > afkTime){
 					if(!user.isAfk){
-						const update = this.deps.identityService.setAfk(user.guid);
+						const update = this.deps.identityService.setAfk(user.guid, true);
 						updates.push({id: id, user: update});
 					}
 				}

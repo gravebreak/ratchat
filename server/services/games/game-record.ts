@@ -104,6 +104,14 @@ export class GameRecordService {
 		return fishRecords;
 	}
 
+	public getFishRecord(fishname: FishRecordEntry['fishName']): FishRecordEntry {
+		const target = this.fishRecords.find(entry => entry.fishName === fishname);
+		if(!target){
+			throw new AppError('no matching fish found get fish Record', 'bug');
+		}
+		return structuredClone(target);
+	}
+
 	public setFishRecord(record: FishRecordEntry): void {
 		const copy = structuredClone(record);
 		const target = this.fishRecords.find(entry => entry.fishName === copy.fishName);
