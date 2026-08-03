@@ -17,6 +17,7 @@ import {SecurityService} from './services/security';
 import {GameIdentityService} from './services/games/game-identity';
 import {IdentityService} from './services/identity';
 import {StateService} from './services/state';
+import {GameRecordService} from './services/games/game-record';
 import {GameSettlementService} from './services/games/game-settlement';
 import {GameStateService} from './services/games/game-state';
 import {MarkovService} from './services/markov';
@@ -116,6 +117,15 @@ async function main(): Promise<void> {
 		io: io
 	});
 
+	const gameRecordService = new GameRecordService({
+		configService: configService,
+		gameIdentityService: gameIdentityService,
+		identityService: identityService,
+
+		fishingRecordsPath: fishingRecordsPath,
+		horseRecordsPath: horseRecordsPath
+	});
+
 	const gameSettlementService = new GameSettlementService({
 		configService: configService,
 		dispatchService: dispatchService,
@@ -132,6 +142,7 @@ async function main(): Promise<void> {
 		dispatchService: dispatchService,
 		gameIdentityService: gameIdentityService,
 		identityService: identityService,
+		gameRecordService: gameRecordService,
 		gameSettlementService: gameSettlementService,
 
 		fishingRecordsPath: fishingRecordsPath,
@@ -193,6 +204,7 @@ async function main(): Promise<void> {
 		gameIdentityService: gameIdentityService,
 		identityService: identityService,
 		stateService: stateService,
+		gameRecordService: gameRecordService,
 		gameStateService: gameStateService,
 		markovService: markovService,
 		messageService: messageService,

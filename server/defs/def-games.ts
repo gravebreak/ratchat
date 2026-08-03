@@ -1,5 +1,5 @@
 import {hType} from './def-events';
-import type {GameTextPayload} from './def-events';
+import type {GamePayload, GameTextPayload} from './def-events';
 import type {GameIdentity} from './def-identity';
 import type {FishRecordEntry, HorseRecordEntry} from './def-record';
 
@@ -96,7 +96,42 @@ export type BlackjackCard = {
 	rank: BlackjackCardRank;
 	suit: BlackjackCardSuit;
 };
+
 export type BlackjackShoe = BlackjackCard[];
+
+export type BlackjackValue = {
+	cards: BlackjackCard[];
+	value: number;
+	soft: boolean;
+}
+
+export type BlackjackHand = BlackjackValue & {
+	blackjack: boolean;
+	bust: boolean;
+	split: boolean;
+};
+
+export type BlackjackBet = {
+	hand: BlackjackHand;
+	stake: number;
+	stood: boolean;
+};
+
+export type BlackjackTableSeat = {
+	playerid: GameIdentity['playerid'];
+	hands: BlackjackBet[];
+	active: boolean;
+};
+
+export type BlackjackTable = {
+	tableid: GamePayload['id'];
+	seats: BlackjackTableSeat[];
+	dealerCards: BlackjackCard[];
+};
+
+export type BlackjackBetResult = BlackjackBet & {
+	result: 'win' | 'push' | 'loss' ;
+};
 
 export type FishCatch = {
 	name: FishRecordEntry['fishName'];
