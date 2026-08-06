@@ -2,8 +2,8 @@ import {v4 as uuidv4} from 'uuid';
 
 import {RatServer, fType, gType, hType, dType, rType} from '../../defs/def-events';
 import type {GameLine, GamePayload, GameTextPayload} from '../../defs/def-events';
-import type {FishCatch, FishResult, HorseBet, HorseRaceResult, HorseField, HorseBetResult} from '../../defs/def-games';
-import type {BlackjackShoe, BlackjackTableSeat, BlackjackTable, BlackjackCard, BlackjackBet} from '../../defs/def-games';
+import type {FishCatch, FishResult, HorseBet, HorseRaceResult, HorseField, HorseBetResult, BlackjackBetResult, BlackjackBet} from '../../defs/def-games';
+import type {BlackjackShoe, BlackjackTableSeat, BlackjackTable, BlackjackCard} from '../../defs/def-games';
 import type {GameIdentity} from '../../defs/def-identity';
 
 import {ConfigService} from '../config';
@@ -20,7 +20,7 @@ import {createRandomInt} from '../../utils/random';
 import {createHorseAnnouncementCommentary, createHorseReminderCommentary} from './game-utils/commentary';
 import {assertFishingEnabled, assertGamesEnabled, assertHorseRacingEnabled, assertBlackjackEnabled} from './game-utils/checks';
 import {createHorseRaceResult, createHorseBetResult} from './game-utils/horse';
-import {createBlackjackShoe} from './game-utils/blackjack';
+import {createBlackjackShoe, createBlackjackHandValue, createBlackjackHand} from './game-utils/blackjack';
 import {createCatch} from './game-utils/fishing';
 
 type Live<SessionType> = SessionType & {timer: NodeJS.Timeout};
@@ -40,8 +40,8 @@ type BlackjackSession = BlackjackTable &{
 	shoe: BlackjackShoe;
 	betting: boolean;
 	private: boolean;
-	seatTurn: number | null;
-	handTurn: number | null;
+	seatTurn: number;
+	handTurn: number;
 };
 type LiveBlackjackSession = Live<BlackjackSession>;
 
@@ -63,9 +63,9 @@ const HORSE_MAX_RACEOVER_WAIT = 15;
 const HORSE_TEXT_DELAY = 500;
 const HORSE_TEXT_END_DELAY = 250;
 
-// const BLACKJACK_PRIVATE_TIMER = 300;
-// const BLACKJACK_PUBLIC_BETTING_TIMER = 30;
-// const BLACKJACK_PUBLIC_ACTION_TIMER = 5;
+const BLACKJACK_PRIVATE_TIMER = 300;
+const BLACKJACK_PUBLIC_BETTING_TIMER = 30;
+const BLACKJACK_PUBLIC_ACTION_TIMER = 5;
 
 const FISH_MIN_WAIT = 5;
 const FISH_MAX_WAIT = 20;
@@ -94,8 +94,8 @@ export interface GameStateServiceDependencies{
 
 export class GameStateService {
 	private activeRace: LiveHorseSession | null = null;
-	//private activePublicTables: Map<LiveBlackjackSession['tableid'], LiveBlackjackSession> = new Map();
-	//private activePrivateTables: Map<GameIdentity['playerid'], LiveBlackjackSession> = new Map();
+	private activePublicTables: Map<LiveBlackjackSession['tableid'], LiveBlackjackSession> = new Map();
+	private activePrivateTables: Map<GameIdentity['playerid'], LiveBlackjackSession> = new Map();
 	private activeFishing: Map<GameIdentity['playerid'], LiveFishingSession> = new Map();
 	private raceCounter = 0;
 
@@ -343,187 +343,508 @@ export class GameStateService {
 		}
 	}
 
-	// public createTableBlackjackSession(playerid: GameIdentity['playerid'], privatetable: boolean): BlackjackTable {
-	// 	assertGamesEnabled(this.deps.configService, 'createTableBlackjackSession');
-	// 	assertBlackjackEnabled(this.deps.configService, 'createTableBlackjackSession');
-	// 	if(privatetable){
-	// 		if(this.activePrivateTables.has(playerid)){
-	// 			throw new AppError("you're already at a table, try playing", 'user');
-	// 		}
-	// 		else{
-	// 			const shoe: BlackjackShoe = createBlackjackShoe();
-	// 			const table: BlackjackTable = this.createNewTableBlackjackSession(playerid);
-	// 			const session: BlackjackSession = {
-	// 				...table,
-	// 				shoe: shoe,
-	// 				betting: true,
-	// 				private: true,
-	// 				seatTurn: null,
-	// 				handTurn: null,
-	// 			};
-	// 			const timer: NodeJS.Timeout = this.createPrivateTimerBlackjackSession(playerid);
-	// 			const live: LiveBlackjackSession = {...session, timer: timer};
-	// 			this.activePrivateTables.set(playerid, live);
+	public createSessionBlackjackSession(playerid: GameIdentity['playerid'], privatetable: boolean): BlackjackSession {
+		assertGamesEnabled(this.deps.configService, 'createTableBlackjackSession');
+		assertBlackjackEnabled(this.deps.configService, 'createTableBlackjackSession');
 
-	// 			return structuredClone(table);
-	// 		}
-	// 	}
-	// 	if(this.activePublicTables.size > 0){
-	// 		let leastPlayers = 7;
-	// 		let target: BlackjackSession | null = null;
-	// 		for(const session of this.activePublicTables.values()){
-	// 			for(const seat of session.seats){
-	// 				if(seat.playerid === playerid){
-	// 					throw new AppError("you're already at a table, try playing", 'user');
-	// 				}
-	// 			}
-	// 			if(session.seats.length < 6 && session.seats.length < leastPlayers){
-	// 				leastPlayers = session.seats.length;
-	// 				target = session;
-	// 			}
-	// 		}
-	// 		if(target){
-	// 			const seat: BlackjackTableSeat = {
-	// 				playerid: playerid,
-	// 				hands: [],
-	// 				active: true
-	// 			};
-	// 			target.seats.push(seat);
-	// 			return target;
-	// 		}
-	// 	}
+		this.assertNotAtTableBlackjackSession(playerid);
 
-	// 	const shoe: BlackjackShoe = createBlackjackShoe();
-	// 	const table: BlackjackTable = this.createNewTableBlackjackSession(playerid);
-	// 	const timer: NodeJS.Timeout = this.createPublicTimerBlackjackSession(table.tableid, BLACKJACK_PUBLIC_BETTING_TIMER);
-	// 	const session: BlackjackSession = {
-	// 		...table,
-	// 		shoe: shoe,
-	// 		betting: true,
-	// 		private: false,
-	// 		seatTurn: null,
-	// 		handTurn: null,
-	// 		timer: timer
-	// 	};
-	// 	this.activePublicTables.set(session.tableid, session);
+		if(privatetable){
+			const shoe: BlackjackShoe = createBlackjackShoe();
+			const table: BlackjackTable = this.createTableBlackjackSession(playerid);
+			const session: BlackjackSession = {
+				...table,
+				shoe: shoe,
+				betting: true,
+				private: true,
+				seatTurn: 0,
+				handTurn: 0,
+			};
+			const timer: NodeJS.Timeout = this.createPrivateTimerBlackjackSession(playerid);
+			const live: LiveBlackjackSession = {...session, timer: timer};
+			this.activePrivateTables.set(playerid, live);
 
-	// 	return table;
-	// }
+			const copy = structuredClone(session);
+			this.deps.gameSettlementService.sendBlackjackBettingStart(table);
 
-	// private createNewTableBlackjackSession(playerid:GameIdentity['playerid']): BlackjackTable {
-	// 	const seat: BlackjackTableSeat = {
-	// 		playerid: playerid,
-	// 		hands: [],
-	// 		active: true,
-	// 	};
-	// 	const table: BlackjackTable = {
-	// 		tableid: uuidv4(),
-	// 		seats: [seat],
-	// 		dealerCards: []
-	// 	};
-	// 	return table;
-	// }
+			return copy;
+		}
 
-	// private consumeCardBlackjackSession(shoe: BlackjackShoe): BlackjackCard {
-	// 	const card = shoe.pop();
-	// 	if(card){
-	// 		return card;
-	// 	}
-	// 	throw new AppError('consumeCardBlackJack called with empty shoe', 'bug');
-	// }
+		if(this.activePublicTables.size > 0){
+			let leastPlayers = 7;
+			let target: LiveBlackjackSession | null = null;
+			for(const session of this.activePublicTables.values()){
+				if(session.seats.length < 6 && session.seats.length < leastPlayers){
+					leastPlayers = session.seats.length;
+					target = session;
+				}
+			}
+			if(target){
+				const seat: BlackjackTableSeat = {
+					playerid: playerid,
+					hands: [],
+					active: true
+				};
+				target.seats.push(seat);
+				const table = this.getTableCloneByBlackjackSession(target);
+				this.deps.gameSettlementService.sendBlackjackPlayerJoin(table, playerid);
+				const session = this.omitTimer(target);
 
-	// private createPrivateTimerBlackjackSession(playerid: GameIdentity['playerid']): NodeJS.Timeout {
-	// 	const timer = setTimeout(() => {
-	// 		this.handlePrivateBlackjackSession(playerid);
-	// 	}, BLACKJACK_PRIVATE_TIMER * 1000);
-	// 	return timer;
-	// }
+				return structuredClone(session);
+			}
+		}
 
-	// private createPublicTimerBlackjackSession(tableid: BlackjackSession['tableid'], seconds: number): NodeJS.Timeout {
-	// 	const timer = setTimeout(() => {
-	// 		this.handlePublicBlackjackSession(tableid);
-	// 	}, seconds * 1000);
-	// 	return timer;
-	// }
+		const shoe: BlackjackShoe = createBlackjackShoe();
+		const table: BlackjackTable = this.createTableBlackjackSession(playerid);
+		const timer: NodeJS.Timeout = this.createPublicTimerBlackjackSession(table.tableid, BLACKJACK_PUBLIC_BETTING_TIMER);
+		const session: BlackjackSession = {
+			...table,
+			shoe: shoe,
+			betting: true,
+			private: false,
+			seatTurn: 0,
+			handTurn: 0,
+		};
+		const live = {...session, timer};
+		this.activePublicTables.set(session.tableid, live);
 
-	// private handlePrivateBlackjackSession(playerid: GameIdentity['playerid']): void {
-	// 	const session = this.activePrivateTables.get(playerid);
-	// 	if(!session){
-	// 		const error = new AppError('session missing handlePrivateBlackjackSession', 'bug');
-	// 		handleError(error);
-	// 		return;
-	// 	}
+		const copy = structuredClone(session);
+		this.deps.gameSettlementService.sendBlackjackBettingStart(session);
 
-	// 	if(session.betting){
-	// 		const player = session.seats[0].playerid;
-	// 		if(!session.seats[0].active){
-	// 			this.deleteTableBlackjackSession(session);
-	// 			this.deps.gameSettlementService.settleBlackjackTimeout(player);
-	// 		}
-	// 		else{
-	// 			session.seats[0].active = false;
-	// 			this.createPrivateTimerBlackjackSession(session.seats[0].playerid);
-	// 		}
-	// 	}
-	// 	else{
-	// 		for(const seat of session.seats){
-	// 			for(const hand of seat.hands){
-	// 				hand.stood = true;
-	// 			}
-	// 		}
-	// 		this.handleEndRoundBlackjackSession(session);
-	// 	}
-	// }
+		return copy;
+	}
 
-	// private handlePublicBlackjackSession(tableid: BlackjackSession['tableid']): void {
-	// 	const session = this.activePublicTables.get(tableid);
-	// 	if(!session){
-	// 		const error = new AppError('session missing handlePublicBlackjackSession', 'bug');
-	// 		handleError(error);
-	// 		return;
-	// 	}
-	// 	const seats = [...session.seats];
-	// 	if(session.betting){
-	// 		for(const seat of seats){
-	// 			if(seat.hands.length === 0){
-	// 				if(!seat.active){
-	// 					this.deps.gameSettlementService.settleBlackjackTimeout(seat.playerid);
-	// 					session.seats.splice(seats.indexOf(seat), 1);
-	// 				}
-	// 				else{
-	// 					seat.active = false;
-	// 				}
-	// 			}
-	// 		}
+	public handleHitBlackjackSession(playerid: GameIdentity['playerid']): void {
+		const session = this.getByPlayerBlackjackSession(playerid);
+		this.assertNotBettingBlackjackSession(session);
+		this.assertTurnBlackjackSession(playerid, session);
 
-	// 		if(session.seats.length === 0){
-	// 			this.deleteTableBlackjackSession(session);
-	// 			return;
-	// 		}
+		clearTimeout(session.timer);
 
-	// 		session.betting = false;
-	// 		session.seatTurn = 0;
-	// 		session.handTurn = 0;
-	// 		this.deps.gameSettlementService.settleBlackjackTurn(session);
-	// 		session.timer = this.createPublicTimerBlackjackSession(session.tableid, BLACKJACK_PUBLIC_ACTION_TIMER);
-	// 	}
-	// 	else{
+		const cards = session.seats[session.seatTurn].hands[session.handTurn].hand.cards;
+		cards.push(this.consumeCardBlackjackSession(session));
 
-	// 	}
+		const newhand = createBlackjackHand(cards);
+		session.seats[session.seatTurn].hands[session.handTurn].hand = newhand;
+		const bet = session.seats[session.seatTurn].hands[session.handTurn];
 
-	// }
+		const table = this.getTableCloneByBlackjackSession(session);
+		this.deps.gameSettlementService.settleBlackjackTurn(table, playerid, bet);
+		if(newhand.bust){
+			this.incrementTurnCountersBlackjackSession(session);
+			if(session.seatTurn >= session.seats.length){
+				this.handleEndRoundBlackjackSession(session);
+			}
+		}
+		else{
+			let timer = null;
+			if(session.private){
+				timer = this.createPrivateTimerBlackjackSession(playerid);
+			}
+			else{
+				timer = this.createPublicTimerBlackjackSession(session.tableid, BLACKJACK_PUBLIC_ACTION_TIMER);
+			}
+			session.timer = timer;
+		}
+	}
 
-	// private setStoodBlackjackSession(bet: BlackjackBet, status: boolean = true): BlackjackBet {
-	// }
+	public handleStandBlackjackSession(playerid: GameIdentity['playerid']): void {
+		const session = this.getByPlayerBlackjackSession(playerid);
+		this.assertNotBettingBlackjackSession(session);
+		this.assertTurnBlackjackSession(playerid, session);
 
-	// private deleteTableBlackjackSession(session: BlackjackSession): void {
-	// 	if(session.private){
-	// 		this.activePrivateTables.delete(session.seats[0].playerid);
-	// 	}
-	// 	else{
-	// 		this.activePublicTables.delete(session.tableid);
-	// 	}
-	// }
+		clearTimeout(session.timer);
+
+		session.seats[session.seatTurn].hands[session.handTurn].stood = true;
+		const bet = session.seats[session.seatTurn].hands[session.handTurn];
+
+		const table = this.getTableCloneByBlackjackSession(session);
+
+		this.deps.gameSettlementService.settleBlackjackTurn(table, playerid, bet);
+		this.incrementTurnCountersBlackjackSession(session);
+
+		if(session.seatTurn >= session.seats.length){
+			this.handleEndRoundBlackjackSession(session);
+			return;
+		}
+
+		let timer = null;
+		if(session.private){
+			timer = this.createPrivateTimerBlackjackSession(playerid);
+		}
+		else{
+			timer = this.createPublicTimerBlackjackSession(session.tableid, BLACKJACK_PUBLIC_ACTION_TIMER);
+		}
+		session.timer = timer;
+	}
+
+	public handleSplitBlackjackSession(playerid: GameIdentity['playerid']): void {
+		const session = this.getByPlayerBlackjackSession(playerid);
+		this.assertNotBettingBlackjackSession(session);
+		this.assertTurnBlackjackSession(playerid, session);
+
+		const bet = session.seats[session.seatTurn].hands[session.handTurn];
+		if(!bet.hand.split){
+			throw new AppError("you can't split those!", 'user');
+		}
+		this.deps.gameIdentityService.removeGamePoints(playerid, bet.stake);
+
+		clearTimeout(session.timer);
+		let table = this.getTableCloneByBlackjackSession(session);
+		this.deps.gameSettlementService.sendBlackjackSplit(table,playerid);
+
+		const cardsA: BlackjackCard[] = [bet.hand.cards[0]];
+		const cardsB: BlackjackCard[] = [bet.hand.cards[1]];
+
+		cardsA.push(this.consumeCardBlackjackSession(session));
+		cardsB.push(this.consumeCardBlackjackSession(session));
+
+		const handA = createBlackjackHand(cardsA);
+		const handB = createBlackjackHand(cardsB);
+
+		const betA: BlackjackBet ={
+			hand: handA,
+			stake: bet.stake,
+			stood: false,
+		};
+
+		const betB: BlackjackBet = {
+			hand: handB,
+			stake: bet.stake,
+			stood: false
+		};
+		session.seats[session.seatTurn].hands.splice(session.handTurn,1, betA, betB);
+		table = this.getTableCloneByBlackjackSession(session);
+		this.deps.gameSettlementService.settleBlackjackDeal(table, playerid, betA);
+		this.deps.gameSettlementService.settleBlackjackDeal(table, playerid, betB);
+
+		if(betA.hand.blackjack){
+			this.handleBlackjackBlackjackSession(session, betA);
+			this.incrementTurnCountersBlackjackSession(session);
+		}
+		if(betB.hand.blackjack){
+			this.handleBlackjackBlackjackSession(session, betB);
+		}
+
+		if(session.seatTurn >= session.seats.length){
+			this.handleEndRoundBlackjackSession(session);
+			return;
+		}
+
+		let timer = null;
+		if(session.private){
+			timer = this.createPrivateTimerBlackjackSession(playerid);
+		}
+		else{
+			timer = this.createPublicTimerBlackjackSession(session.tableid, BLACKJACK_PUBLIC_ACTION_TIMER);
+		}
+		session.timer = timer;
+
+	}
+
+	private assertNotAtTableBlackjackSession(playerid: GameIdentity['playerid']): void {
+		const session = this.getByPlayerBlackjackSession(playerid);
+		if(session){
+			this.deps.gameSettlementService.sendBlackjackId(playerid, session.tableid);
+			if(session.private){
+				throw new AppError("you're already at a private table, try playing or /leave to leave", 'user');
+			}
+			else{
+				throw new AppError("you're already at a public table, try playing or /leave to leave", 'user');
+			}
+		}
+	}
+
+	private assertBettingBlackjackSession(session: LiveBlackjackSession): void{
+		if(!session.betting){
+			throw new AppError("betting isn't open right now, please wait until the round ends", 'user');
+		}
+	}
+
+	private assertNotBettingBlackjackSession(session: LiveBlackjackSession): void {
+		if(session.betting){
+			throw new AppError("you can't do that during the betting phase, please wait until the round starts", 'user');
+		}
+	}
+
+	private assertTurnBlackjackSession(playerid: GameIdentity['playerid'], session: LiveBlackjackSession): void {
+		const activePlayer = session.seats[session.seatTurn];
+		if(activePlayer.playerid !== playerid){
+			throw new AppError("it's not your turn to act", 'user');
+		}
+	}
+
+	private createTableBlackjackSession(playerid:GameIdentity['playerid']): BlackjackTable {
+		const seat: BlackjackTableSeat = {
+			playerid: playerid,
+			hands: [],
+			active: true,
+		};
+		const table: BlackjackTable = {
+			tableid: uuidv4(),
+			seats: [seat],
+			dealerCards: []
+		};
+		return table;
+	}
+
+	private createPrivateTimerBlackjackSession(playerid: GameIdentity['playerid']): NodeJS.Timeout {
+		const timer = setTimeout(() => {
+			this.handlePrivateBlackjackSession(playerid);
+		}, BLACKJACK_PRIVATE_TIMER * 1000);
+		return timer;
+	}
+
+	private createPublicTimerBlackjackSession(tableid: BlackjackSession['tableid'], seconds: number): NodeJS.Timeout {
+		const timer = setTimeout(() => {
+			this.handlePublicBlackjackSession(tableid);
+		}, seconds * 1000);
+		return timer;
+	}
+
+	private getByPlayerBlackjackSession(playerid: GameIdentity['playerid']): LiveBlackjackSession {
+		let session = null;
+		if(this.activePrivateTables.has(playerid)){
+			session = this.activePrivateTables.get(playerid);
+			if(!session){
+				throw new AppError('key retrieval failure assertNotAtTable', 'bug');
+			}
+			return session;
+		}
+		for(const publictable of this.activePublicTables.values()){
+			for(const seat of publictable.seats){
+				if(seat.playerid === playerid){
+					session = publictable;
+					return session;
+				}
+			}
+		}
+		throw new AppError("you aren't sitting at a blackjack table, use /blackjack to join a table before playing", 'user');
+	}
+
+	private getTableCloneByBlackjackSession(session: LiveBlackjackSession): BlackjackTable {
+		const table: BlackjackTable = {
+			tableid: session.tableid,
+			seats: session.seats,
+			dealerCards: session.dealerCards,
+		};
+		return structuredClone(table);
+	}
+
+	private incrementTurnCountersBlackjackSession(session: LiveBlackjackSession): void {
+		session.handTurn++;
+
+		if(session.handTurn >= session.seats[session.seatTurn].hands.length){
+			session.handTurn = 0;
+			session.seatTurn++;
+		}
+
+		if(session.seatTurn < session.seats.length){
+			if(session.seats[session.seatTurn].hands[session.handTurn].hand.blackjack){
+				this.incrementTurnCountersBlackjackSession(session);
+			}
+		}
+	}
+
+	private handleBlackjackBlackjackSession(session: LiveBlackjackSession, bet: BlackjackBet): void {
+		//stubbed
+		console.log(session, bet);
+	}
+
+	private handlePrivateBlackjackSession(playerid: GameIdentity['playerid']): void {
+		const session = this.activePrivateTables.get(playerid);
+		if(!session){
+			const error = new AppError('session missing handlePrivateBlackjackSession', 'bug');
+			handleError(error);
+			return;
+		}
+
+		const playerSeat = session.seats[0];
+		if(session.betting){
+			if(!playerSeat.active){
+				this.deleteTableBlackjackSession(session);
+				this.deps.gameSettlementService.sendBlackjackBettingTimeout(playerSeat);
+			}
+			else{
+				playerSeat.active = false;
+				const timer = this.createPrivateTimerBlackjackSession(playerSeat.playerid);
+				session.timer = timer;
+			}
+		}
+		else{
+			for(let index = session.handTurn; index < playerSeat.hands.length; index++){
+				playerSeat.hands[index].stood = true;
+				this.deps.gameSettlementService.sendBlackjackActionTimeout(playerSeat.hands[index]);
+			}
+			this.handleEndRoundBlackjackSession(session);
+		}
+	}
+
+	private handlePublicBlackjackSession(tableid: BlackjackSession['tableid']): void {
+		const session = this.activePublicTables.get(tableid);
+		if(!session){
+			const error = new AppError('session missing handlePublicBlackjackSession', 'bug');
+			handleError(error);
+			return;
+		}
+		const seats = [...session.seats];
+		if(session.betting){
+			for(const seat of seats){
+				if(seat.hands.length === 0){
+					if(!seat.active){
+						this.deps.gameSettlementService.sendBlackjackBettingTimeout(seat);
+						session.seats.splice(seats.indexOf(seat), 1);
+						const table = this.getTableCloneByBlackjackSession(session);
+						this.deps.gameSettlementService.sendBlackjackPlayerLeave(table, seat.playerid);
+					}
+					else{
+						seat.active = false;
+					}
+				}
+			}
+
+			if(session.seats.length === 0){
+				this.deleteTableBlackjackSession(session);
+				return;
+			}
+
+			session.betting = false;
+			session.seatTurn = 0;
+			session.handTurn = 0;
+
+			this.handleStartRoundBlackjackSession(session);
+			session.timer = this.createPublicTimerBlackjackSession(session.tableid, BLACKJACK_PUBLIC_ACTION_TIMER);
+		}
+		else{
+			const seat = session.seats[session.seatTurn];
+			for(let index = session.handTurn; index < seat.hands.length; index++){
+				seat.hands[index].stood = true;
+				this.deps.gameSettlementService.sendBlackjackActionTimeout(seat.hands[index]);
+			}
+
+			session.seatTurn++;
+
+			if(session.seatTurn >= session.seats.length){
+				this.handleEndRoundBlackjackSession(session);
+			}
+			else{
+				const timer = this.createPublicTimerBlackjackSession(session.tableid, BLACKJACK_PUBLIC_ACTION_TIMER);
+				session.timer = timer;
+			}
+		}
+
+	}
+
+	private handleStartRoundBlackjackSession(session: LiveBlackjackSession): void{
+		//stubbed
+		console.log(session);
+	}
+
+	private handleEndRoundBlackjackSession(session: LiveBlackjackSession): void {
+		const dealerHand = session.dealerCards;
+		const table = this.getTableCloneByBlackjackSession(session);
+
+		dealerHand.push(this.consumeCardBlackjackSession(session));
+		this.deps.gameSettlementService.settleBlackjackDealerTurn(table);
+		while(createBlackjackHandValue(dealerHand).value < 17){
+			dealerHand.push(this.consumeCardBlackjackSession(session));
+			this.deps.gameSettlementService.settleBlackjackDealerTurn(table);
+			continue;
+		}
+		const endScore = createBlackjackHandValue(dealerHand).value;
+		if(endScore > 21){
+			for(const seat of session.seats){
+				for(const hand of seat.hands){
+					if(hand.hand.blackjack === true){
+						continue;
+					}
+					if(hand.stood === true){
+						const result: BlackjackBetResult = {
+							...hand,
+							result: 'win',
+						};
+						this.deps.gameSettlementService.settleBlackjackBet(table, result);
+					}
+					else{
+						const result: BlackjackBetResult = {
+							...hand,
+							result: 'loss'
+						};
+						this.deps.gameSettlementService.settleBlackjackBet(table, result);
+					}
+				}
+			}
+		}
+		else{
+			for(const seat of session.seats){
+				for(const hand of seat.hands){
+					if(hand.hand.blackjack === true){
+						continue;
+					}
+					if(hand.hand.value === endScore){
+						const result: BlackjackBetResult = {
+							...hand,
+							result: 'push'
+						};
+						this.deps.gameSettlementService.settleBlackjackBet(table, result);
+					}
+					else if(hand.hand.bust){
+						const result: BlackjackBetResult = {
+							...hand,
+							result: 'loss'
+						};
+						this.deps.gameSettlementService.settleBlackjackBet(table, result);
+					}
+					else{
+						const result: BlackjackBetResult = {
+							...hand,
+							result: 'win'
+						};
+
+						this.deps.gameSettlementService.settleBlackjackBet(table, result);
+					}
+				}
+			}
+		}
+
+		session.seatTurn = 0;
+		session.handTurn = 0;
+		session.betting = true;
+		let timer: NodeJS.Timeout;
+		if(session.private){
+			timer = this.createPrivateTimerBlackjackSession(session.seats[0].playerid);
+		}
+		else{
+			timer = this.createPublicTimerBlackjackSession(session.tableid, BLACKJACK_PUBLIC_BETTING_TIMER);
+		}
+
+		session.timer = timer;
+		this.deps.gameSettlementService.sendBlackjackBettingStart(table);
+	}
+
+	private consumeCardBlackjackSession(session: LiveBlackjackSession): BlackjackCard {
+		if(session.shoe.length < 1){
+			const error = new AppError('shoe of minimum length mid round', 'internal', 'log');
+			handleError(error);
+			const newshoe = createBlackjackShoe();
+			session.shoe = newshoe;
+		}
+		const shoe = session.shoe;
+		const card = shoe.pop();
+		if(card){
+			return card;
+		}
+		throw new AppError('shoe invalid consumeCardBlackjackSession', 'bug');
+	}
+
+	private deleteTableBlackjackSession(session: BlackjackSession): void {
+		if(session.private){
+			this.activePrivateTables.delete(session.seats[0].playerid);
+		}
+		else{
+			this.activePublicTables.delete(session.tableid);
+		}
+	}
 
 	public existsFishingSession(playerid: GameIdentity['playerid']): boolean {
 		assertGamesEnabled(this.deps.configService, 'existsFishingSession');
@@ -671,7 +992,7 @@ export class GameStateService {
 	private omitTimer<LiveType extends {timer: NodeJS.Timeout}>(live: LiveType): Omit<LiveType, 'timer'>{
 		const {timer, ...session} = live;
 		void timer;
-		return structuredClone(session);
+		return session;
 	}
 
 	private startHorseTimer(): void {

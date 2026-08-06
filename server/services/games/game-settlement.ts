@@ -1,6 +1,6 @@
 import {fType, gType, hType, dType, rType} from '../../defs/def-events';
-import type {RatServer, RatSocket, GameLine, GameTextPayload, GamePayload} from '../../defs/def-events';
-import type {FishingResult,HorseBetResult} from '../../defs/def-games';
+import type {RatServer, RatSocket, GameLine, GameTextPayload, GamePayload, GameText} from '../../defs/def-events';
+import type {BlackjackBet, BlackjackBetResult, BlackjackTable, BlackjackTableSeat, FishingResult,HorseBetResult} from '../../defs/def-games';
 import type {GameIdentity} from '../../defs/def-identity';
 
 import {ConfigService} from '../config';
@@ -29,6 +29,24 @@ export class GameSettlementService {
 
 	constructor(dependencies: GameSettlementServiceDependencies){
 		this.deps = dependencies;
+	}
+
+	public sendUserPoints(playerid: GameIdentity['playerid'], socket: RatSocket, points: number): void {
+		try{
+			this.deps.gameIdentityService.addGamePoints(playerid, points);
+			const nicepoints = points.toLocaleString('en-US');
+			const name = this.deps.configService.getGameConfig().pointsName;
+			const message: GameLine = [
+				{text: "you've earned ", color: hType.normal, format: []},
+				{text: `${nicepoints} `, color: hType.normal, format: [fType.b]},
+				{text: name, color: hType.normal, format: [fType.b]},
+				{text: ", don't spend it all in one place", color: hType.normal, format: []}
+			];
+			this.deps.dispatchService.sendGamePayload(socket, [message], gType.info, null, rType.dynamic, dType.replace);
+		}
+		catch(error: unknown){
+			this.deps.dispatchService.sendUserErrorMessage(socket, error, 'Send User Points');
+		}
 	}
 
 	public settleHorseBet(playerid: GameIdentity['playerid'], results: HorseBetResult[], id: GamePayload['id']): void {
@@ -168,22 +186,78 @@ export class GameSettlementService {
 		}
 	}
 
-	public sendUserPoints(playerid: GameIdentity['playerid'], socket: RatSocket, points: number): void {
-		try{
-			this.deps.gameIdentityService.addGamePoints(playerid, points);
-			const nicepoints = points.toLocaleString('en-US');
-			const name = this.deps.configService.getGameConfig().pointsName;
-			const message: GameLine = [
-				{text: "you've earned ", color: hType.normal, format: []},
-				{text: `${nicepoints} `, color: hType.normal, format: [fType.b]},
-				{text: name, color: hType.normal, format: [fType.b]},
-				{text: ", don't spend it all in one place", color: hType.normal, format: []}
-			];
-			this.deps.dispatchService.sendGamePayload(socket, [message], gType.info, null, rType.dynamic, dType.replace);
-		}
-		catch(error: unknown){
-			this.deps.dispatchService.sendUserErrorMessage(socket, error, 'Send User Points');
-		}
+	public sendBlackjackId(playerid: GameIdentity['playerid'], tableid: BlackjackTable['tableid']): void {
+		//stubbed
+		console.log(playerid, tableid);
+	}
+
+	public sendBlackjackBettingStart(table: BlackjackTable): void {
+		//stubbed
+		const line: GameText[] = [{text: 'text', color: 'gold', format: [fType.b]}];
+		const message: GameTextPayload = [];
+		message.push(line);
+		this.sendBroadcastBlackjackTable(table, message);
+		console.log(table);
+	}
+
+	public sendBlackjackRoundStart(table: BlackjackTable): void {
+		//stubbed
+		console.log(table);
+	}
+
+	public sendBlackjackPlayerJoin(table: BlackjackTable, playerid: GameIdentity['playerid']): void {
+		//stubbed
+		console.log(playerid, table);
+	}
+
+	public sendBlackjackPlayerLeave(table: BlackjackTable, playerid: GameIdentity['playerid']): void {
+		//stubbed
+		console.log(playerid, table);
+	}
+
+	public sendBlackjackSplit(table: BlackjackTable, playerid: GameIdentity['playerid']): void{
+		//stubbed
+		console.log(table, playerid);
+	}
+
+	public sendBlackjackActionTimeout(hand: BlackjackBet): void {
+		//stubbed
+		console.log(hand);
+	}
+
+	public sendBlackjackBettingTimeout(seat: BlackjackTableSeat): void {
+		//stubbed
+		console.log(seat);
+	}
+
+	private sendBroadcastBlackjackTable(table: BlackjackTable, payload: GameTextPayload): void {
+		//stubbed
+		console.log(table, payload);
+	}
+
+	public settleBlackjackDeal(table: BlackjackTable, playerid: GameIdentity['playerid'], bet: BlackjackBet): void {
+		//stubbed
+		console.log(table, playerid, bet);
+	}
+
+	public settleBlackjackTurn(table: BlackjackTable, playerid: GameIdentity['playerid'], bet: BlackjackBet): void {
+		//stubbed
+		console.log(table, playerid, bet);
+	}
+
+	public settleBlackjackDealerTurn(table: BlackjackTable): void {
+		//stubbed
+		console.log(table);
+	}
+
+	public settleBlackjackBlackjack(table: BlackjackTable, bet: BlackjackBetResult): void {
+		//stubbed
+		console.log(table, bet);
+	}
+
+	public settleBlackjackBet(table: BlackjackTable, bet: BlackjackBetResult): void {
+		//stubbed
+		console.log(table, bet);
 	}
 
 	public settleFishingCatch(playerid: GameIdentity['playerid'], event: FishingResult): void {

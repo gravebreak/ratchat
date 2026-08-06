@@ -40,7 +40,7 @@ export function createBlackjackHand(cards: BlackjackCard[]): BlackjackHand {
 	return blackjackHand;
 }
 
-function createBlackjackHandValue(cards: BlackjackCard[]): BlackjackValue{
+export function createBlackjackHandValue(cards: BlackjackCard[]): BlackjackValue{
 	let soft = false;
 	let aced = false;
 	let value = 0;
